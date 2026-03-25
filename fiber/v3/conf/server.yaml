@@ -1,0 +1,76 @@
+# 节点名称, 用于初始化雪花算法
+cluster_id: 1
+
+# 服务基础配置
+server:
+  app_id: "awesome-fiber-template"
+  app_name: "Awesome-Fiber-Template"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "9999"
+  memory_limit: 1
+  gc_percent: 1000
+  network: "tcp"
+  enable_prefork: false
+
+auth:
+  auth_salt: "GopherNotFurryTho"
+  jwt_secret: "ButMakesWorldBetter"
+
+key:
+  tls_key: "./conf/tls.key"
+  tls_pem: "./conf/tls.pem"
+
+redis:
+  enabled: false
+  redis_addr: "127.0.0.1:6379"
+  redis_password: "123456"
+
+database:
+  db_name: "gf"
+  db_username: "postgres"
+  db_password: "123456"
+  db_host: "127.0.0.1"
+  db_port: "5432"
+
+prometheus:
+  enabled: false
+  url: "http://127.0.0.1:9090"
+  auth_name: ""
+  auth_pass: ""
+  service_metrics: ["awesome_template"]
+
+log:
+  log_max_size: 100
+  log_max_backups: 30
+  log_max_age: 7
+  log_level: "debug"
+  log_mode: "prod"
+  log_path: "./logs/app.log"
+
+middleware:
+  swagger:
+    is_on: false
+    file_path: "./docs/swagger.json"
+    base_path: "/"
+    path: "/swagger"
+    title: "awesome-fiber-template"
+  cors:
+    allow_origins: ["http://127.0.0.1:8888"]
+  limiter:
+    is_on: true
+    max_requests: 3000
+    expiration: 60
+
+waf:
+  waf_switch: false
+  conf_path: ["./conf/coraza.conf"]
+
+schedule:
+  enabled: false
+
+proxy:
+  url: "http://127.0.0.1:7897"
+  name: ""
+  pass: ""
