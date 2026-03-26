@@ -17,7 +17,7 @@ This repository is maintained as a collection of framework-specific scaffolds so
 
 ## Repository Structure
 
-- `fiber/v3`: the most complete scaffold at the moment, including application bootstrap, config loading, routing, middleware, database integration, Redis, scheduling, metrics, and optional web UI embedding
+- `fiber/v3/basic`: the most complete scaffold at the moment, including application bootstrap, config loading, routing, middleware, database integration, Redis, scheduling, metrics, and optional web UI embedding
 - `chi`: framework placeholder / starter entry
 - `echo`: framework placeholder / starter entry
 - `gin`: framework placeholder / starter entry
@@ -25,16 +25,16 @@ This repository is maintained as a collection of framework-specific scaffolds so
 
 ## Quick Start
 
-The currently available full example is under `fiber/v3`.
+The currently available full example is under `fiber/v3/basic`.
 
 ```bash
-cd fiber/v3
-go run .
+cd fiber/v3/basic
+go run . serve
 ```
 
 Configuration example:
 
-- server config: `fiber/v3/conf/server.yaml`
+- server config: `fiber/v3/basic/config/server.yaml`
 - database config supports `sqlite`, `postgres`, and `mysql`
 
 ## Notes

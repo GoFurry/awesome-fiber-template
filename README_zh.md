@@ -18,7 +18,7 @@
 
 ## 目录说明
 
-- `fiber/v3`：当前最完整的模板，包含应用启动、配置加载、路由、中间件、数据库集成、Redis、定时任务、监控指标，以及可选的前端静态资源嵌入能力
+- `fiber/v3/basic`：当前最完整的模板，包含应用启动、配置加载、路由、中间件、数据库集成、Redis、定时任务、监控指标，以及可选的前端静态资源嵌入能力
 - `chi`：预留的框架模板目录
 - `echo`：预留的框架模板目录
 - `gin`：预留的框架模板目录
@@ -26,16 +26,16 @@
 
 ## 快速开始
 
-当前可直接作为完整示例使用的是 `fiber/v3`：
+当前可直接作为完整示例使用的是 `fiber/v3/basic`：
 
 ```bash
-cd fiber/v3
-go run .
+cd fiber/v3/basic
+go run . serve
 ```
 
 相关配置文件：
 
-- 服务配置：`fiber/v3/conf/server.yaml`
+- 服务配置：`fiber/v3/basic/config/server.yaml`
 - 数据库配置：支持 `sqlite`、`postgres`、`mysql`
 
 ## 说明

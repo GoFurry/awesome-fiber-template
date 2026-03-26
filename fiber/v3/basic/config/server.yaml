@@ -1,0 +1,101 @@
+# 节点名称, 用于初始化雪花算法
+cluster_id: 1
+
+# 服务基础配置
+server:
+  app_id: "awesome-fiber-template"
+  app_name: "Awesome-Fiber-Template"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "9999"
+  memory_limit: 1
+  gc_percent: 1000
+  network: "tcp"
+  enable_prefork: false
+  is_full_stack: false
+
+# 全局鉴权盐
+auth:
+  auth_salt: "GopherNotFurryTho"
+  jwt_secret: "ButMakesWorldBetter"
+
+# TLS密钥
+key:
+  tls_key: "./config/tls.key"
+  tls_pem: "./config/tls.pem"
+
+# Redis
+redis:
+  enabled: false
+  redis_addr: "127.0.0.1:6379"
+  redis_password: "123456"
+
+# 数据库
+database:
+  enabled: false
+  db_type: "postgres"
+  sqlite:
+    dsn: ""
+    path: "./data/app.db"
+  postgres:
+    dsn: ""
+    db_name: "gf"
+    db_username: "postgres"
+    db_password: "123456"
+    db_host: "127.0.0.1"
+    db_port: "5432"
+  mysql:
+    dsn: ""
+    db_name: "gf"
+    db_username: "root"
+    db_password: "123456"
+    db_host: "127.0.0.1"
+    db_port: "3306"
+
+# 指标监控
+prometheus:
+  enabled: false
+  url: "http://127.0.0.1:9090"
+  auth_name: ""
+  auth_pass: ""
+  service_metrics: ["awesome_template"]
+
+# 日志
+log:
+  log_max_size: 100
+  log_max_backups: 30
+  log_max_age: 7
+  log_level: "debug"
+  log_mode: "dev"
+  log_path: "./logs/app.log"
+
+# 中间件
+middleware:
+  swagger:
+    enabled: false
+    file_path: "./docs/swagger.json"
+    base_path: "/"
+    path: "/swagger"
+    title: "awesome-fiber-template"
+  cors:
+    allow_origins: ["http://127.0.0.1:8888"]
+  limiter:
+    enabled: true
+    max_requests: 3000
+    expiration: 60
+
+# WAF
+waf:
+  enabled: false
+  conf_path: ["./config/coraza.conf"]
+
+# 任务表
+schedule:
+  enabled: false
+
+# 代理
+proxy:
+  url: "http://127.0.0.1:7897"
+  name: ""
+  pass: ""
