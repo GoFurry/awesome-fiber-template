@@ -59,6 +59,8 @@ prometheus:
   url: "http://127.0.0.1:9090"
   auth_name: ""
   auth_pass: ""
+  namespace: "awesome_fiber_template"
+  path: "/metrics"
   service_metrics: ["awesome_template"]
 
 # 日志

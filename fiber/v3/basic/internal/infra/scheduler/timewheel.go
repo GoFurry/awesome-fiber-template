@@ -10,23 +10,33 @@ import (
 
 var timeWheel *timewheel.TimeWheel
 
-func InitTimeWheelOnStart() {
-	StartTimeWheel()
+func InitTimeWheelOnStart() error {
+	if err := StartTimeWheel(); err != nil {
+		return err
+	}
 	log.Info("StartTimeWheel finish")
+	return nil
 }
 
-func StartTimeWheel() {
-	var err error
-	timeWheel, err = timewheel.NewTimeWheel(100*time.Millisecond, 1200, timewheel.TickSafeMode())
-	if err != nil {
-		panic(err)
+func StartTimeWheel() error {
+	if timeWheel != nil {
+		return nil
 	}
+
+	tw, err := timewheel.NewTimeWheel(100*time.Millisecond, 1200, timewheel.TickSafeMode())
+	if err != nil {
+		return err
+	}
+
+	timeWheel = tw
 	timeWheel.Start()
+	return nil
 }
 
 func Stop() {
 	if timeWheel != nil {
 		timeWheel.Stop()
+		timeWheel = nil
 	}
 }
 

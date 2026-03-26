@@ -1,38 +1,52 @@
 package common
 
+import "net/http"
+
 type Error interface {
+	error
 	GetErrorCode() int
 	GetMsg() string
+	GetHTTPStatus() int
 }
 
-func NewServiceError(msg string) *serviceError {
-	return &serviceError{
-		errorCode: RETURN_FAILED,
-		msg:       msg,
+type appError struct {
+	errorCode  int
+	httpStatus int
+	msg        string
+}
+
+func NewError(errorCode, httpStatus int, msg string) *appError {
+	return &appError{
+		errorCode:  errorCode,
+		httpStatus: httpStatus,
+		msg:        msg,
 	}
 }
 
-type serviceError struct {
-	errorCode int
-	msg       string
+func NewServiceError(msg string) *appError {
+	return NewError(RETURN_FAILED, http.StatusInternalServerError, msg)
 }
 
-func (se serviceError) GetErrorCode() int { return se.errorCode }
-
-func (se serviceError) GetMsg() string { return se.msg }
-
-func NewDaoError(msg string) *daoError {
-	return &daoError{
-		errorCode: RETURN_FAILED,
-		msg:       msg,
-	}
+func NewDaoError(msg string) *appError {
+	return NewError(RETURN_FAILED, http.StatusInternalServerError, msg)
 }
 
-type daoError struct {
-	errorCode int
-	msg       string
+func NewValidationError(msg string) *appError {
+	return NewError(RETURN_FAILED, http.StatusBadRequest, msg)
 }
 
-func (de daoError) GetErrorCode() int { return de.errorCode }
+func (ae appError) Error() string {
+	return ae.msg
+}
 
-func (de daoError) GetMsg() string { return de.msg }
+func (ae appError) GetErrorCode() int {
+	return ae.errorCode
+}
+
+func (ae appError) GetMsg() string {
+	return ae.msg
+}
+
+func (ae appError) GetHTTPStatus() int {
+	return ae.httpStatus
+}

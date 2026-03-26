@@ -1,29 +1,27 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"syscall"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	env "github.com/GoFurry/awesome-go-template/fiber/v3/basic/config"
-	cache "github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/infra/cache"
-	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/infra/db"
-	log "github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/infra/logging"
-	scheduler "github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/infra/scheduler"
-	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/modules/schedule"
-	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/transport/http/middleware"
+	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/bootstrap"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/transport/http/router"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/pkg/common"
-	corazalite "github.com/GoFurry/coraza-fiber-lite"
 	"github.com/gofiber/fiber/v3"
 	"github.com/kardianos/service"
+	"github.com/spf13/viper"
 )
-
-var errChan = make(chan error)
 
 func runService() error {
 	cfg := env.GetServerConfig()
@@ -35,7 +33,6 @@ func runService() error {
 	debug.SetGCPercent(cfg.Server.GCPercent)
 	debug.SetMemoryLimit(int64(cfg.Server.MemoryLimit << 30))
 
-	initOnStart()
 	return svc.Run()
 }
 
@@ -46,20 +43,33 @@ func newService() (service.Service, error) {
 	}
 
 	appID, appName := appIdentity()
+	args := buildServiceArguments(viper.GetString("config"))
 	svcConfig := &service.Config{
-		Name:        appID,
-		DisplayName: appName,
-		Description: appName,
+		Name:             appID,
+		DisplayName:      appName,
+		Description:      appName,
+		Executable:       exePath,
+		Arguments:        args,
+		WorkingDirectory: filepath.Dir(exePath),
 		Option: service.KeyValue{
-			"SystemdScript": `[Unit]
+			"SystemdScript": buildSystemdScript(appID, appName, exePath, args),
+		},
+	}
+
+	return service.New(newApp(), svcConfig)
+}
+
+func buildSystemdScript(appID, appName, exePath string, args []string) string {
+	command := buildSystemdCommand(exePath, args)
+	return `[Unit]
 Description=` + appName + `
 After=network.target
 Requires=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=` + filepath.Dir(exePath) + `/
-ExecStart=` + exePath + `
+WorkingDirectory=` + filepath.Dir(exePath) + `
+ExecStart=` + command + `
 Restart=always
 RestartSec=30
 LogOutput=true
@@ -67,11 +77,27 @@ LogDirectory=/var/log/` + appID + `
 LimitNOFILE=65535
 
 [Install]
-WantedBy=multi-user.target`,
-		},
-	}
+WantedBy=multi-user.target`
+}
 
-	return service.New(&app{}, svcConfig)
+func buildSystemdCommand(executable string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, strconv.Quote(executable))
+	for _, arg := range args {
+		parts = append(parts, strconv.Quote(arg))
+	}
+	return strings.Join(parts, " ")
+}
+
+func buildServiceArguments(configPath string) []string {
+	args := []string{"serve"}
+	if configPath = strings.TrimSpace(configPath); configPath != "" {
+		if absPath, err := filepath.Abs(configPath); err == nil {
+			configPath = absPath
+		}
+		args = append(args, "--config", configPath)
+	}
+	return args
 }
 
 func appIdentity() (string, string) {
@@ -88,103 +114,71 @@ func appIdentity() (string, string) {
 	return appID, appName
 }
 
-func initOnStart() {
-	cfg := env.GetServerConfig()
-
-	logCfg := &log.Config{
-		ShowLine:   true,
-		TimeFormat: common.TIME_FORMAT_DATE,
-	}
-	if cfg.Server.Mode == "debug" {
-		logCfg.Level = "debug"
-		logCfg.Mode = "dev"
-		logCfg.EncodeJson = false
-	} else {
-		logCfg.Level = cfg.Log.LogLevel
-		logCfg.Mode = cfg.Log.LogMode
-		logCfg.FilePath = cfg.Log.LogPath
-		logCfg.MaxSize = cfg.Log.LogMaxSize
-		logCfg.MaxBackups = cfg.Log.LogMaxBackups
-		logCfg.MaxAge = cfg.Log.LogMaxAge
-		logCfg.Compress = true
-		logCfg.EncodeJson = true
-		logCfg.TimeFormat = common.TIME_FORMAT_LOG
-	}
-
-	err := log.InitLogger(logCfg)
-	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
-	}
-
-	if cfg.Prometheus.Enabled {
-		middleware.InitPrometheus(middleware.FiberPromConf{
-			SkipPaths:         []string{},
-			IgnoreStatusCodes: []int{},
-		})
-	}
-
-	if cfg.Waf.Enabled {
-		corazalite.InitMetrics()
-		corazalite.InitGlobalWAFWithCfg(corazalite.CorazaCfg{
-			DirectivesFile:     cfg.Waf.ConfPath,
-			RequestBodyAccess:  true,
-			ResponseBodyAccess: false,
-		})
-		corazalite.InitWAFBlockMessage("Request blocked by CorazaLite WAF")
-	}
-
-	if cfg.DataBase.Enabled {
-		if err := db.InitDatabaseOnStart(); err != nil {
-			slog.Error("database init failed", "error", err)
-			os.Exit(1)
-		}
-	}
-
-	if cfg.Redis.Enabled {
-		cache.InitRedisOnStart()
-	}
-
-	if cfg.Schedule.Enabled {
-		scheduler.InitTimeWheelOnStart()
-		schedule.InitScheduleOnStart()
-	}
+type app struct {
+	fiberApp     *fiber.App
+	shutdownOnce sync.Once
+	stopping     atomic.Bool
 }
 
-type app struct{}
+func newApp() *app {
+	return &app{}
+}
 
 func (a *app) Start(s service.Service) error {
+	runtimeApp, err := bootstrap.Start()
+	if err != nil {
+		return err
+	}
+
+	a.fiberApp = router.Router.Init(runtimeApp.RouteModules...)
 	go a.run()
 	return nil
 }
 
 func (a *app) run() {
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		errChan <- fmt.Errorf("%s", <-c)
-	}()
+	cfg := env.GetServerConfig()
+	addr := cfg.Server.IPAddress + ":" + cfg.Server.Port
 
-	go func() {
-		cfg := env.GetServerConfig()
-		app := router.Router.Init()
-		addr := cfg.Server.IPAddress + ":" + cfg.Server.Port
-
-		if err := app.Listen(addr, fiber.ListenConfig{
-			TLSConfig:         nil,
-			EnablePrefork:     cfg.Server.EnablePrefork,
-			ListenerNetwork:   cfg.Server.Network,
-			EnablePrintRoutes: cfg.Server.Mode == "debug",
-		}); err != nil {
-			errChan <- err
+	if err := a.fiberApp.Listen(addr, fiber.ListenConfig{
+		TLSConfig:         nil,
+		EnablePrefork:     cfg.Server.EnablePrefork,
+		ListenerNetwork:   cfg.Server.Network,
+		EnablePrintRoutes: cfg.Server.Mode == "debug",
+	}); err != nil {
+		if a.stopping.Load() {
+			return
 		}
-	}()
-
-	if err := <-errChan; err != nil {
-		slog.Error(err.Error())
+		slog.Error("fiber app exited unexpectedly", "error", err)
+		if shutdownErr := a.shutdown(); shutdownErr != nil {
+			slog.Error("application shutdown failed", "error", shutdownErr)
+		}
+		os.Exit(1)
 	}
 }
 
 func (a *app) Stop(s service.Service) error {
-	return nil
+	return a.shutdown()
+}
+
+func (a *app) shutdown() error {
+	var shutdownErr error
+
+	a.shutdownOnce.Do(func() {
+		a.stopping.Store(true)
+
+		if a.fiberApp != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := a.fiberApp.ShutdownWithContext(ctx); err != nil {
+				shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown fiber app failed: %w", err))
+			}
+		}
+
+		if err := bootstrap.Shutdown(); err != nil {
+			shutdownErr = errors.Join(shutdownErr, err)
+		}
+	})
+
+	return shutdownErr
 }

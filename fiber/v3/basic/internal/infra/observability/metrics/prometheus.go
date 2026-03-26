@@ -1,11 +1,23 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
+	HttpRequestsTotal   *prometheus.CounterVec
+	HttpRequestDuration *prometheus.HistogramVec
+	HttpActiveRequests  prometheus.Gauge
+)
+
+func Init(namespace string) {
+	namespace = sanitizeNamespace(namespace)
+
 	HttpRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "awesome_template",
+			Namespace: namespace,
 			Subsystem: "http",
 			Name:      "requests_total",
 			Help:      "Total number of HTTP requests",
@@ -15,7 +27,7 @@ var (
 
 	HttpRequestDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "awesome_template",
+			Namespace: namespace,
 			Subsystem: "http",
 			Name:      "request_duration_seconds",
 			Help:      "HTTP request latency",
@@ -26,10 +38,19 @@ var (
 
 	HttpActiveRequests = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "awesome_template",
+			Namespace: namespace,
 			Subsystem: "http",
 			Name:      "active_requests",
 			Help:      "Number of active HTTP requests",
 		},
 	)
-)
+}
+
+func sanitizeNamespace(namespace string) string {
+	namespace = strings.TrimSpace(namespace)
+	namespace = strings.ReplaceAll(namespace, "-", "_")
+	if namespace == "" {
+		return "awesome_fiber_template"
+	}
+	return namespace
+}

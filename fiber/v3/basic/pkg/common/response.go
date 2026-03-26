@@ -12,60 +12,93 @@ type response struct {
 }
 
 type ResultData struct {
-	Code int `json:"code"`
-	Data any `json:"data"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+	TraceID string `json:"trace_id,omitempty"`
 }
 
 func NewResponse(ctx fiber.Ctx) *response {
-	return &response{
-		context: ctx,
-	}
+	return &response{context: ctx}
 }
 
 func (r *response) Success() error {
-	return r.context.Status(http.StatusOK).JSON(ResultData{
-		Code: RETURN_SUCCESS,
-		Data: "操作成功",
+	return r.write(http.StatusOK, RETURN_SUCCESS, "success", nil)
+}
+
+func (r *response) SuccessWithData(data any) error {
+	return r.write(http.StatusOK, RETURN_SUCCESS, "success", normalizeData(data))
+}
+
+func (r *response) Error(data any) error {
+	appErr := normalizeError(data)
+	return r.write(appErr.GetHTTPStatus(), appErr.GetErrorCode(), appErr.GetMsg(), nil)
+}
+
+func (r *response) ErrorWithCode(data any, status int) error {
+	appErr := normalizeError(data)
+	return r.write(status, appErr.GetErrorCode(), appErr.GetMsg(), nil)
+}
+
+func (r *response) write(status, code int, message string, data any) error {
+	return r.context.Status(status).JSON(ResultData{
+		Code:    code,
+		Message: message,
+		Data:    data,
+		TraceID: requestTraceID(r.context),
 	})
 }
 
-func (r *response) SuccessWithData(data interface{}) error {
+func requestTraceID(ctx fiber.Ctx) string {
+	if traceID := ctx.GetRespHeader("X-Request-ID"); traceID != "" {
+		return traceID
+	}
+	if traceID := ctx.Get("X-Request-ID"); traceID != "" {
+		return traceID
+	}
+	if traceID := ctx.Get("X-Trace-ID"); traceID != "" {
+		return traceID
+	}
+	if traceID, ok := ctx.Locals("trace_id").(string); ok {
+		return traceID
+	}
+	return ""
+}
+
+func normalizeData(data any) any {
 	value := reflect.ValueOf(data)
-	if value.IsValid() {
-		if value.Kind() == reflect.Ptr {
-			if value.IsNil() {
-				data = nil
-			} else {
-				value = value.Elem()
-			}
-		}
+	if !value.IsValid() {
+		return nil
+	}
 
-		if value.IsValid() && value.Kind() == reflect.Struct {
-			field := value.FieldByName("ID")
-			if field.IsValid() && field.Kind() == reflect.Int64 && field.Int() == 0 {
-				data = nil
-			}
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			return nil
+		}
+		value = value.Elem()
+	}
+
+	if value.IsValid() && value.Kind() == reflect.Struct {
+		field := value.FieldByName("ID")
+		if field.IsValid() && field.Kind() == reflect.Int64 && field.Int() == 0 {
+			return nil
 		}
 	}
 
-	return r.context.JSON(ResultData{
-		Code: RETURN_SUCCESS,
-		Data: data,
-	})
+	return data
 }
 
-func (r *response) Error(data interface{}) error {
-	result := ResultData{
-		Code: RETURN_FAILED,
-		Data: data,
+func normalizeError(data any) Error {
+	switch value := data.(type) {
+	case nil:
+		return NewServiceError("request failed")
+	case Error:
+		return value
+	case error:
+		return NewServiceError(value.Error())
+	case string:
+		return NewServiceError(value)
+	default:
+		return NewServiceError("request failed")
 	}
-	return r.context.JSON(result)
-}
-
-func (r *response) ErrorWithCode(data interface{}, code int) error {
-	result := ResultData{
-		Code: RETURN_FAILED,
-		Data: data,
-	}
-	return r.context.Status(code).JSON(result)
 }

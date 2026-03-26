@@ -10,6 +10,7 @@ import (
 	"time"
 
 	env "github.com/GoFurry/awesome-go-template/fiber/v3/basic/config"
+	modules "github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/modules"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/transport/http/middleware"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/internal/transport/http/webui"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/basic/pkg/common"
@@ -34,7 +35,7 @@ func init() {
 	Router = NewRouter()
 }
 
-func (router *router) Init() *fiber.App {
+func (router *router) Init(routeModules ...modules.RouteModule) *fiber.App {
 	cfg := env.GetServerConfig()
 	appName := cfg.Server.AppName
 	if appName == "" {
@@ -60,7 +61,7 @@ func (router *router) Init() *fiber.App {
 		})
 	})
 
-	api(app.Group("/api"))
+	api(app.Group("/api"), routeModules...)
 
 	if cfg.Server.IsFullStack {
 		attachEmbeddedUI(app)
@@ -136,7 +137,7 @@ func registerMiddlewares(app *fiber.App) {
 				return c.IP()
 			},
 			LimitReached: func(c fiber.Ctx) error {
-				return common.NewResponse(c).ErrorWithCode("too many requests", fiber.StatusTooManyRequests)
+				return common.NewResponse(c).ErrorWithCode(common.NewValidationError("too many requests"), fiber.StatusTooManyRequests)
 			},
 		}))
 	}
@@ -164,28 +165,33 @@ func registerMiddlewares(app *fiber.App) {
 
 	if cfg.Prometheus.Enabled {
 		app.Use(middleware.PrometheusMiddleware)
-		app.Get("/metrics", middleware.MetricsHandler)
+		app.Get(cfg.Prometheus.Path, middleware.MetricsHandler)
 	}
 }
 
 func customErrorHandler(c fiber.Ctx, err error) error {
+	var appErr common.Error
+	if errors.As(err, &appErr) {
+		return common.NewResponse(c).ErrorWithCode(appErr, appErr.GetHTTPStatus())
+	}
+
 	code := fiber.StatusInternalServerError
-	if e, ok := errors.AsType[*fiber.Error](err); ok {
-		code = e.Code
+	if fiberErr, ok := errors.AsType[*fiber.Error](err); ok {
+		code = fiberErr.Code
 	}
 
 	response := common.NewResponse(c)
 	switch code {
 	case fiber.StatusNotFound:
-		return response.ErrorWithCode("resource not found", code)
+		return response.ErrorWithCode(common.NewError(common.RETURN_FAILED, code, "resource not found"), code)
 	case fiber.StatusMethodNotAllowed:
-		return response.ErrorWithCode("method not allowed", code)
+		return response.ErrorWithCode(common.NewError(common.RETURN_FAILED, code, "method not allowed"), code)
 	case fiber.StatusRequestTimeout:
-		return response.ErrorWithCode("request timeout", code)
+		return response.ErrorWithCode(common.NewError(common.RETURN_FAILED, code, "request timeout"), code)
 	default:
 		if env.GetServerConfig().Server.Mode != "debug" {
-			return response.ErrorWithCode("internal server error", code)
+			return response.ErrorWithCode(common.NewError(common.RETURN_FAILED, code, "internal server error"), code)
 		}
-		return response.ErrorWithCode(err.Error(), code)
+		return response.ErrorWithCode(common.NewError(common.RETURN_FAILED, code, err.Error()), code)
 	}
 }

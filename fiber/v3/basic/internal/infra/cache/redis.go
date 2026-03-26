@@ -24,6 +24,16 @@ func InitRedisOnStart() error {
 	return connect()
 }
 
+func Close() error {
+	if client == nil {
+		return nil
+	}
+
+	err := client.Close()
+	client = nil
+	return err
+}
+
 func connect() error {
 	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
