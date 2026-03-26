@@ -11,9 +11,10 @@ import (
 
 	"github.com/GoFurry/awesome-go-template/fiber/v3/apps/schedule"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/common"
-	gfLog "github.com/GoFurry/awesome-go-template/fiber/v3/common/log"
+	"github.com/GoFurry/awesome-go-template/fiber/v3/common/log"
 	cs "github.com/GoFurry/awesome-go-template/fiber/v3/common/service"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/middleware"
+	"github.com/GoFurry/awesome-go-template/fiber/v3/roof/db"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/roof/env"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/router"
 	corazalite "github.com/GoFurry/coraza-fiber-lite"
@@ -65,7 +66,7 @@ LimitNOFILE=65535
 WantedBy=multi-user.target`,
 		},
 	}
-	prg := &goFurry{}
+	prg := &app{}
 	s, err := service.New(prg, svcConfig)
 	if err != nil {
 		slog.Error(err.Error())
@@ -109,12 +110,10 @@ WantedBy=multi-user.target`,
 	}
 }
 
-type goFurry struct{}
-
 func InitOnStart() {
 	cfg := env.GetServerConfig()
 
-	logCfg := &gfLog.Config{
+	logCfg := &log.Config{
 		ShowLine:   true,
 		TimeFormat: common.TIME_FORMAT_DATE,
 	}
@@ -134,7 +133,7 @@ func InitOnStart() {
 		logCfg.TimeFormat = common.TIME_FORMAT_LOG
 	}
 
-	err := gfLog.InitLogger(logCfg)
+	err := log.InitLogger(logCfg)
 	if err != nil {
 		slog.Error(err.Error())
 		os.Exit(1)
@@ -145,7 +144,7 @@ func InitOnStart() {
 		IgnoreStatusCodes: []int{},
 	})
 
-	if cfg.Waf.WafSwitch {
+	if cfg.Waf.Enabled {
 		corazalite.InitMetrics()
 		corazalite.InitGlobalWAFWithCfg(corazalite.CorazaCfg{
 			DirectivesFile:     cfg.Waf.ConfPath,
@@ -153,6 +152,11 @@ func InitOnStart() {
 			ResponseBodyAccess: false,
 		})
 		corazalite.InitWAFBlockMessage("Request blocked by CorazaLite WAF")
+	}
+
+	if err := db.InitDatabaseOnStart(); err != nil {
+		slog.Error("database init failed", "error", err)
+		os.Exit(1)
 	}
 
 	if err := cs.InitRedisOnStart(); err != nil {
@@ -165,12 +169,14 @@ func InitOnStart() {
 	}
 }
 
-func (gf *goFurry) Start(s service.Service) error {
-	go gf.run()
+type app struct{}
+
+func (a *app) Start(s service.Service) error {
+	go a.run()
 	return nil
 }
 
-func (gf *goFurry) run() {
+func (a *app) run() {
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
@@ -197,6 +203,6 @@ func (gf *goFurry) run() {
 	}
 }
 
-func (gf *goFurry) Stop(s service.Service) error {
+func (a *app) Stop(s service.Service) error {
 	return nil
 }

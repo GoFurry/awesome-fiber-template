@@ -9,7 +9,6 @@ import (
 	"github.com/GoFurry/awesome-go-template/fiber/v3/common"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/common/models"
 	database "github.com/GoFurry/awesome-go-template/fiber/v3/roof/db"
-	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -72,16 +71,15 @@ func (dao *Dao[T]) Add(record *T) common.Error {
 	// 执行新增
 	result := dao.db.Create(record)
 	if err := result.Error; err != nil {
-		// 解析 PostgreSQL 错误
-		errMsg, isPgErr := parsePgError(err)
-		if !isPgErr {
+		errMsg, errKind, handled := parseDBError(err)
+		if !handled {
 			errMsg = fmt.Sprintf("新增记录失败 [表:%s]: %v", tableName, err)
 		}
 
 		slog.Error("[DAO Add] 新增失败",
 			"table", tableName,
 			"error", err,
-			"pg_code", getPgErrorCode(err),
+			"db_error_kind", errKind,
 		)
 		return common.NewDaoError(errMsg)
 	}
@@ -116,8 +114,8 @@ func (dao *Dao[T]) UpdateById(id int64, record *T, omitFields ...string) (int64,
 	// 执行更新
 	result := db.Updates(record)
 	if err := result.Error; err != nil {
-		errMsg, isPgErr := parsePgError(err)
-		if !isPgErr {
+		errMsg, errKind, handled := parseDBError(err)
+		if !handled {
 			errMsg = fmt.Sprintf("更新记录失败 [表:%s, ID:%d]: %v", tableName, id, err)
 		}
 
@@ -125,7 +123,7 @@ func (dao *Dao[T]) UpdateById(id int64, record *T, omitFields ...string) (int64,
 			"table", tableName,
 			"id", id,
 			"error", err,
-			"pg_code", getPgErrorCode(err),
+			"db_error_kind", errKind,
 		)
 		return 0, common.NewDaoError(errMsg)
 	}
@@ -155,8 +153,8 @@ func (dao *Dao[T]) UpdateByIdSelective(id int64, record *T, omitFields ...string
 	// 使用 Save 全量更新
 	result := db.Save(record)
 	if err := result.Error; err != nil {
-		errMsg, isPgErr := parsePgError(err)
-		if !isPgErr {
+		errMsg, _, handled := parseDBError(err)
+		if !handled {
 			errMsg = fmt.Sprintf("全量更新失败 [表:%s, ID:%d]: %v", tableName, id, err)
 		}
 
@@ -412,34 +410,18 @@ func (dao *Dao[T]) PageQueryFormatted(pageReq *models.PageReq, conditions ...int
 
 // ========== 工具方法 ==========
 
-// parsePgError 解析 PostgreSQL 错误码
-func parsePgError(err error) (string, bool) {
-	pe, ok := err.(*pgconn.PgError)
-	if !ok {
-		return "", false
-	}
-
-	switch pe.Code {
-	case "23502": // 非空约束
-		return fmt.Sprintf("必要字段不能为空 [PG_CODE:%s]", pe.Code), true
-	case "23505": // 唯一约束
-		return fmt.Sprintf("数据重复 [PG_CODE:%s, 约束:%s]", pe.Code, pe.ConstraintName), true
-	case "23503": // 外键约束
-		return fmt.Sprintf("外键约束失败 [PG_CODE:%s, 约束:%s]", pe.Code, pe.ConstraintName), true
-	case "22001": // 字符串超长
-		return fmt.Sprintf("字段长度超过限制 [PG_CODE:%s]", pe.Code), true
+// parseDBError 解析通用数据库错误
+func parseDBError(err error) (string, string, bool) {
+	switch {
+	case errors.Is(err, gorm.ErrDuplicatedKey):
+		return "数据重复", "duplicated_key", true
+	case errors.Is(err, gorm.ErrForeignKeyViolated):
+		return "外键约束失败", "foreign_key_violated", true
+	case errors.Is(err, gorm.ErrCheckConstraintViolated):
+		return "数据校验约束失败", "check_constraint_violated", true
 	default:
-		return fmt.Sprintf("数据库错误 [PG_CODE:%s]: %s", pe.Code, pe.Message), true
+		return "", "", false
 	}
-}
-
-// getPgErrorCode 获取 PostgreSQL 错误码
-func getPgErrorCode(err error) string {
-	pe, ok := err.(*pgconn.PgError)
-	if !ok {
-		return ""
-	}
-	return pe.Code
 }
 
 func (dao *Dao[T]) GetTableName() string {

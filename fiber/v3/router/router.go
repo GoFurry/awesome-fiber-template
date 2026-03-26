@@ -1,10 +1,15 @@
 package router
 
 import (
+	"errors"
+	"io/fs"
 	"log/slog"
 	"os"
+	"path"
+	"strings"
 	"time"
 
+	"github.com/GoFurry/awesome-go-template/fiber/v3/apps/webui"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/common"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/middleware"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/roof/env"
@@ -57,15 +62,54 @@ func (router *router) Init() *fiber.App {
 
 	api(app.Group("/api"))
 
+	if cfg.Server.IsFullStack {
+		attachEmbeddedUI(app)
+	}
+
 	return app
 }
 
-func api(g fiber.Router) {
-	v1(g.Group("/v1"))
-}
+func attachEmbeddedUI(app *fiber.App) {
+	uiFS, err := fs.Sub(webui.FS, "dist")
+	if err != nil {
+		return
+	}
+	index, err := fs.ReadFile(uiFS, "index.html")
+	if err != nil {
+		return
+	}
 
-func v1(g fiber.Router) {
-	userApi(g.Group("/user"))
+	sendIndex := func(c fiber.Ctx) error {
+		c.Type("html", "utf-8")
+		return c.Send(index)
+	}
+
+	app.Use(func(c fiber.Ctx) error {
+		if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
+			return fiber.ErrNotFound
+		}
+
+		reqPath := c.Path()
+		if reqPath == "/api" || strings.HasPrefix(reqPath, "/api/") || reqPath == "/v1" || strings.HasPrefix(reqPath, "/v1/") {
+			return fiber.ErrNotFound
+		}
+
+		if reqPath == "/" || reqPath == "" {
+			return sendIndex(c)
+		}
+
+		cleaned := path.Clean(reqPath)
+		cleaned = strings.TrimPrefix(cleaned, "/")
+		if cleaned == "." || cleaned == "" {
+			return sendIndex(c)
+		}
+
+		if stat, err := fs.Stat(uiFS, cleaned); err == nil && !stat.IsDir() {
+			return c.SendFile(cleaned, fiber.SendFile{FS: uiFS})
+		}
+
+		return sendIndex(c)
+	})
 }
 
 func registerMiddlewares(app *fiber.App) {
@@ -84,7 +128,7 @@ func registerMiddlewares(app *fiber.App) {
 		MaxAge:           86400,
 	}))
 
-	if cfg.Middleware.Limiter.IsOn {
+	if cfg.Middleware.Limiter.Enabled {
 		app.Use(limiter.New(limiter.Config{
 			Max:        cfg.Middleware.Limiter.MaxRequests,
 			Expiration: cfg.Middleware.Limiter.Expiration * time.Second,
@@ -97,14 +141,14 @@ func registerMiddlewares(app *fiber.App) {
 		}))
 	}
 
-	if cfg.Waf.WafSwitch {
+	if cfg.Waf.Enabled {
 		app.Use(corazalite.CorazaMiddleware())
 	}
 
 	if cfg.Server.Mode == "debug" {
 		app.Use(pprof.New())
 
-		if cfg.Middleware.Swagger.IsOn {
+		if cfg.Middleware.Swagger.Enabled {
 			if _, err := os.Stat(cfg.Middleware.Swagger.FilePath); os.IsNotExist(err) {
 				slog.Warn("swagger file does not exist, skip swagger middleware", "file", cfg.Middleware.Swagger.FilePath)
 			} else {
@@ -124,7 +168,7 @@ func registerMiddlewares(app *fiber.App) {
 
 func customErrorHandler(c fiber.Ctx, err error) error {
 	code := fiber.StatusInternalServerError
-	if e, ok := err.(*fiber.Error); ok {
+	if e, ok := errors.AsType[*fiber.Error](err); ok {
 		code = e.Code
 	}
 

@@ -56,8 +56,8 @@ type ProxyConfig struct {
 }
 
 type WafConfig struct {
-	ConfPath  []string `yaml:"conf_path"`
-	WafSwitch bool     `yaml:"waf_switch"`
+	Enabled  bool     `yaml:"enabled"`
+	ConfPath []string `yaml:"conf_path"`
 }
 
 type MiddlewareConfig struct {
@@ -67,7 +67,7 @@ type MiddlewareConfig struct {
 }
 
 type LimiterConfig struct {
-	IsOn        bool          `yaml:"is_on"`
+	Enabled     bool          `yaml:"enabled"`
 	MaxRequests int           `yaml:"max_requests"`
 	Expiration  time.Duration `yaml:"expiration"`
 }
@@ -77,7 +77,7 @@ type CorsConfig struct {
 }
 
 type SwaggerConfig struct {
-	IsOn     bool   `yaml:"is_on"`
+	Enabled  bool   `yaml:"enabled"`
 	FilePath string `yaml:"file_path"`
 	BasePath string `yaml:"base_path"`
 	Path     string `yaml:"path"`
@@ -100,11 +100,32 @@ type LogConfig struct {
 }
 
 type DataBaseConfig struct {
-	DBName     string `yaml:"db_name"`
-	DBUsername string `yaml:"db_username"`
-	DBPassword string `yaml:"db_password"`
-	DBHost     string `yaml:"db_host"`
-	DBPort     string `yaml:"db_port"`
+	Enabled  bool                 `yaml:"enabled"`
+	DBType   string               `yaml:"db_type"`
+	SQLite   SQLiteDataBaseConfig `yaml:"sqlite"`
+	Postgres SQLDataBaseConfig    `yaml:"postgres"`
+	MySQL    SQLDataBaseConfig    `yaml:"mysql"`
+	DSN      string               `yaml:"dsn"`
+	DBName   string               `yaml:"db_name"`
+	DBHost   string               `yaml:"db_host"`
+	DBPort   string               `yaml:"db_port"`
+	DBUser   string               `yaml:"db_username"`
+	DBPass   string               `yaml:"db_password"`
+	SQLPath  string               `yaml:"sqlite_path"`
+}
+
+type SQLDataBaseConfig struct {
+	DSN    string `yaml:"dsn"`
+	DBName string `yaml:"db_name"`
+	DBHost string `yaml:"db_host"`
+	DBPort string `yaml:"db_port"`
+	DBUser string `yaml:"db_username"`
+	DBPass string `yaml:"db_password"`
+}
+
+type SQLiteDataBaseConfig struct {
+	DSN  string `yaml:"dsn"`
+	Path string `yaml:"path"`
 }
 
 type ServerConfig struct {
@@ -118,6 +139,7 @@ type ServerConfig struct {
 	GCPercent     int    `yaml:"gc_percent"`
 	Network       string `yaml:"network"`
 	EnablePrefork bool   `yaml:"enable_prefork"`
+	IsFullStack   bool   `yaml:"is_full_stack"`
 }
 
 type KeyConfig struct {
@@ -158,10 +180,98 @@ func (cfg *serverConfig) normalize() {
 	if cfg.Server.Network == "" {
 		cfg.Server.Network = "tcp"
 	}
+	cfg.DataBase.normalize()
 	if cfg.Middleware.Swagger.Title == "" {
 		cfg.Middleware.Swagger.Title = cfg.Server.AppName
 	}
 	cfg.Prometheus.ServiceMetrics = normalizeMetricPrefixes(cfg.Prometheus.ServiceMetrics)
+}
+
+func (cfg *DataBaseConfig) normalize() {
+	cfg.DBType = strings.ToLower(strings.TrimSpace(cfg.DBType))
+	if cfg.DBType == "" {
+		cfg.DBType = "postgres"
+	}
+
+	cfg.applyLegacyConfig()
+
+	if cfg.SQLite.Path == "" {
+		cfg.SQLite.Path = "./data/app.db"
+	}
+
+	normalizeSQLDefaults(&cfg.Postgres, SQLDataBaseConfig{
+		DBHost: "127.0.0.1",
+		DBPort: "5432",
+		DBName: "gf",
+		DBUser: "postgres",
+		DBPass: "123456",
+	})
+
+	normalizeSQLDefaults(&cfg.MySQL, SQLDataBaseConfig{
+		DBHost: "127.0.0.1",
+		DBPort: "3306",
+		DBName: "gf",
+		DBUser: "root",
+		DBPass: "123456",
+	})
+}
+
+func (cfg *DataBaseConfig) applyLegacyConfig() {
+	switch cfg.DBType {
+	case "sqlite":
+		if cfg.SQLite.DSN == "" {
+			cfg.SQLite.DSN = strings.TrimSpace(cfg.DSN)
+		}
+		if cfg.SQLite.Path == "" {
+			cfg.SQLite.Path = strings.TrimSpace(cfg.SQLPath)
+		}
+		if cfg.SQLite.Path == "" {
+			cfg.SQLite.Path = strings.TrimSpace(cfg.DBName)
+		}
+	case "mysql":
+		applyLegacySQLConfig(&cfg.MySQL, cfg)
+	default:
+		applyLegacySQLConfig(&cfg.Postgres, cfg)
+	}
+}
+
+func applyLegacySQLConfig(target *SQLDataBaseConfig, legacy *DataBaseConfig) {
+	if target.DSN == "" {
+		target.DSN = strings.TrimSpace(legacy.DSN)
+	}
+	if target.DBName == "" {
+		target.DBName = strings.TrimSpace(legacy.DBName)
+	}
+	if target.DBHost == "" {
+		target.DBHost = strings.TrimSpace(legacy.DBHost)
+	}
+	if target.DBPort == "" {
+		target.DBPort = strings.TrimSpace(legacy.DBPort)
+	}
+	if target.DBUser == "" {
+		target.DBUser = strings.TrimSpace(legacy.DBUser)
+	}
+	if target.DBPass == "" {
+		target.DBPass = strings.TrimSpace(legacy.DBPass)
+	}
+}
+
+func normalizeSQLDefaults(target *SQLDataBaseConfig, defaults SQLDataBaseConfig) {
+	if target.DBHost == "" {
+		target.DBHost = defaults.DBHost
+	}
+	if target.DBPort == "" {
+		target.DBPort = defaults.DBPort
+	}
+	if target.DBName == "" {
+		target.DBName = defaults.DBName
+	}
+	if target.DBUser == "" {
+		target.DBUser = defaults.DBUser
+	}
+	if target.DBPass == "" {
+		target.DBPass = defaults.DBPass
+	}
 }
 
 func normalizeMetricPrefixes(prefixes []string) []string {

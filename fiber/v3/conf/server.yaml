@@ -13,27 +13,47 @@ server:
   gc_percent: 1000
   network: "tcp"
   enable_prefork: false
+  is_full_stack: false
 
+# 全局鉴权盐
 auth:
   auth_salt: "GopherNotFurryTho"
   jwt_secret: "ButMakesWorldBetter"
 
+# TLS密钥
 key:
   tls_key: "./conf/tls.key"
   tls_pem: "./conf/tls.pem"
 
+# Redis
 redis:
   enabled: false
   redis_addr: "127.0.0.1:6379"
   redis_password: "123456"
 
+# 数据库
 database:
-  db_name: "gf"
-  db_username: "postgres"
-  db_password: "123456"
-  db_host: "127.0.0.1"
-  db_port: "5432"
+  enabled: false
+  db_type: "postgres"
+  sqlite:
+    dsn: ""
+    path: "./data/app.db"
+  postgres:
+    dsn: ""
+    db_name: "gf"
+    db_username: "postgres"
+    db_password: "123456"
+    db_host: "127.0.0.1"
+    db_port: "5432"
+  mysql:
+    dsn: ""
+    db_name: "gf"
+    db_username: "root"
+    db_password: "123456"
+    db_host: "127.0.0.1"
+    db_port: "3306"
 
+# 指标监控
 prometheus:
   enabled: false
   url: "http://127.0.0.1:9090"
@@ -41,17 +61,19 @@ prometheus:
   auth_pass: ""
   service_metrics: ["awesome_template"]
 
+# 日志
 log:
   log_max_size: 100
   log_max_backups: 30
   log_max_age: 7
   log_level: "debug"
-  log_mode: "prod"
+  log_mode: "dev"
   log_path: "./logs/app.log"
 
+# 中间件
 middleware:
   swagger:
-    is_on: false
+    enabled: false
     file_path: "./docs/swagger.json"
     base_path: "/"
     path: "/swagger"
@@ -59,17 +81,20 @@ middleware:
   cors:
     allow_origins: ["http://127.0.0.1:8888"]
   limiter:
-    is_on: true
+    enabled: true
     max_requests: 3000
     expiration: 60
 
+# WAF
 waf:
-  waf_switch: false
+  enabled: false
   conf_path: ["./conf/coraza.conf"]
 
+# 任务表
 schedule:
   enabled: false
 
+# 代理
 proxy:
   url: "http://127.0.0.1:7897"
   name: ""
