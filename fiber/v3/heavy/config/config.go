@@ -80,15 +80,87 @@ type WafConfig struct {
 }
 
 type MiddlewareConfig struct {
-	Swagger SwaggerConfig `yaml:"swagger"`
-	Cors    CorsConfig    `yaml:"cors"`
-	Limiter LimiterConfig `yaml:"limiter"`
+	Swagger         SwaggerConfig         `yaml:"swagger"`
+	Cors            CorsConfig            `yaml:"cors"`
+	RequestID       RequestIDConfig       `yaml:"request_id"`
+	AccessLog       AccessLogConfig       `yaml:"access_log"`
+	Timeout         TimeoutConfig         `yaml:"timeout"`
+	Health          HealthConfig          `yaml:"health"`
+	SecurityHeaders SecurityHeadersConfig `yaml:"security_headers"`
+	Compression     CompressionConfig     `yaml:"compression"`
+	Limiter         LimiterConfig         `yaml:"limiter"`
+	CSRF            CSRFConfig            `yaml:"csrf"`
+	ETag            ETagConfig            `yaml:"etag"`
+}
+
+type RequestIDConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Header  string `yaml:"header"`
+}
+
+type AccessLogConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Format     string `yaml:"format"`
+	TimeFormat string `yaml:"time_format"`
+	TimeZone   string `yaml:"time_zone"`
+}
+
+type TimeoutConfig struct {
+	Enabled         bool     `yaml:"enabled"`
+	DurationSeconds int      `yaml:"duration_seconds"`
+	ExcludePaths    []string `yaml:"exclude_paths"`
+}
+
+type HealthConfig struct {
+	Enabled       bool `yaml:"enabled"`
+	IncludeLegacy bool `yaml:"include_legacy"`
+}
+
+type SecurityHeadersConfig struct {
+	Enabled               bool   `yaml:"enabled"`
+	ContentSecurityPolicy string `yaml:"content_security_policy"`
+	PermissionPolicy      string `yaml:"permission_policy"`
+	HSTSMaxAge            int    `yaml:"hsts_max_age"`
+	HSTSExcludeSubdomains bool   `yaml:"hsts_exclude_subdomains"`
+	HSTSPreloadEnabled    bool   `yaml:"hsts_preload_enabled"`
+	CSPReportOnly         bool   `yaml:"csp_report_only"`
+}
+
+type CompressionConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Level   string `yaml:"level"`
 }
 
 type LimiterConfig struct {
-	Enabled     bool          `yaml:"enabled"`
-	MaxRequests int           `yaml:"max_requests"`
-	Expiration  time.Duration `yaml:"expiration"`
+	Enabled                bool          `yaml:"enabled"`
+	MaxRequests            int           `yaml:"max_requests"`
+	Expiration             time.Duration `yaml:"expiration"`
+	Strategy               string        `yaml:"strategy"`
+	KeySource              string        `yaml:"key_source"`
+	KeyHeader              string        `yaml:"key_header"`
+	SkipFailedRequests     bool          `yaml:"skip_failed_requests"`
+	SkipSuccessfulRequests bool          `yaml:"skip_successful_requests"`
+	DisableHeaders         bool          `yaml:"disable_headers"`
+	ExcludePaths           []string      `yaml:"exclude_paths"`
+}
+
+type CSRFConfig struct {
+	Enabled            bool     `yaml:"enabled"`
+	TokenPath          string   `yaml:"token_path"`
+	CookieName         string   `yaml:"cookie_name"`
+	CookieSameSite     string   `yaml:"cookie_same_site"`
+	CookieSecure       bool     `yaml:"cookie_secure"`
+	CookieHTTPOnly     bool     `yaml:"cookie_http_only"`
+	CookieSessionOnly  bool     `yaml:"cookie_session_only"`
+	IdleTimeoutSeconds int      `yaml:"idle_timeout_seconds"`
+	SingleUseToken     bool     `yaml:"single_use_token"`
+	TrustedOrigins     []string `yaml:"trusted_origins"`
+	ExcludePaths       []string `yaml:"exclude_paths"`
+}
+
+type ETagConfig struct {
+	Enabled bool `yaml:"enabled"`
+	Weak    bool `yaml:"weak"`
 }
 
 type CorsConfig struct {
@@ -230,9 +302,49 @@ var knownConfigKeys = []configKey{
 	{name: "middleware.swagger.path", kind: "string"},
 	{name: "middleware.swagger.title", kind: "string"},
 	{name: "middleware.cors.allow_origins", kind: "string_slice"},
+	{name: "middleware.request_id.enabled", kind: "bool"},
+	{name: "middleware.request_id.header", kind: "string"},
+	{name: "middleware.access_log.enabled", kind: "bool"},
+	{name: "middleware.access_log.format", kind: "string"},
+	{name: "middleware.access_log.time_format", kind: "string"},
+	{name: "middleware.access_log.time_zone", kind: "string"},
+	{name: "middleware.timeout.enabled", kind: "bool"},
+	{name: "middleware.timeout.duration_seconds", kind: "int"},
+	{name: "middleware.timeout.exclude_paths", kind: "string_slice"},
+	{name: "middleware.health.enabled", kind: "bool"},
+	{name: "middleware.health.include_legacy", kind: "bool"},
+	{name: "middleware.security_headers.enabled", kind: "bool"},
+	{name: "middleware.security_headers.content_security_policy", kind: "string"},
+	{name: "middleware.security_headers.permission_policy", kind: "string"},
+	{name: "middleware.security_headers.hsts_max_age", kind: "int"},
+	{name: "middleware.security_headers.hsts_exclude_subdomains", kind: "bool"},
+	{name: "middleware.security_headers.hsts_preload_enabled", kind: "bool"},
+	{name: "middleware.security_headers.csp_report_only", kind: "bool"},
+	{name: "middleware.compression.enabled", kind: "bool"},
+	{name: "middleware.compression.level", kind: "string"},
 	{name: "middleware.limiter.enabled", kind: "bool"},
 	{name: "middleware.limiter.max_requests", kind: "int"},
 	{name: "middleware.limiter.expiration", kind: "int"},
+	{name: "middleware.limiter.strategy", kind: "string"},
+	{name: "middleware.limiter.key_source", kind: "string"},
+	{name: "middleware.limiter.key_header", kind: "string"},
+	{name: "middleware.limiter.skip_failed_requests", kind: "bool"},
+	{name: "middleware.limiter.skip_successful_requests", kind: "bool"},
+	{name: "middleware.limiter.disable_headers", kind: "bool"},
+	{name: "middleware.limiter.exclude_paths", kind: "string_slice"},
+	{name: "middleware.csrf.enabled", kind: "bool"},
+	{name: "middleware.csrf.token_path", kind: "string"},
+	{name: "middleware.csrf.cookie_name", kind: "string"},
+	{name: "middleware.csrf.cookie_same_site", kind: "string"},
+	{name: "middleware.csrf.cookie_secure", kind: "bool"},
+	{name: "middleware.csrf.cookie_http_only", kind: "bool"},
+	{name: "middleware.csrf.cookie_session_only", kind: "bool"},
+	{name: "middleware.csrf.idle_timeout_seconds", kind: "int"},
+	{name: "middleware.csrf.single_use_token", kind: "bool"},
+	{name: "middleware.csrf.trusted_origins", kind: "string_slice"},
+	{name: "middleware.csrf.exclude_paths", kind: "string_slice"},
+	{name: "middleware.etag.enabled", kind: "bool"},
+	{name: "middleware.etag.weak", kind: "bool"},
 	{name: "waf.enabled", kind: "bool"},
 	{name: "waf.conf_path", kind: "string_slice"},
 	{name: "proxy.url", kind: "string"},
@@ -313,6 +425,49 @@ func (cfg *serverConfig) normalize() {
 	if cfg.Middleware.Swagger.Title == "" {
 		cfg.Middleware.Swagger.Title = cfg.Server.AppName
 	}
+	if cfg.Middleware.RequestID.Header == "" {
+		cfg.Middleware.RequestID.Header = "X-Request-ID"
+	}
+	if cfg.Middleware.AccessLog.Format == "" {
+		cfg.Middleware.AccessLog.Format = "${time} | ${status} | ${latency} | ${method} | ${path} | rid=${respHeader:X-Request-ID}"
+	}
+	if cfg.Middleware.AccessLog.TimeFormat == "" {
+		cfg.Middleware.AccessLog.TimeFormat = common.TIME_FORMAT_LOG
+	}
+	if cfg.Middleware.AccessLog.TimeZone == "" {
+		cfg.Middleware.AccessLog.TimeZone = "Local"
+	}
+	if cfg.Middleware.Timeout.DurationSeconds <= 0 {
+		cfg.Middleware.Timeout.DurationSeconds = 15
+	}
+	cfg.Middleware.Timeout.ExcludePaths = normalizeStringList(cfg.Middleware.Timeout.ExcludePaths)
+	if cfg.Middleware.Compression.Level == "" {
+		cfg.Middleware.Compression.Level = "default"
+	}
+	cfg.Middleware.Compression.Level = strings.ToLower(strings.TrimSpace(cfg.Middleware.Compression.Level))
+	if cfg.Middleware.Limiter.Strategy == "" {
+		cfg.Middleware.Limiter.Strategy = "fixed"
+	}
+	cfg.Middleware.Limiter.Strategy = strings.ToLower(strings.TrimSpace(cfg.Middleware.Limiter.Strategy))
+	if cfg.Middleware.Limiter.KeySource == "" {
+		cfg.Middleware.Limiter.KeySource = "ip"
+	}
+	cfg.Middleware.Limiter.KeySource = strings.ToLower(strings.TrimSpace(cfg.Middleware.Limiter.KeySource))
+	cfg.Middleware.Limiter.ExcludePaths = normalizeStringList(cfg.Middleware.Limiter.ExcludePaths)
+	if cfg.Middleware.CSRF.TokenPath == "" {
+		cfg.Middleware.CSRF.TokenPath = "/csrf/token"
+	}
+	if cfg.Middleware.CSRF.CookieName == "" {
+		cfg.Middleware.CSRF.CookieName = "csrf_"
+	}
+	if cfg.Middleware.CSRF.CookieSameSite == "" {
+		cfg.Middleware.CSRF.CookieSameSite = "Lax"
+	}
+	if cfg.Middleware.CSRF.IdleTimeoutSeconds <= 0 {
+		cfg.Middleware.CSRF.IdleTimeoutSeconds = 1800
+	}
+	cfg.Middleware.CSRF.TrustedOrigins = normalizeStringList(cfg.Middleware.CSRF.TrustedOrigins)
+	cfg.Middleware.CSRF.ExcludePaths = normalizeStringList(cfg.Middleware.CSRF.ExcludePaths)
 	if cfg.Prometheus.Namespace == "" {
 		cfg.Prometheus.Namespace = normalizeMetricNamespace(cfg.Server.AppID)
 	}
@@ -351,6 +506,38 @@ func (cfg *serverConfig) validate() error {
 		}
 		if cfg.Middleware.Limiter.Expiration <= 0 {
 			errs = append(errs, fmt.Errorf("middleware.limiter.expiration must be > 0 when limiter is enabled"))
+		}
+		switch cfg.Middleware.Limiter.Strategy {
+		case "fixed", "sliding":
+		default:
+			errs = append(errs, fmt.Errorf("middleware.limiter.strategy must be one of fixed, sliding"))
+		}
+		switch cfg.Middleware.Limiter.KeySource {
+		case "ip", "path", "ip_path", "header":
+		default:
+			errs = append(errs, fmt.Errorf("middleware.limiter.key_source must be one of ip, path, ip_path, header"))
+		}
+		if cfg.Middleware.Limiter.KeySource == "header" && strings.TrimSpace(cfg.Middleware.Limiter.KeyHeader) == "" {
+			errs = append(errs, fmt.Errorf("middleware.limiter.key_header is required when key_source is header"))
+		}
+	}
+
+	if cfg.Middleware.Timeout.Enabled && cfg.Middleware.Timeout.DurationSeconds <= 0 {
+		errs = append(errs, fmt.Errorf("middleware.timeout.duration_seconds must be > 0 when timeout is enabled"))
+	}
+
+	switch cfg.Middleware.Compression.Level {
+	case "", "default", "best_speed", "best_compression":
+	default:
+		errs = append(errs, fmt.Errorf("middleware.compression.level must be one of default, best_speed, best_compression"))
+	}
+
+	if cfg.Middleware.CSRF.Enabled {
+		if strings.TrimSpace(cfg.Middleware.CSRF.TokenPath) == "" {
+			errs = append(errs, fmt.Errorf("middleware.csrf.token_path is required when csrf is enabled"))
+		}
+		if cfg.Middleware.CSRF.IdleTimeoutSeconds <= 0 {
+			errs = append(errs, fmt.Errorf("middleware.csrf.idle_timeout_seconds must be > 0 when csrf is enabled"))
 		}
 	}
 
@@ -469,13 +656,17 @@ func normalizeSQLDefaults(target *SQLDataBaseConfig, defaults SQLDataBaseConfig)
 }
 
 func normalizeMetricPrefixes(prefixes []string) []string {
-	if len(prefixes) == 0 {
+	return normalizeStringList(prefixes)
+}
+
+func normalizeStringList(items []string) []string {
+	if len(items) == 0 {
 		return nil
 	}
 
-	result := make([]string, 0, len(prefixes))
-	seen := make(map[string]struct{}, len(prefixes))
-	for _, item := range prefixes {
+	result := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
 		item = strings.TrimSpace(item)
 		if item == "" {
 			continue
@@ -595,6 +786,44 @@ func applyDefaults(v *viper.Viper, projectName string) {
 	v.SetDefault("database.mysql.db_name", "mysql")
 	v.SetDefault("database.mysql.db_username", "root")
 	v.SetDefault("database.mysql.db_password", "123456")
+	v.SetDefault("middleware.request_id.enabled", true)
+	v.SetDefault("middleware.request_id.header", "X-Request-ID")
+	v.SetDefault("middleware.access_log.enabled", true)
+	v.SetDefault("middleware.access_log.format", "${time} | ${status} | ${latency} | ${method} | ${path} | rid=${respHeader:X-Request-ID}")
+	v.SetDefault("middleware.access_log.time_format", common.TIME_FORMAT_LOG)
+	v.SetDefault("middleware.access_log.time_zone", "Local")
+	v.SetDefault("middleware.timeout.enabled", true)
+	v.SetDefault("middleware.timeout.duration_seconds", 15)
+	v.SetDefault("middleware.timeout.exclude_paths", []string{"/metrics", "/livez", "/readyz", "/startupz", "/healthz"})
+	v.SetDefault("middleware.health.enabled", true)
+	v.SetDefault("middleware.health.include_legacy", true)
+	v.SetDefault("middleware.security_headers.enabled", true)
+	v.SetDefault("middleware.security_headers.hsts_max_age", 0)
+	v.SetDefault("middleware.security_headers.hsts_exclude_subdomains", false)
+	v.SetDefault("middleware.security_headers.hsts_preload_enabled", false)
+	v.SetDefault("middleware.security_headers.csp_report_only", false)
+	v.SetDefault("middleware.compression.enabled", true)
+	v.SetDefault("middleware.compression.level", "default")
+	v.SetDefault("middleware.limiter.enabled", true)
+	v.SetDefault("middleware.limiter.max_requests", 3000)
+	v.SetDefault("middleware.limiter.expiration", 60)
+	v.SetDefault("middleware.limiter.strategy", "fixed")
+	v.SetDefault("middleware.limiter.key_source", "ip")
+	v.SetDefault("middleware.limiter.skip_failed_requests", false)
+	v.SetDefault("middleware.limiter.skip_successful_requests", false)
+	v.SetDefault("middleware.limiter.disable_headers", false)
+	v.SetDefault("middleware.limiter.exclude_paths", []string{"/metrics", "/livez", "/readyz", "/startupz", "/healthz"})
+	v.SetDefault("middleware.csrf.enabled", false)
+	v.SetDefault("middleware.csrf.token_path", "/csrf/token")
+	v.SetDefault("middleware.csrf.cookie_name", "csrf_")
+	v.SetDefault("middleware.csrf.cookie_same_site", "Lax")
+	v.SetDefault("middleware.csrf.cookie_secure", false)
+	v.SetDefault("middleware.csrf.cookie_http_only", false)
+	v.SetDefault("middleware.csrf.cookie_session_only", false)
+	v.SetDefault("middleware.csrf.idle_timeout_seconds", 1800)
+	v.SetDefault("middleware.csrf.single_use_token", false)
+	v.SetDefault("middleware.etag.enabled", true)
+	v.SetDefault("middleware.etag.weak", false)
 	v.SetDefault("prometheus.namespace", normalizeMetricNamespace(projectName))
 	v.SetDefault("prometheus.path", "/metrics")
 }

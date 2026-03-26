@@ -27,12 +27,13 @@ var registeredModelTypes = map[string]struct{}{}
 var registeredModelsMu sync.RWMutex
 
 func initOrm() {
-	Orm.loadDBConfig()
+	Orm.initErr = Orm.loadDBConfig()
 }
 
 type orm struct {
-	engine *gorm.DB
-	driver string
+	engine  *gorm.DB
+	driver  string
+	initErr error
 }
 
 type schemaMigration struct {
@@ -52,6 +53,9 @@ func InitDatabaseOnStart(models ...any) error {
 	}
 
 	engine := Orm.DB()
+	if err := Orm.Err(); err != nil {
+		return fmt.Errorf("initialize database failed: %w", err)
+	}
 	if engine == nil {
 		return fmt.Errorf("database engine is nil")
 	}
@@ -77,6 +81,9 @@ func ApplyMigrations(migrations ...modules.Migration) error {
 	}
 
 	engine := Orm.DB()
+	if err := Orm.Err(); err != nil {
+		return fmt.Errorf("initialize database failed: %w", err)
+	}
 	if engine == nil {
 		return fmt.Errorf("database engine is nil")
 	}
@@ -116,45 +123,48 @@ func ApplyMigrations(migrations ...modules.Migration) error {
 	return nil
 }
 
-func (db *orm) loadDBConfig() {
+func (db *orm) loadDBConfig() error {
 	if db.engine != nil {
-		return
+		return nil
 	}
 
 	cfg := env.GetServerConfig().DataBase
 	dialector, driver, err := buildDialector(cfg)
 	if err != nil {
-		slog.Error("build database dialector failed", "error", err, "driver", cfg.DBType)
-		os.Exit(1)
+		return fmt.Errorf("build database dialector failed for driver %s: %w", cfg.DBType, err)
 	}
 
 	engine, err := gorm.Open(dialector)
 	if err != nil {
-		slog.Error("open database error", "error", err, "driver", driver)
-		os.Exit(1)
+		return fmt.Errorf("open database failed for driver %s: %w", driver, err)
 	}
 
 	sqlDB, err := engine.DB()
 	if err != nil {
-		slog.Error("get sql db instance failed", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("get sql db instance failed: %w", err)
 	}
 
 	configurePool(sqlDB, driver)
 
 	if err = sqlDB.Ping(); err != nil {
-		slog.Error("ping database failed", "error", err, "driver", driver)
-		os.Exit(1)
+		_ = sqlDB.Close()
+		return fmt.Errorf("ping database failed for driver %s: %w", driver, err)
 	}
 
 	db.engine = engine
 	db.driver = driver
 	slog.Info("database connected", "driver", driver)
+	return nil
 }
 
 func (db *orm) DB() *gorm.DB {
 	once.Do(initOrm)
 	return db.engine
+}
+
+func (db *orm) Err() error {
+	once.Do(initOrm)
+	return db.initErr
 }
 
 func (db *orm) Ready() bool {
@@ -167,6 +177,9 @@ func (db *orm) Driver() string {
 
 func (db *orm) AutoMigrate(models ...any) error {
 	engine := db.DB()
+	if err := db.Err(); err != nil {
+		return fmt.Errorf("initialize database failed: %w", err)
+	}
 	if engine == nil {
 		return errors.New("database is not initialized")
 	}
@@ -201,6 +214,8 @@ func (db *orm) Close() {
 
 	db.engine = nil
 	db.driver = ""
+	db.initErr = nil
+	once = sync.Once{}
 	slog.Info("database pool closed")
 }
 

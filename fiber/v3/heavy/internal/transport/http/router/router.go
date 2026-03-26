@@ -2,6 +2,7 @@ package router
 
 import (
 	"errors"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -10,17 +11,26 @@ import (
 	"time"
 
 	env "github.com/GoFurry/awesome-go-template/fiber/v3/heavy/config"
+	applog "github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/infra/logging"
 	modules "github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/modules"
+	"github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/probe"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/transport/http/middleware"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/transport/http/webui"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/heavy/pkg/common"
 	corazalite "github.com/GoFurry/coraza-fiber-lite"
 	swagger "github.com/gofiber/contrib/v3/swaggerui"
 	"github.com/gofiber/fiber/v3"
+	fibercompress "github.com/gofiber/fiber/v3/middleware/compress"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	fibercsrf "github.com/gofiber/fiber/v3/middleware/csrf"
+	fiberetag "github.com/gofiber/fiber/v3/middleware/etag"
+	"github.com/gofiber/fiber/v3/middleware/healthcheck"
+	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/limiter"
+	fiberlogger "github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
 )
 
 type Builder struct{}
@@ -46,16 +56,12 @@ func (builder *Builder) Init(routeModules ...modules.RouteModule) *fiber.App {
 	})
 
 	registerMiddlewares(app)
+	registerHealthRoutes(app, appName)
+	registerCSRFTokenRoute(app)
 
-	app.Get("/healthz", func(c fiber.Ctx) error {
-		return common.NewResponse(c).SuccessWithData(fiber.Map{
-			"name":    appName,
-			"version": cfg.Server.AppVersion,
-			"status":  "ok",
-		})
-	})
-
-	api(app.Group("/api"), routeModules...)
+	apiRouter := fiber.Router(app.Group("/api"))
+	apiRouter = wrapTimeoutRouter(apiRouter, cfg.Middleware.Timeout)
+	api(apiRouter, routeModules...)
 
 	if cfg.Server.IsFullStack {
 		attachEmbeddedUI(app)
@@ -107,29 +113,168 @@ func attachEmbeddedUI(app *fiber.App) {
 	})
 }
 
+func registerHealthRoutes(app *fiber.App, appName string) {
+	cfg := env.GetServerConfig()
+	if cfg.Middleware.Health.Enabled {
+		app.Get(healthcheck.LivenessEndpoint, healthcheck.New(healthcheck.Config{
+			Probe: func(c fiber.Ctx) bool {
+				return probe.Live()
+			},
+		}))
+		app.Get(healthcheck.ReadinessEndpoint, healthcheck.New(healthcheck.Config{
+			Probe: func(c fiber.Ctx) bool {
+				return probe.Ready()
+			},
+		}))
+		app.Get(healthcheck.StartupEndpoint, healthcheck.New(healthcheck.Config{
+			Probe: func(c fiber.Ctx) bool {
+				return probe.Started()
+			},
+		}))
+	}
+
+	if cfg.Middleware.Health.IncludeLegacy {
+		app.Get("/healthz", func(c fiber.Ctx) error {
+			ready := probe.Ready()
+			statusCode := fiber.StatusOK
+			status := "ok"
+			if !ready {
+				statusCode = fiber.StatusServiceUnavailable
+				status = "not_ready"
+			}
+			return c.Status(statusCode).JSON(common.ResultData{
+				Code:    common.RETURN_SUCCESS,
+				Message: "success",
+				Data: fiber.Map{
+					"name":    appName,
+					"version": cfg.Server.AppVersion,
+					"status":  status,
+					"live":    probe.Live(),
+					"ready":   ready,
+					"startup": probe.Started(),
+				},
+			})
+		})
+	}
+}
+
+func registerCSRFTokenRoute(app *fiber.App) {
+	cfg := env.GetServerConfig()
+	if !cfg.Middleware.CSRF.Enabled {
+		return
+	}
+
+	app.Get(cfg.Middleware.CSRF.TokenPath, func(c fiber.Ctx) error {
+		token := fibercsrf.TokenFromContext(c)
+		c.Set(fibercsrf.HeaderName, token)
+		return common.NewResponse(c).SuccessWithData(fiber.Map{
+			"token":       token,
+			"header_name": fibercsrf.HeaderName,
+			"cookie_name": cfg.Middleware.CSRF.CookieName,
+		})
+	})
+}
+
 func registerMiddlewares(app *fiber.App) {
 	cfg := env.GetServerConfig()
+
+	if cfg.Middleware.RequestID.Enabled {
+		app.Use(requestid.New(requestid.Config{
+			Header: cfg.Middleware.RequestID.Header,
+		}))
+	}
+
+	if cfg.Middleware.AccessLog.Enabled {
+		app.Use(fiberlogger.New(fiberlogger.Config{
+			Format:        cfg.Middleware.AccessLog.Format,
+			TimeFormat:    cfg.Middleware.AccessLog.TimeFormat,
+			TimeZone:      cfg.Middleware.AccessLog.TimeZone,
+			DisableColors: true,
+			Stream:        io.Discard,
+			Done: func(c fiber.Ctx, logString []byte) {
+				line := strings.TrimSpace(string(logString))
+				if line != "" {
+					applog.Info(line)
+				}
+			},
+		}))
+	}
 
 	app.Use(recover.New(recover.Config{
 		EnableStackTrace: cfg.Server.Mode == "debug",
 	}))
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     cfg.Middleware.Cors.AllowOrigins,
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		AllowOrigins: cfg.Middleware.Cors.AllowOrigins,
+		AllowMethods: []string{
+			fiber.MethodGet,
+			fiber.MethodPost,
+			fiber.MethodPut,
+			fiber.MethodDelete,
+			fiber.MethodPatch,
+			fiber.MethodOptions,
+		},
+		AllowHeaders: buildHeaderList(
+			"Origin",
+			"Content-Type",
+			"Accept",
+			"Authorization",
+			"X-Requested-With",
+			cfg.Middleware.RequestID.Header,
+			fibercsrf.HeaderName,
+			fiber.HeaderIfNoneMatch,
+		),
 		AllowCredentials: true,
-		ExposeHeaders:    []string{"Content-Length"},
-		MaxAge:           86400,
+		ExposeHeaders: buildHeaderList(
+			"Content-Length",
+			cfg.Middleware.RequestID.Header,
+			fibercsrf.HeaderName,
+			fiber.HeaderETag,
+			"X-RateLimit-Limit",
+			"X-RateLimit-Remaining",
+			"X-RateLimit-Reset",
+			fiber.HeaderRetryAfter,
+		),
+		MaxAge: 86400,
 	}))
+
+	if cfg.Middleware.SecurityHeaders.Enabled {
+		app.Use(helmet.New(helmet.Config{
+			ContentSecurityPolicy: cfg.Middleware.SecurityHeaders.ContentSecurityPolicy,
+			PermissionPolicy:      cfg.Middleware.SecurityHeaders.PermissionPolicy,
+			HSTSMaxAge:            cfg.Middleware.SecurityHeaders.HSTSMaxAge,
+			HSTSExcludeSubdomains: cfg.Middleware.SecurityHeaders.HSTSExcludeSubdomains,
+			HSTSPreloadEnabled:    cfg.Middleware.SecurityHeaders.HSTSPreloadEnabled,
+			CSPReportOnly:         cfg.Middleware.SecurityHeaders.CSPReportOnly,
+		}))
+	}
+
+	if cfg.Middleware.Compression.Enabled {
+		app.Use(fibercompress.New(fibercompress.Config{
+			Level: compressionLevel(cfg.Middleware.Compression.Level),
+		}))
+	}
+
+	if cfg.Middleware.ETag.Enabled {
+		app.Use(fiberetag.New(fiberetag.Config{
+			Weak: cfg.Middleware.ETag.Weak,
+		}))
+	}
 
 	if cfg.Middleware.Limiter.Enabled {
 		app.Use(limiter.New(limiter.Config{
-			Max:        cfg.Middleware.Limiter.MaxRequests,
-			Expiration: cfg.Middleware.Limiter.Expiration * time.Second,
+			Max:               cfg.Middleware.Limiter.MaxRequests,
+			Expiration:        cfg.Middleware.Limiter.Expiration * time.Second,
+			LimiterMiddleware: limiterStrategy(cfg.Middleware.Limiter.Strategy),
 			KeyGenerator: func(c fiber.Ctx) string {
-				return c.IP()
+				return limiterKey(c, cfg.Middleware.Limiter)
 			},
+			Next: func(c fiber.Ctx) bool {
+				return pathExcluded(c.Path(), cfg.Middleware.Limiter.ExcludePaths)
+			},
+			SkipFailedRequests:     cfg.Middleware.Limiter.SkipFailedRequests,
+			SkipSuccessfulRequests: cfg.Middleware.Limiter.SkipSuccessfulRequests,
+			DisableHeaders:         cfg.Middleware.Limiter.DisableHeaders,
 			LimitReached: func(c fiber.Ctx) error {
 				return common.NewResponse(c).ErrorWithCode(common.NewValidationError("too many requests"), fiber.StatusTooManyRequests)
 			},
@@ -138,6 +283,34 @@ func registerMiddlewares(app *fiber.App) {
 
 	if cfg.Waf.Enabled {
 		app.Use(corazalite.CorazaMiddleware())
+	}
+
+	if cfg.Middleware.CSRF.Enabled {
+		app.Use(fibercsrf.New(fibercsrf.Config{
+			Next: func(c fiber.Ctx) bool {
+				return pathExcluded(c.Path(), cfg.Middleware.CSRF.ExcludePaths)
+			},
+			CookieName:        cfg.Middleware.CSRF.CookieName,
+			CookieSameSite:    cfg.Middleware.CSRF.CookieSameSite,
+			CookieSecure:      cfg.Middleware.CSRF.CookieSecure,
+			CookieHTTPOnly:    cfg.Middleware.CSRF.CookieHTTPOnly,
+			CookieSessionOnly: cfg.Middleware.CSRF.CookieSessionOnly,
+			IdleTimeout:       time.Duration(cfg.Middleware.CSRF.IdleTimeoutSeconds) * time.Second,
+			SingleUseToken:    cfg.Middleware.CSRF.SingleUseToken,
+			TrustedOrigins:    cfg.Middleware.CSRF.TrustedOrigins,
+			ErrorHandler: func(c fiber.Ctx, err error) error {
+				message := "csrf validation failed"
+				switch {
+				case errors.Is(err, fibercsrf.ErrTokenNotFound):
+					message = "csrf token not found"
+				case errors.Is(err, fibercsrf.ErrTokenInvalid):
+					message = "csrf token invalid"
+				case err != nil:
+					message = err.Error()
+				}
+				return common.NewResponse(c).ErrorWithCode(common.NewError(common.RETURN_FAILED, fiber.StatusForbidden, message), fiber.StatusForbidden)
+			},
+		}))
 	}
 
 	if cfg.Server.Mode == "debug" {
@@ -192,4 +365,76 @@ func customErrorHandler(c fiber.Ctx, err error) error {
 		}
 		return response.ErrorWithCode(common.NewError(common.RETURN_FAILED, code, err.Error()), code)
 	}
+}
+
+func buildHeaderList(items ...string) []string {
+	result := make([]string, 0, len(items))
+	seen := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[strings.ToLower(item)]; ok {
+			continue
+		}
+		seen[strings.ToLower(item)] = struct{}{}
+		result = append(result, item)
+	}
+	return result
+}
+
+func compressionLevel(level string) fibercompress.Level {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "best_speed":
+		return fibercompress.LevelBestSpeed
+	case "best_compression":
+		return fibercompress.LevelBestCompression
+	default:
+		return fibercompress.LevelDefault
+	}
+}
+
+func limiterStrategy(strategy string) limiter.Handler {
+	switch strings.ToLower(strings.TrimSpace(strategy)) {
+	case "sliding":
+		return limiter.SlidingWindow{}
+	default:
+		return limiter.FixedWindow{}
+	}
+}
+
+func limiterKey(c fiber.Ctx, cfg env.LimiterConfig) string {
+	switch cfg.KeySource {
+	case "path":
+		return c.Path()
+	case "ip_path":
+		return c.IP() + ":" + c.Path()
+	case "header":
+		value := strings.TrimSpace(c.Get(cfg.KeyHeader))
+		if value != "" {
+			return value
+		}
+		return c.IP()
+	default:
+		return c.IP()
+	}
+}
+
+func pathExcluded(current string, paths []string) bool {
+	current = normalizePath(current)
+	for _, item := range paths {
+		if current == normalizePath(item) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizePath(path string) string {
+	normalized := strings.TrimRight(strings.TrimSpace(path), "/")
+	if normalized == "" {
+		return "/"
+	}
+	return normalized
 }

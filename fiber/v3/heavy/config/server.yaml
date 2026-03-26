@@ -75,6 +75,32 @@ log:
 
 # Middleware settings.
 middleware:
+  request_id:
+    enabled: true
+    header: "X-Request-ID"
+  access_log:
+    enabled: true
+    format: "${time} | ${status} | ${latency} | ${method} | ${path} | rid=${respHeader:X-Request-ID}"
+    time_format: "2006-01-02 15:04:05.000"
+    time_zone: "Local"
+  timeout:
+    enabled: true
+    duration_seconds: 15
+    exclude_paths: ["/metrics", "/livez", "/readyz", "/startupz", "/healthz"]
+  health:
+    enabled: true
+    include_legacy: true
+  security_headers:
+    enabled: true
+    content_security_policy: ""
+    permission_policy: ""
+    hsts_max_age: 0
+    hsts_exclude_subdomains: false
+    hsts_preload_enabled: false
+    csp_report_only: false
+  compression:
+    enabled: true
+    level: "default"
   swagger:
     enabled: false
     file_path: "./docs/swagger.json"
@@ -87,6 +113,28 @@ middleware:
     enabled: true
     max_requests: 3000
     expiration: 60
+    strategy: "fixed"
+    key_source: "ip"
+    key_header: ""
+    skip_failed_requests: false
+    skip_successful_requests: false
+    disable_headers: false
+    exclude_paths: ["/metrics", "/livez", "/readyz", "/startupz", "/healthz"]
+  csrf:
+    enabled: false
+    token_path: "/csrf/token"
+    cookie_name: "csrf_"
+    cookie_same_site: "Lax"
+    cookie_secure: false
+    cookie_http_only: false
+    cookie_session_only: false
+    idle_timeout_seconds: 1800
+    single_use_token: false
+    trusted_origins: []
+    exclude_paths: []
+  etag:
+    enabled: true
+    weak: false
 
 # WAF settings.
 waf:

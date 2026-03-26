@@ -19,6 +19,8 @@ import (
 )
 
 type apiResponse struct {
+	Status  int             `json:"-"`
+	Headers http.Header     `json:"-"`
 	Code    int             `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
@@ -56,15 +58,42 @@ func TestBootstrapWithSQLiteCRUD(t *testing.T) {
 		t.Fatalf("sqlite database file not created: %v", err)
 	}
 	if !db.Orm.DB().Migrator().HasTable(&usermodels.User{}) {
-		t.Fatalf("expected demo_users table to be auto migrated")
+		t.Fatalf("expected users table to be auto migrated")
 	}
 	if !db.Orm.DB().Migrator().HasTable("schema_migrations") {
 		t.Fatalf("expected schema_migrations table to be created")
 	}
 
 	health := doRequest(t, httpApp, http.MethodGet, "/healthz", nil)
+	if health.Status != http.StatusOK {
+		t.Fatalf("healthz returned unexpected status: %+v", health)
+	}
 	if health.Code != common.RETURN_SUCCESS {
 		t.Fatalf("healthz returned unexpected code: %+v", health)
+	}
+	if health.Headers.Get(fiber.HeaderXRequestID) == "" {
+		t.Fatalf("expected request id header on healthz response")
+	}
+	if health.Headers.Get(fiber.HeaderXContentTypeOptions) == "" {
+		t.Fatalf("expected security headers on healthz response")
+	}
+
+	livez := rawRequest(t, httpApp, http.MethodGet, "/livez", nil, nil)
+	defer livez.Body.Close()
+	if livez.StatusCode != http.StatusOK {
+		t.Fatalf("livez returned unexpected status: %d", livez.StatusCode)
+	}
+
+	readyz := rawRequest(t, httpApp, http.MethodGet, "/readyz", nil, nil)
+	defer readyz.Body.Close()
+	if readyz.StatusCode != http.StatusOK {
+		t.Fatalf("readyz returned unexpected status: %d", readyz.StatusCode)
+	}
+
+	startupz := rawRequest(t, httpApp, http.MethodGet, "/startupz", nil, nil)
+	defer startupz.Body.Close()
+	if startupz.StatusCode != http.StatusOK {
+		t.Fatalf("startupz returned unexpected status: %d", startupz.StatusCode)
 	}
 
 	createBody := map[string]any{
@@ -81,10 +110,21 @@ func TestBootstrapWithSQLiteCRUD(t *testing.T) {
 	}
 
 	list := doRequest(t, httpApp, http.MethodGet, "/api/v1/users/?page_num=1&page_size=10", nil)
+	if list.Headers.Get(fiber.HeaderETag) == "" {
+		t.Fatalf("expected ETag header on list response")
+	}
 	var users userListResponse
 	mustDecode(t, list.Data, &users)
 	if users.Total < 2 || len(users.List) < 2 {
 		t.Fatalf("unexpected list payload: %+v", users)
+	}
+
+	compressed := rawRequest(t, httpApp, http.MethodGet, "/api/v1/users/?page_num=1&page_size=10", nil, map[string]string{
+		fiber.HeaderAcceptEncoding: "gzip",
+	})
+	defer compressed.Body.Close()
+	if compressed.Header.Get(fiber.HeaderContentEncoding) == "" {
+		t.Fatalf("expected compressed response when Accept-Encoding is set")
 	}
 
 	get := doRequest(t, httpApp, http.MethodGet, "/api/v1/users/"+toString(created.ID), nil)
@@ -164,6 +204,26 @@ func writeIntegrationConfig(t *testing.T) (string, string) {
 
 func doRequest(t *testing.T, app *fiber.App, method, path string, body any) apiResponse {
 	t.Helper()
+	return doRequestWithHeaders(t, app, method, path, body, nil)
+}
+
+func doRequestWithHeaders(t *testing.T, app *fiber.App, method, path string, body any, headers map[string]string) apiResponse {
+	t.Helper()
+	resp := rawRequest(t, app, method, path, body, headers)
+	defer resp.Body.Close()
+
+	var result apiResponse
+	result.Status = resp.StatusCode
+	result.Headers = resp.Header.Clone()
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response failed: %v", err)
+	}
+
+	return result
+}
+
+func rawRequest(t *testing.T, app *fiber.App, method, path string, body any, headers map[string]string) *http.Response {
+	t.Helper()
 
 	var reader *bytes.Reader
 	if body == nil {
@@ -180,19 +240,15 @@ func doRequest(t *testing.T, app *fiber.App, method, path string, body any) apiR
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request %s %s failed: %v", method, path, err)
 	}
-	defer resp.Body.Close()
-
-	var result apiResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		t.Fatalf("decode response failed: %v", err)
-	}
-
-	return result
+	return resp
 }
 
 func mustDecode(t *testing.T, raw json.RawMessage, target any) {

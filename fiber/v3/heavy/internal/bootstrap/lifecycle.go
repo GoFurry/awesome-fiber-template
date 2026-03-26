@@ -13,6 +13,7 @@ import (
 	log "github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/infra/logging"
 	scheduler "github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/infra/scheduler"
 	modules "github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/modules"
+	"github.com/GoFurry/awesome-go-template/fiber/v3/heavy/internal/runtimestate"
 	"github.com/GoFurry/awesome-go-template/fiber/v3/heavy/pkg/common"
 	corazalite "github.com/GoFurry/coraza-fiber-lite"
 )
@@ -39,6 +40,7 @@ func Start() (*Application, error) {
 
 	var app *Application
 	cleanupOnError := func(cause error) (*Application, error) {
+		runtimestate.SetStarted(false)
 		return nil, errors.Join(cause, shutdownComponents(cfg, app))
 	}
 
@@ -88,6 +90,7 @@ func Start() (*Application, error) {
 
 	currentApp = app
 	started = true
+	runtimestate.SetStarted(true)
 	slog.Info("application bootstrap completed")
 	return currentApp, nil
 }
@@ -103,6 +106,7 @@ func Shutdown() error {
 	cfg := env.GetServerConfig()
 	err := shutdownComponents(cfg, currentApp)
 	started = false
+	runtimestate.SetStarted(false)
 	currentApp = nil
 	return err
 }
