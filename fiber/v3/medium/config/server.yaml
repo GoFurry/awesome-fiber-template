@@ -1,0 +1,152 @@
+# Cluster node id used by the snowflake generator.
+cluster_id: 1
+
+# Server settings.
+server:
+  app_id: "awesome-fiber-template"
+  app_name: "Awesome Fiber Template"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "9999"
+  memory_limit: 1
+  gc_percent: 1000
+  network: "tcp"
+  enable_prefork: false
+  is_full_stack: false
+
+# Global auth settings.
+auth:
+  auth_salt: "ChangeMeTemplateSalt"
+  jwt_secret: "ChangeMeTemplateSecret"
+
+# TLS certificate paths.
+key:
+  tls_key: "./config/tls.key"
+  tls_pem: "./config/tls.pem"
+
+# Redis settings.
+redis:
+  enabled: false
+  redis_addr: "127.0.0.1:6379"
+  redis_password: "123456"
+
+# Database settings.
+database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    dsn: ""
+    path: "./data/app.db"
+  postgres:
+    dsn: ""
+    db_name: "app"
+    db_username: "postgres"
+    db_password: "123456"
+    db_host: "127.0.0.1"
+    db_port: "5432"
+  mysql:
+    dsn: ""
+    db_name: "app"
+    db_username: "root"
+    db_password: "123456"
+    db_host: "127.0.0.1"
+    db_port: "3306"
+
+# Metrics settings.
+prometheus:
+  enabled: false
+  url: "http://127.0.0.1:9090"
+  auth_name: ""
+  auth_pass: ""
+  namespace: "awesome_fiber_template"
+  path: "/metrics"
+  service_metrics: ["awesome_template"]
+
+# Log settings.
+log:
+  log_max_size: 100
+  log_max_backups: 30
+  log_max_age: 7
+  log_level: "debug"
+  log_mode: "dev"
+  log_path: "./logs/app.log"
+
+# Middleware settings.
+middleware:
+  request_id:
+    enabled: true
+    header: "X-Request-ID"
+  access_log:
+    enabled: true
+    format: "${time} | ${status} | ${latency} | ${method} | ${path} | rid=${respHeader:X-Request-ID}"
+    time_format: "2006-01-02 15:04:05.000"
+    time_zone: "Local"
+  timeout:
+    enabled: true
+    duration_seconds: 15
+    exclude_paths: ["/metrics", "/livez", "/readyz", "/startupz", "/healthz"]
+  health:
+    enabled: true
+    include_legacy: true
+  security_headers:
+    enabled: true
+    content_security_policy: ""
+    permission_policy: ""
+    hsts_max_age: 0
+    hsts_exclude_subdomains: false
+    hsts_preload_enabled: false
+    csp_report_only: false
+  compression:
+    enabled: true
+    level: "default"
+  swagger:
+    enabled: false
+    file_path: "./docs/swagger.json"
+    base_path: "/"
+    path: "/swagger"
+    title: "awesome-fiber-template"
+  cors:
+    allow_origins: ["http://127.0.0.1:8888"]
+  limiter:
+    enabled: true
+    max_requests: 3000
+    expiration: 60
+    strategy: "fixed"
+    key_source: "ip"
+    key_header: ""
+    skip_failed_requests: false
+    skip_successful_requests: false
+    disable_headers: false
+    exclude_paths: ["/metrics", "/livez", "/readyz", "/startupz", "/healthz"]
+  csrf:
+    enabled: false
+    token_path: "/csrf/token"
+    cookie_name: "csrf_"
+    cookie_same_site: "Lax"
+    cookie_secure: false
+    cookie_http_only: false
+    cookie_session_only: false
+    idle_timeout_seconds: 1800
+    single_use_token: false
+    trusted_origins: []
+    exclude_paths: []
+  etag:
+    enabled: true
+    weak: false
+
+# WAF settings.
+waf:
+  enabled: false
+  conf_path: ["./config/coraza.conf"]
+
+# Scheduler settings.
+schedule:
+  enabled: false
+
+# Outbound proxy settings.
+proxy:
+  url: "http://127.0.0.1:7897"
+  name: ""
+  pass: ""
