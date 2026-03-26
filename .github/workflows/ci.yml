@@ -1,0 +1,396 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fiber:
+    name: Fiber Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache: true
+          cache-dependency-path: |
+            fiber/**/go.sum
+            fiber/**/go.mod
+
+      - name: Run checks
+        shell: bash
+        env:
+          FRAMEWORK_DIR: fiber
+        run: |
+          set -euo pipefail
+
+          mapfile -t modules < <(
+            {
+              if [ -f "${FRAMEWORK_DIR}/go.mod" ]; then
+                echo "${FRAMEWORK_DIR}"
+              fi
+              if [ -d "${FRAMEWORK_DIR}" ]; then
+                find "${FRAMEWORK_DIR}" -mindepth 1 -type f -name go.mod -printf '%h\n'
+              fi
+            } | sort -u
+          )
+
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No Go modules found under ${FRAMEWORK_DIR}, skipping."
+            exit 0
+          fi
+
+          printf 'Discovered modules under %s:\n' "${FRAMEWORK_DIR}"
+          printf ' - %s\n' "${modules[@]}"
+
+          for module in "${modules[@]}"; do
+            echo "::group::Checking ${module}"
+
+            mapfile -d '' -t go_files < <(find "${module}" -type f -name '*.go' -not -path '*/vendor/*' -print0)
+            if [ "${#go_files[@]}" -gt 0 ]; then
+              fmt_output="$(gofmt -l "${go_files[@]}")"
+              if [ -n "${fmt_output}" ]; then
+                echo "The following files need gofmt:"
+                echo "${fmt_output}"
+                exit 1
+              fi
+            else
+              echo "No Go files found in ${module}, skipping gofmt."
+            fi
+
+            if package_output="$(cd "${module}" && go list ./... 2>&1)"; then
+              if [ -n "${package_output}" ]; then
+                (cd "${module}" && go vet ./...)
+                (cd "${module}" && go test ./...)
+              else
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              fi
+            else
+              if grep -q "matched no packages" <<<"${package_output}"; then
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              else
+                echo "${package_output}"
+                exit 1
+              fi
+            fi
+
+            echo "::endgroup::"
+          done
+
+  chi:
+    name: Chi Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache: true
+          cache-dependency-path: |
+            chi/**/go.sum
+            chi/**/go.mod
+
+      - name: Run checks
+        shell: bash
+        env:
+          FRAMEWORK_DIR: chi
+        run: |
+          set -euo pipefail
+
+          mapfile -t modules < <(
+            {
+              if [ -f "${FRAMEWORK_DIR}/go.mod" ]; then
+                echo "${FRAMEWORK_DIR}"
+              fi
+              if [ -d "${FRAMEWORK_DIR}" ]; then
+                find "${FRAMEWORK_DIR}" -mindepth 1 -type f -name go.mod -printf '%h\n'
+              fi
+            } | sort -u
+          )
+
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No Go modules found under ${FRAMEWORK_DIR}, skipping."
+            exit 0
+          fi
+
+          printf 'Discovered modules under %s:\n' "${FRAMEWORK_DIR}"
+          printf ' - %s\n' "${modules[@]}"
+
+          for module in "${modules[@]}"; do
+            echo "::group::Checking ${module}"
+
+            mapfile -d '' -t go_files < <(find "${module}" -type f -name '*.go' -not -path '*/vendor/*' -print0)
+            if [ "${#go_files[@]}" -gt 0 ]; then
+              fmt_output="$(gofmt -l "${go_files[@]}")"
+              if [ -n "${fmt_output}" ]; then
+                echo "The following files need gofmt:"
+                echo "${fmt_output}"
+                exit 1
+              fi
+            else
+              echo "No Go files found in ${module}, skipping gofmt."
+            fi
+
+            if package_output="$(cd "${module}" && go list ./... 2>&1)"; then
+              if [ -n "${package_output}" ]; then
+                (cd "${module}" && go vet ./...)
+                (cd "${module}" && go test ./...)
+              else
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              fi
+            else
+              if grep -q "matched no packages" <<<"${package_output}"; then
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              else
+                echo "${package_output}"
+                exit 1
+              fi
+            fi
+
+            echo "::endgroup::"
+          done
+
+  echo:
+    name: Echo Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache: true
+          cache-dependency-path: |
+            echo/**/go.sum
+            echo/**/go.mod
+
+      - name: Run checks
+        shell: bash
+        env:
+          FRAMEWORK_DIR: echo
+        run: |
+          set -euo pipefail
+
+          mapfile -t modules < <(
+            {
+              if [ -f "${FRAMEWORK_DIR}/go.mod" ]; then
+                echo "${FRAMEWORK_DIR}"
+              fi
+              if [ -d "${FRAMEWORK_DIR}" ]; then
+                find "${FRAMEWORK_DIR}" -mindepth 1 -type f -name go.mod -printf '%h\n'
+              fi
+            } | sort -u
+          )
+
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No Go modules found under ${FRAMEWORK_DIR}, skipping."
+            exit 0
+          fi
+
+          printf 'Discovered modules under %s:\n' "${FRAMEWORK_DIR}"
+          printf ' - %s\n' "${modules[@]}"
+
+          for module in "${modules[@]}"; do
+            echo "::group::Checking ${module}"
+
+            mapfile -d '' -t go_files < <(find "${module}" -type f -name '*.go' -not -path '*/vendor/*' -print0)
+            if [ "${#go_files[@]}" -gt 0 ]; then
+              fmt_output="$(gofmt -l "${go_files[@]}")"
+              if [ -n "${fmt_output}" ]; then
+                echo "The following files need gofmt:"
+                echo "${fmt_output}"
+                exit 1
+              fi
+            else
+              echo "No Go files found in ${module}, skipping gofmt."
+            fi
+
+            if package_output="$(cd "${module}" && go list ./... 2>&1)"; then
+              if [ -n "${package_output}" ]; then
+                (cd "${module}" && go vet ./...)
+                (cd "${module}" && go test ./...)
+              else
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              fi
+            else
+              if grep -q "matched no packages" <<<"${package_output}"; then
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              else
+                echo "${package_output}"
+                exit 1
+              fi
+            fi
+
+            echo "::endgroup::"
+          done
+
+  gin:
+    name: Gin Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache: true
+          cache-dependency-path: |
+            gin/**/go.sum
+            gin/**/go.mod
+
+      - name: Run checks
+        shell: bash
+        env:
+          FRAMEWORK_DIR: gin
+        run: |
+          set -euo pipefail
+
+          mapfile -t modules < <(
+            {
+              if [ -f "${FRAMEWORK_DIR}/go.mod" ]; then
+                echo "${FRAMEWORK_DIR}"
+              fi
+              if [ -d "${FRAMEWORK_DIR}" ]; then
+                find "${FRAMEWORK_DIR}" -mindepth 1 -type f -name go.mod -printf '%h\n'
+              fi
+            } | sort -u
+          )
+
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No Go modules found under ${FRAMEWORK_DIR}, skipping."
+            exit 0
+          fi
+
+          printf 'Discovered modules under %s:\n' "${FRAMEWORK_DIR}"
+          printf ' - %s\n' "${modules[@]}"
+
+          for module in "${modules[@]}"; do
+            echo "::group::Checking ${module}"
+
+            mapfile -d '' -t go_files < <(find "${module}" -type f -name '*.go' -not -path '*/vendor/*' -print0)
+            if [ "${#go_files[@]}" -gt 0 ]; then
+              fmt_output="$(gofmt -l "${go_files[@]}")"
+              if [ -n "${fmt_output}" ]; then
+                echo "The following files need gofmt:"
+                echo "${fmt_output}"
+                exit 1
+              fi
+            else
+              echo "No Go files found in ${module}, skipping gofmt."
+            fi
+
+            if package_output="$(cd "${module}" && go list ./... 2>&1)"; then
+              if [ -n "${package_output}" ]; then
+                (cd "${module}" && go vet ./...)
+                (cd "${module}" && go test ./...)
+              else
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              fi
+            else
+              if grep -q "matched no packages" <<<"${package_output}"; then
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              else
+                echo "${package_output}"
+                exit 1
+              fi
+            fi
+
+            echo "::endgroup::"
+          done
+
+  net:
+    name: Net Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.0"
+          cache: true
+          cache-dependency-path: |
+            net/**/go.sum
+            net/**/go.mod
+
+      - name: Run checks
+        shell: bash
+        env:
+          FRAMEWORK_DIR: net
+        run: |
+          set -euo pipefail
+
+          mapfile -t modules < <(
+            {
+              if [ -f "${FRAMEWORK_DIR}/go.mod" ]; then
+                echo "${FRAMEWORK_DIR}"
+              fi
+              if [ -d "${FRAMEWORK_DIR}" ]; then
+                find "${FRAMEWORK_DIR}" -mindepth 1 -type f -name go.mod -printf '%h\n'
+              fi
+            } | sort -u
+          )
+
+          if [ "${#modules[@]}" -eq 0 ]; then
+            echo "No Go modules found under ${FRAMEWORK_DIR}, skipping."
+            exit 0
+          fi
+
+          printf 'Discovered modules under %s:\n' "${FRAMEWORK_DIR}"
+          printf ' - %s\n' "${modules[@]}"
+
+          for module in "${modules[@]}"; do
+            echo "::group::Checking ${module}"
+
+            mapfile -d '' -t go_files < <(find "${module}" -type f -name '*.go' -not -path '*/vendor/*' -print0)
+            if [ "${#go_files[@]}" -gt 0 ]; then
+              fmt_output="$(gofmt -l "${go_files[@]}")"
+              if [ -n "${fmt_output}" ]; then
+                echo "The following files need gofmt:"
+                echo "${fmt_output}"
+                exit 1
+              fi
+            else
+              echo "No Go files found in ${module}, skipping gofmt."
+            fi
+
+            if package_output="$(cd "${module}" && go list ./... 2>&1)"; then
+              if [ -n "${package_output}" ]; then
+                (cd "${module}" && go vet ./...)
+                (cd "${module}" && go test ./...)
+              else
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              fi
+            else
+              if grep -q "matched no packages" <<<"${package_output}"; then
+                echo "No Go packages found in ${module}, skipping go vet and go test."
+              else
+                echo "${package_output}"
+                exit 1
+              fi
+            fi
+
+            echo "::endgroup::"
+          done
