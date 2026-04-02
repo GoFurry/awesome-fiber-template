@@ -1,0 +1,71 @@
+# Cluster node id used by the snowflake generator.
+cluster_id: 1
+
+# Server settings.
+server:
+  app_id: "awesome-fiber-template"
+  app_name: "Awesome Fiber Template"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "9999"
+  memory_limit: 1
+  gc_percent: 1000
+  network: "tcp"
+  enable_prefork: false
+  is_full_stack: false
+
+# Database settings.
+database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    dsn: ""
+    path: "./data/app.db"
+
+# Log settings.
+log:
+  log_max_size: 100
+  log_max_backups: 30
+  log_max_age: 7
+  log_level: "debug"
+  log_mode: "dev"
+  log_path: "./logs/app.log"
+
+# Middleware settings.
+middleware:
+  request_id:
+    enabled: true
+    header: "X-Request-ID"
+  access_log:
+    enabled: true
+    format: "${time} | ${status} | ${latency} | ${method} | ${path} | rid=${respHeader:X-Request-ID}"
+    time_format: "2006-01-02 15:04:05.000"
+    time_zone: "Local"
+  timeout:
+    enabled: true
+    duration_seconds: 15
+    exclude_paths: ["/livez", "/readyz", "/startupz", "/healthz"]
+  health:
+    enabled: true
+    include_legacy: true
+  compression:
+    enabled: true
+    level: "default"
+  cors:
+    allow_origins: ["http://127.0.0.1:8888"]
+  limiter:
+    enabled: true
+    max_requests: 3000
+    expiration: 60
+    strategy: "fixed"
+    key_source: "ip"
+    key_header: ""
+    skip_failed_requests: false
+    skip_successful_requests: false
+    disable_headers: false
+    exclude_paths: ["/livez", "/readyz", "/startupz", "/healthz"]
+  etag:
+    enabled: true
+    weak: false
