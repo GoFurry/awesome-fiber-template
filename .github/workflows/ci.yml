@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 jobs:
-  fiber:
-    name: Fiber Templates
+  fiber-v3:
+    name: Fiber v3 Templates
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,84 +28,8 @@ jobs:
           go-version: "1.26.0"
           cache: true
           cache-dependency-path: |
-            fiber/**/go.sum
-            fiber/**/go.mod
+            v3/**/go.sum
+            v3/**/go.mod
 
       - name: Run checks
-        run: bash .github/scripts/check-framework.sh fiber
-
-  chi:
-    name: Chi Templates
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.26.0"
-          cache: true
-          cache-dependency-path: |
-            chi/**/go.sum
-            chi/**/go.mod
-
-      - name: Run checks
-        run: bash .github/scripts/check-framework.sh chi
-
-  echo:
-    name: Echo Templates
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.26.0"
-          cache: true
-          cache-dependency-path: |
-            echo/**/go.sum
-            echo/**/go.mod
-
-      - name: Run checks
-        run: bash .github/scripts/check-framework.sh echo
-
-  gin:
-    name: Gin Templates
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.26.0"
-          cache: true
-          cache-dependency-path: |
-            gin/**/go.sum
-            gin/**/go.mod
-
-      - name: Run checks
-        run: bash .github/scripts/check-framework.sh gin
-
-  net:
-    name: Net Templates
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.26.0"
-          cache: true
-          cache-dependency-path: |
-            net/**/go.sum
-            net/**/go.mod
-
-      - name: Run checks
-        run: bash .github/scripts/check-framework.sh net
+        run: bash .github/scripts/check-framework.sh v3
