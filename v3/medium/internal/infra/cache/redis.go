@@ -49,8 +49,10 @@ func connect() error {
 
 	client = redis.NewClient(&redis.Options{
 		Addr:      cfg.RedisAddr,
+		Username:  cfg.RedisUsername,
 		Password:  cfg.RedisPassword,
-		DB:        0,
+		DB:        cfg.RedisDB,
+		PoolSize:  cfg.RedisPoolSize,
 		OnConnect: onConnect,
 	})
 

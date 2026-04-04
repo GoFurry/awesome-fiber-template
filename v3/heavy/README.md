@@ -200,6 +200,8 @@ Important sections:
 - `waf`
 - `schedule`
 
+The `redis` section supports address, username, password, database index, and pool size.
+
 The default config is intentionally runnable with only Go installed.
 
 ## Directory Layout

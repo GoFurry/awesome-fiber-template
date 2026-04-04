@@ -163,8 +163,11 @@ type SwaggerConfig struct {
 
 type RedisConfig struct {
 	Enabled       bool   `yaml:"enabled"`
+	RedisUsername string `yaml:"redis_username"`
 	RedisAddr     string `yaml:"redis_addr"`
 	RedisPassword string `yaml:"redis_password"`
+	RedisDB       int    `yaml:"redis_db"`
+	RedisPoolSize int    `yaml:"redis_pool_size"`
 }
 
 type LogConfig struct {
@@ -269,8 +272,11 @@ var knownConfigKeys = []configKey{
 	{name: "log.log_max_backups", kind: "int"},
 	{name: "log.log_max_age", kind: "int"},
 	{name: "redis.enabled", kind: "bool"},
+	{name: "redis.redis_username", kind: "string"},
 	{name: "redis.redis_addr", kind: "string"},
 	{name: "redis.redis_password", kind: "string"},
+	{name: "redis.redis_db", kind: "int"},
+	{name: "redis.redis_pool_size", kind: "int"},
 	{name: "middleware.swagger.enabled", kind: "bool"},
 	{name: "middleware.swagger.file_path", kind: "string"},
 	{name: "middleware.swagger.base_path", kind: "string"},
@@ -468,6 +474,12 @@ func (cfg *serverConfig) validate() error {
 
 	if cfg.Redis.Enabled && strings.TrimSpace(cfg.Redis.RedisAddr) == "" {
 		errs = append(errs, fmt.Errorf("redis.redis_addr is required when redis.enabled is true"))
+	}
+	if cfg.Redis.RedisDB < 0 {
+		errs = append(errs, fmt.Errorf("redis.redis_db must be >= 0"))
+	}
+	if cfg.Redis.RedisPoolSize < 0 {
+		errs = append(errs, fmt.Errorf("redis.redis_pool_size must be >= 0"))
 	}
 
 	if cfg.Middleware.Limiter.Enabled {
@@ -756,6 +768,11 @@ func applyDefaults(v *viper.Viper, projectName string) {
 	v.SetDefault("database.mysql.db_name", "mysql")
 	v.SetDefault("database.mysql.db_username", "root")
 	v.SetDefault("database.mysql.db_password", "123456")
+	v.SetDefault("redis.redis_username", "")
+	v.SetDefault("redis.redis_addr", "127.0.0.1:6379")
+	v.SetDefault("redis.redis_password", "")
+	v.SetDefault("redis.redis_db", 0)
+	v.SetDefault("redis.redis_pool_size", 10)
 	v.SetDefault("middleware.request_id.enabled", true)
 	v.SetDefault("middleware.request_id.header", "X-Request-ID")
 	v.SetDefault("middleware.access_log.enabled", true)
