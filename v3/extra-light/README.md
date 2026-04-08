@@ -85,13 +85,8 @@ If you want to use it, call `AttachEmbeddedUI(app)` inside `internal/http/router
 
 - Cobra
 - Redis
-- scheduler
-- Swagger
 - WAF
-- Prometheus
 - CSRF
-- Helmet
-- pprof
 - helper packages such as `pkg/httpkit` and `pkg/abstract`
 - built-in CRUD demos
 
@@ -99,14 +94,15 @@ If you want to use it, call `AttachEmbeddedUI(app)` inside `internal/http/router
 
 1. Add your domain under `internal/app/<domain>`.
 2. Register routes in `internal/http/url.go`.
-3. Add your own GORM models and pass them into bootstrap if you need auto-migration later.
+3. Add your own models and wire them into bootstrap if you need schema bootstrap later.
 4. Replace the module path in `go.mod`.
 
 ## Verification
 
-Run:
+Run the centralized test suite from `v3/test`:
 
 ```bash
+cd ../test
 go test ./...
 go vet ./...
 ```

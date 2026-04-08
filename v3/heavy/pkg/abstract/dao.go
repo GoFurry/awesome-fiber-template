@@ -17,10 +17,10 @@ type Dao[T any] struct {
 	ctx context.Context
 }
 
-func NewDao[T any](ctx context.Context) *Dao[T] {
+func NewDao[T any](ctx context.Context) (*Dao[T], common.Error) {
 	engine := database.Orm.DB()
 	if engine == nil {
-		panic("database is not initialized")
+		return nil, common.NewDaoError("database is not initialized")
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -29,12 +29,12 @@ func NewDao[T any](ctx context.Context) *Dao[T] {
 	return &Dao[T]{
 		db:  engine.WithContext(ctx),
 		ctx: ctx,
-	}
+	}, nil
 }
 
-func NewDaoWithDB[T any](ctx context.Context, tx *gorm.DB) *Dao[T] {
+func NewDaoWithDB[T any](ctx context.Context, tx *gorm.DB) (*Dao[T], common.Error) {
 	if tx == nil {
-		panic("transaction db instance is nil")
+		return nil, common.NewDaoError("transaction db instance is nil")
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -43,7 +43,7 @@ func NewDaoWithDB[T any](ctx context.Context, tx *gorm.DB) *Dao[T] {
 	return &Dao[T]{
 		db:  tx.WithContext(ctx),
 		ctx: ctx,
-	}
+	}, nil
 }
 
 func (dao *Dao[T]) DB() *gorm.DB {
@@ -212,7 +212,11 @@ func (dao *Dao[T]) BeginTx() (*Dao[T], common.Error) {
 	if tx.Error != nil {
 		return nil, wrapDAOError("begin transaction failed", tx.Error)
 	}
-	return NewDaoWithDB[T](dao.ctx, tx), nil
+	txDao, err := NewDaoWithDB[T](dao.ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	return txDao, nil
 }
 
 func (dao *Dao[T]) CommitTx() common.Error {

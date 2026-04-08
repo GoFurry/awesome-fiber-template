@@ -81,13 +81,8 @@ go run . version
 
 - Cobra
 - Redis
-- scheduler
-- Swagger
 - WAF
-- Prometheus
 - CSRF
-- Helmet
-- pprof
 - `pkg/httpkit`
 - `pkg/abstract`
 - 内置 CRUD 示例业务
@@ -96,5 +91,5 @@ go run . version
 
 1. 在 `internal/app/<domain>` 下创建你的业务域。
 2. 在 `internal/http/url.go` 中注册路由。
-3. 如果后续需要自动建表，再把自己的 GORM 模型接进启动流程。
+3. 如果后续需要自动建表，再把自己的模型接进启动流程。
 4. 把 `go.mod` 里的模块路径替换成你自己的。

@@ -356,17 +356,16 @@ func ConfigureServerConfig(projectName, fileName, configFile string) {
 }
 
 func InitServerConfig(projectName string) error {
-	ConfigureServerConfig(projectName, "", "")
+	opts := currentConfigOptions()
+	ConfigureServerConfig(projectName, opts.fileName, opts.configFile)
 	ensureServerConfig()
 	return configErr
 }
 
-func MustInitServerConfig(projectName, configFile string) {
+func MustInitServerConfig(projectName, configFile string) error {
 	ConfigureServerConfig(projectName, "server.yaml", configFile)
 	ensureServerConfig()
-	if configErr != nil {
-		panic(configErr)
-	}
+	return configErr
 }
 
 func (cfg *serverConfig) normalize() {
@@ -880,10 +879,12 @@ func setNestedValue(target map[string]interface{}, key string, value interface{}
 
 func GetServerConfig() *serverConfig {
 	ensureServerConfig()
-	if configErr != nil {
-		panic(configErr)
+	if configuration != nil {
+		return configuration
 	}
-	return configuration
+	cfg := new(serverConfig)
+	cfg.normalize()
+	return cfg
 }
 
 func currentConfigOptions() configLoaderOptions {

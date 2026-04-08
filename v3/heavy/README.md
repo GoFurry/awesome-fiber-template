@@ -219,9 +219,10 @@ The default config is intentionally runnable with only Go installed.
 
 ## Testing
 
-Run the full test suite:
+Run the centralized test suites from `v3/test`:
 
 ```bash
+cd ../test
 go test ./...
 ```
 
