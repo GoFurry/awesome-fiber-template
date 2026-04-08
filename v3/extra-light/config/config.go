@@ -54,10 +54,8 @@ func InitServerConfig(filePath string) error {
 	return configErr
 }
 
-func MustInitServerConfig(filePath string) {
-	if err := InitServerConfig(filePath); err != nil {
-		panic(err)
-	}
+func MustInitServerConfig(filePath string) error {
+	return InitServerConfig(filePath)
 }
 
 func ensureServerConfig() {
@@ -157,8 +155,8 @@ func currentConfigPath() string {
 
 func GetServerConfig() *serverConfig {
 	ensureServerConfig()
-	if configErr != nil {
-		panic(configErr)
+	if configuration != nil {
+		return configuration
 	}
-	return configuration
+	return defaultConfig()
 }

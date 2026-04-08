@@ -9,6 +9,8 @@
 
 Instead of trying to cover many frameworks, this repository now stays focused on Fiber v3 and provides four template tiers so you can pick the amount of engineering baseline you actually want.
 
+It also includes an `addons/` directory as an optional capability pool for reusable service wrappers and utility packages. Addons are intentionally kept outside the template tiers so each template can stay focused and opt in only when needed.
+
 ## Template Matrix
 
 - [`v3/heavy`](./v3/heavy): full-featured edition with Redis, scheduler, service install/uninstall, WAF, Prometheus, Swagger, reusable helper packages, and a stronger infrastructure baseline
@@ -42,6 +44,7 @@ This repository is meant to help you skip repeated project setup work while stil
 - practical middleware and bootstrap defaults
 - SQLite-first out-of-the-box demo experience where appropriate
 - different template weights for different project sizes
+- optional addon packages for reusable external services and utilities
 
 ## Notes
 

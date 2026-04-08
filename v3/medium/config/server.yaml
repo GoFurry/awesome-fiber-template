@@ -18,8 +18,11 @@ server:
 # Redis settings.
 redis:
   enabled: false
+  redis_username: ""
   redis_addr: "127.0.0.1:6379"
   redis_password: "123456"
+  redis_db: 0
+  redis_pool_size: 10
 
 # Database settings.
 database:

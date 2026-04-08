@@ -29,6 +29,11 @@ printf 'Discovered modules under %s:\n' "${framework_dir}"
 printf ' - %s\n' "${modules[@]}"
 
 for module in "${modules[@]}"; do
+  if [[ "$(basename "${module}")" == "test" ]]; then
+    echo "Skipping centralized test module: ${module}"
+    continue
+  fi
+
   echo "::group::Checking ${module}"
 
   mapfile -d '' -t go_files < <(find "${module}" -type f -name '*.go' -not -path '*/vendor/*' -print0)

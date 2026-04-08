@@ -33,3 +33,9 @@ jobs:
 
       - name: Run checks
         run: bash .github/scripts/check-framework.sh v3
+
+      - name: Run centralized tests
+        run: |
+          cd v3/test
+          go test ./...
+          go vet ./...
