@@ -37,5 +37,5 @@ Use an addon only when a project explicitly needs it, then wire it in at the app
 
 ## Current Status
 
-All addon folders are placeholders only.
-Each folder contains documentation that describes the intended scope and future shape.
+- `mail/` is now implemented as a reusable SMTP mail addon.
+- Other addon folders are still placeholders only.
