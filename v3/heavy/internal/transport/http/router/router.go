@@ -16,7 +16,6 @@ import (
 	"github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/transport/http/middleware"
 	"github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/transport/http/webui"
 	"github.com/GoFurry/awesome-fiber-template/v3/heavy/pkg/common"
-	corazalite "github.com/GoFurry/coraza-fiber-lite"
 	swagger "github.com/gofiber/contrib/v3/swaggerui"
 	"github.com/gofiber/fiber/v3"
 	fibercompress "github.com/gofiber/fiber/v3/middleware/compress"
@@ -279,7 +278,11 @@ func registerMiddlewares(app *fiber.App) {
 	}
 
 	if cfg.Waf.Enabled {
-		app.Use(corazalite.CorazaMiddleware())
+		engine := bootstrap.WAFEngine()
+		if engine == nil {
+			panic("waf enabled but engine not initialized")
+		}
+		app.Use(engine.Middleware())
 	}
 
 	if cfg.Middleware.CSRF.Enabled {

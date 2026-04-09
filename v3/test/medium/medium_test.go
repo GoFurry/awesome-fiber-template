@@ -13,13 +13,40 @@ import (
 func TestMediumTemplateBlackBox(t *testing.T) {
 	port := "18102"
 	workdir := internaltest.TemplateRoot(t, "medium")
-	configPath, databasePath := writeMediumConfig(t, port)
+	configPath, databasePath := writeMediumConfig(t, port, "")
 	baseURL := internaltest.FormatBaseURL(port)
 
 	stop := internaltest.StartService(t, workdir, configPath, baseURL, "/healthz")
 	t.Cleanup(stop)
 
 	assertMediumScenario(t, baseURL, databasePath)
+}
+
+func TestMediumTemplateWAFBlackBox(t *testing.T) {
+	port := "18112"
+	workdir := internaltest.TemplateRoot(t, "medium")
+	wafConfPath := internaltest.WriteWAFRuleFile(t, t.TempDir())
+	configPath, _ := writeMediumConfig(t, port, wafConfPath)
+	baseURL := internaltest.FormatBaseURL(port)
+
+	stop := internaltest.StartService(t, workdir, configPath, baseURL, "/healthz")
+	t.Cleanup(stop)
+
+	allowed := internaltest.DoRequest(t, "GET", baseURL+"/api/v1/user/?page_num=1&page_size=10", nil)
+	if allowed.Status != 200 {
+		t.Fatalf("expected safe request to pass with WAF enabled, got %+v", allowed)
+	}
+
+	blocked := internaltest.DoRequest(t, "GET", baseURL+"/api/v1/user/?attack=1&page_num=1&page_size=10", nil)
+	if blocked.Status != 403 {
+		t.Fatalf("expected WAF to block malicious request, got %+v", blocked)
+	}
+	if blocked.Headers.Get("X-WAF-Blocked") != "true" {
+		t.Fatalf("expected X-WAF-Blocked header on blocked response")
+	}
+	if blocked.Code == 1 || !strings.Contains(strings.ToLower(blocked.Message), "blocked") {
+		t.Fatalf("expected blocked error envelope, got %+v", blocked)
+	}
 }
 
 func assertMediumScenario(t *testing.T, baseURL, databasePath string) {
@@ -124,7 +151,7 @@ func createUsers(t *testing.T, baseURL string) []internaltest.UserResponse {
 	return users
 }
 
-func writeMediumConfig(t *testing.T, port string) (string, string) {
+func writeMediumConfig(t *testing.T, port string, wafConfPath string) (string, string) {
 	t.Helper()
 
 	tempDir := t.TempDir()
@@ -138,6 +165,14 @@ func writeMediumConfig(t *testing.T, port string) (string, string) {
 	}
 
 	configPath := filepath.Join(tempDir, "server.yaml")
+	wafSection := ""
+	if wafConfPath != "" {
+		wafSection = fmt.Sprintf(`
+waf:
+  enabled: true
+  conf_path: [%q]
+`, filepath.ToSlash(wafConfPath))
+	}
 	configBody := fmt.Sprintf(`server:
   app_id: "awesome-fiber-template"
   app_name: "Awesome Fiber Template"
@@ -165,7 +200,7 @@ middleware:
     allow_origins: ["http://127.0.0.1:8888"]
   limiter:
     enabled: false
-`, port, filepath.ToSlash(databasePath), filepath.ToSlash(logPath))
+%s`, port, filepath.ToSlash(databasePath), filepath.ToSlash(logPath), wafSection)
 
 	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
 		t.Fatalf("write test config failed: %v", err)

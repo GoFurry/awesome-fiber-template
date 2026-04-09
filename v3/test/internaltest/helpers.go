@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -274,6 +275,21 @@ func WaitForStatus(t *testing.T, url string, want int) {
 
 func FormatBaseURL(port string) string {
 	return fmt.Sprintf("http://127.0.0.1:%s", port)
+}
+
+func WriteWAFRuleFile(t *testing.T, dir string) string {
+	t.Helper()
+
+	const rules = `SecRuleEngine On
+SecRequestBodyAccess On
+SecRule ARGS:attack "@streq 1" "id:1001,phase:2,deny,status:403,msg:'attack detected'"`
+
+	path := filepath.Join(dir, "coraza-test.conf")
+	if err := os.WriteFile(path, []byte(rules), 0o644); err != nil {
+		t.Fatalf("write waf rule file failed: %v", err)
+	}
+
+	return path
 }
 
 func isExpectedExit(err error) bool {
