@@ -1,41 +1,65 @@
-# Optional Addons
+# Addons
 
-`addons` is a placeholder capability pool for reusable, opt-in service adapters and utility packages.
+`addons` is the reusable capability area of this repository.
 
-It is intentionally kept outside `v3/` so the four template tiers stay focused on their own engineering baseline.
+Unlike the `v3/*` templates, addons are intentionally optional and self-contained. Each addon is meant to be copied into a real project only when that capability is needed.
 
-## Design Goals
-
-- Keep each addon small and easy to copy or import.
-- Make every addon optional, with no hard dependency on any template tier.
-- Prefer one capability per package.
-- Document the intended interface before adding implementation details.
-
-## Suggested Layout
+## Current Layout
 
 ```text
 addons/
-  mongodb/
-  redis/
-  minio/
-  kafka/
-  rabbitmq/
   mail/
-  sms/
-  jwt/
-  id/
-  crypto/
-  retry/
-  paginator/
-  observability/
+  mongodb/
+  s3/
 ```
+
+## Design Rules
+
+- keep runtime code small and easy to copy into an app
+- keep addons decoupled from `v3/*` templates by default
+- prefer one addon for one clear infrastructure capability
+- document boundaries and usage before adding more abstraction
+
+## Implemented Addons
+
+### `mail/`
+
+Reusable SMTP mail addon with:
+
+- multi-account SMTP pool
+- rotation strategies such as `none`, `round_robin`, and `random`
+- failover on retryable SMTP and connection errors
+- custom HTML and built-in HTML templates
+- common mail fields such as `cc`, `bcc`, `reply-to`, headers, and attachments
+
+### `mongodb/`
+
+Reusable MongoDB addon based on the official `mongo-driver/v2`, with:
+
+- `URI`-first and structured configuration support
+- `Client`, `Database`, and `Collection` access
+- `Ping` and `Close`
+- thin CRUD helpers around a collection wrapper
+- direct access to the raw driver for advanced usage
+
+### `s3/`
+
+Reusable S3-compatible object storage addon based on AWS SDK v2, with:
+
+- explicit config for region, endpoint, credentials, bucket, and path-style mode
+- upload helpers for bytes, readers, and local files
+- object download as bytes or stream
+- `HeadObject` and idempotent `DeleteObject`
+- pre-signed `GET`, `PUT`, and `DELETE` URLs
 
 ## Integration Rule
 
 Templates should not depend on `addons` by default.
-Use an addon only when a project explicitly needs it, then wire it in at the application boundary.
 
-## Current Status
+When a project needs one of these capabilities, copy the addon into the application boundary and wire it through that project's own config and lifecycle.
 
-- `mail/` is now implemented as a reusable SMTP mail addon.
-- Other addon folders are still placeholders only.
+## Notes
+
+- `mail/`, `mongodb/`, and `s3/` are the current maintained addons in this repository.
+- The old MinIO-specific direction has been consolidated into the more general `s3/` addon.
+- If more addons are added later, they should follow the same "optional, single-purpose, easy to copy" rule.
