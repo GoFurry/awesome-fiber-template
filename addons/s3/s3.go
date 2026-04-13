@@ -237,8 +237,11 @@ func (s *Service) DeleteObject(ctx context.Context, key string, opts ...ObjectOp
 	}
 
 	_, err = service.client.DeleteObject(ctxOrBackground(ctx), input)
-	if err != nil && !errors.Is(classifyS3Error(err), ErrObjectNotFound) {
-		return classifyS3Error(err)
+	if err != nil {
+		classified := classifyS3Error(err)
+		if !errors.Is(classified, ErrObjectNotFound) {
+			return classified
+		}
 	}
 
 	return nil
@@ -580,6 +583,9 @@ func normalizeConfig(cfg Config) (Config, error) {
 	if (normalized.AccessKey == "") != (normalized.SecretKey == "") {
 		return Config{}, errors.New("s3 access key and secret key must be provided together")
 	}
+	if normalized.SessionToken != "" && normalized.AccessKey == "" {
+		return Config{}, errors.New("s3 session token requires access key and secret key")
+	}
 	if normalized.PresignExpire <= 0 {
 		normalized.PresignExpire = defaultPresignExpire
 	}
@@ -605,6 +611,8 @@ func buildAWSConfig(ctx context.Context, cfg Config) (aws.Config, error) {
 			cfg.SecretKey,
 			cfg.SessionToken,
 		)))
+	} else {
+		loadOptions = append(loadOptions, awsconfig.WithCredentialsProvider(aws.AnonymousCredentials{}))
 	}
 
 	awsCfg, err := loadAWSConfig(ctx, loadOptions...)

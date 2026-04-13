@@ -510,3 +510,26 @@ func (m *mockSender) accountNames() []string {
 	}
 	return result
 }
+
+func TestNilServiceIsSafe(t *testing.T) {
+	t.Parallel()
+
+	var service *Service
+	if err := service.Send(context.Background(), Message{Subject: "x", TextBody: "y", To: []string{"a@example.com"}}); err == nil || !strings.Contains(err.Error(), "service is nil") {
+		t.Fatalf("expected nil service error, got %v", err)
+	}
+	if err := service.SendTemplate(context.Background(), TemplateMessage{Message: Message{Subject: "x", To: []string{"a@example.com"}}, Template: TemplateWelcome}); err == nil || !strings.Contains(err.Error(), "service is nil") {
+		t.Fatalf("expected nil service error, got %v", err)
+	}
+}
+
+func TestSMTPHelloNameDefaultsToLocalhost(t *testing.T) {
+	t.Parallel()
+
+	if got, want := smtpHelloName(""), "localhost"; got != want {
+		t.Fatalf("unexpected default hello name: got %q want %q", got, want)
+	}
+	if got, want := smtpHelloName(" mail.example "), "mail.example"; got != want {
+		t.Fatalf("unexpected trimmed hello name: got %q want %q", got, want)
+	}
+}

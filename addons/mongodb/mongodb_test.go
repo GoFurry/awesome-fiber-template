@@ -39,6 +39,27 @@ func TestBuildClientOptionsDSNPriority(t *testing.T) {
 	if len(opts.Hosts) != 1 || opts.Hosts[0] != "uri-host:27017" {
 		t.Fatalf("expected URI hosts to win, got %+v", opts.Hosts)
 	}
+	if opts.Auth != nil {
+		t.Fatalf("expected URI auth to remain untouched, got %+v", opts.Auth)
+	}
+}
+
+func TestBuildClientOptionsURIAuthPriority(t *testing.T) {
+	t.Parallel()
+
+	opts, err := buildClientOptions(Config{
+		URI:        "mongodb://uri-user:uri-secret@uri-host:27017/uri_db?authSource=uri_admin",
+		Username:   "structured-user",
+		Password:   "structured-secret",
+		AuthSource: "structured_admin",
+	})
+	if err != nil {
+		t.Fatalf("build client options failed: %v", err)
+	}
+
+	if opts.Auth == nil || opts.Auth.Username != "uri-user" || opts.Auth.Password != "uri-secret" {
+		t.Fatalf("expected URI auth to win, got %+v", opts.Auth)
+	}
 }
 
 func TestBuildClientOptionsStructuredConfig(t *testing.T) {
@@ -624,5 +645,18 @@ func TestMockFindManyPathUsesCursorClose(t *testing.T) {
 	}
 	if !cursor.closed {
 		t.Fatalf("expected cursor close to be called")
+	}
+}
+
+func TestNilServiceCollectionIsSafe(t *testing.T) {
+	t.Parallel()
+
+	var service *Service
+	collection := service.Collection("users")
+	if collection == nil {
+		t.Fatalf("expected collection wrapper")
+	}
+	if err := collection.ensureReady(); err == nil || !strings.Contains(err.Error(), "not initialized") {
+		t.Fatalf("expected not initialized error, got %v", err)
 	}
 }

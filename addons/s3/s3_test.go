@@ -120,6 +120,40 @@ func TestNewUsesExplicitConfig(t *testing.T) {
 	}
 }
 
+func TestNewUsesAnonymousCredentialsWhenExplicitKeysAreAbsent(t *testing.T) {
+	t.Parallel()
+
+	originalLoad := loadAWSConfig
+	t.Cleanup(func() {
+		loadAWSConfig = originalLoad
+	})
+
+	var capturedLoadOptions awsconfig.LoadOptions
+	loadAWSConfig = func(ctx context.Context, optFns ...func(*awsconfig.LoadOptions) error) (aws.Config, error) {
+		for _, optFn := range optFns {
+			if err := optFn(&capturedLoadOptions); err != nil {
+				return aws.Config{}, err
+			}
+		}
+		return aws.Config{
+			Region:      capturedLoadOptions.Region,
+			Credentials: capturedLoadOptions.Credentials,
+		}, nil
+	}
+
+	if _, err := New(context.Background(), Config{
+		Region:   "ap-southeast-1",
+		Endpoint: "example.com",
+		Bucket:   "assets",
+	}); err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+
+	if _, ok := capturedLoadOptions.Credentials.(aws.AnonymousCredentials); !ok {
+		t.Fatalf("expected anonymous credentials provider, got %T", capturedLoadOptions.Credentials)
+	}
+}
+
 func TestNewRejectsPartialStaticCredentials(t *testing.T) {
 	t.Parallel()
 
@@ -129,6 +163,18 @@ func TestNewRejectsPartialStaticCredentials(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "access key and secret key") {
 		t.Fatalf("expected partial credential error, got %v", err)
+	}
+}
+
+func TestNewRejectsSessionTokenWithoutKeyPair(t *testing.T) {
+	t.Parallel()
+
+	_, err := New(context.Background(), Config{
+		Region:       "ap-southeast-1",
+		SessionToken: "session",
+	})
+	if err == nil || !strings.Contains(err.Error(), "session token requires access key and secret key") {
+		t.Fatalf("expected session token validation error, got %v", err)
 	}
 }
 

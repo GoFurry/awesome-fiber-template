@@ -41,7 +41,8 @@ Fields:
 
 - `Region`: required
 - `Endpoint`: optional custom endpoint for S3-compatible providers
-- `AccessKey` / `SecretKey` / `SessionToken`: optional explicit credentials
+- `AccessKey` / `SecretKey`: optional explicit credentials
+- `SessionToken`: optional, but only valid together with `AccessKey` and `SecretKey`
 - `Bucket`: optional default bucket
 - `UseSSL`: used when `Endpoint` does not already contain a scheme
 - `ForcePathStyle`: recommended for MinIO and many self-hosted S3-compatible services
@@ -142,4 +143,5 @@ deleteURL, deleteHeaders, err := svc.PresignDelete(ctx, "uploads/raw.bin")
 - This addon is intentionally thin. Listing, multipart upload managers, copy/move, ACL, tagging, and bucket management are out of scope for the first version.
 - `ErrObjectNotFound` is returned for stable not-found handling on read-style operations.
 - `DeleteObject` treats not found as success.
+- The addon does not fall back to the AWS shared credential chain; it uses explicit credentials when provided and anonymous credentials otherwise.
 - If you need advanced S3 features, use `svc.Client()` or `svc.PresignClient()` directly.

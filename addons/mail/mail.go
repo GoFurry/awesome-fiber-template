@@ -183,6 +183,9 @@ func New(cfg Config) (*Service, error) {
 }
 
 func (s *Service) Send(ctx context.Context, msg Message) error {
+	if s == nil {
+		return errors.New("mail service is nil")
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -225,6 +228,9 @@ func (s *Service) Send(ctx context.Context, msg Message) error {
 }
 
 func (s *Service) SendTemplate(ctx context.Context, msg TemplateMessage) error {
+	if s == nil {
+		return errors.New("mail service is nil")
+	}
 	if msg.Template == "" {
 		return errors.New("template is required")
 	}
@@ -875,10 +881,9 @@ func (smtpClientSender) Send(ctx context.Context, account AccountConfig, envelop
 		_ = client.Close()
 	}()
 
-	if localName != "" {
-		if err := client.Hello(localName); err != nil {
-			return classifySMTPError("smtp hello failed", err, true)
-		}
+	helloName := smtpHelloName(localName)
+	if err := client.Hello(helloName); err != nil {
+		return classifySMTPError("smtp hello failed", err, true)
 	}
 
 	if account.Encryption == EncryptionSTARTTLS {
@@ -888,6 +893,9 @@ func (smtpClientSender) Send(ctx context.Context, account AccountConfig, envelop
 		}
 		if err := client.StartTLS(tlsConfigForAccount(account)); err != nil {
 			return classifySMTPError("smtp starttls failed", err, true)
+		}
+		if err := client.Hello(helloName); err != nil {
+			return classifySMTPError("smtp hello after starttls failed", err, true)
 		}
 	}
 
@@ -923,6 +931,13 @@ func (smtpClientSender) Send(ctx context.Context, account AccountConfig, envelop
 		return classifySMTPError("smtp quit failed", err, true)
 	}
 	return nil
+}
+
+func smtpHelloName(localName string) string {
+	if trimmed := strings.TrimSpace(localName); trimmed != "" {
+		return trimmed
+	}
+	return "localhost"
 }
 
 func connectionDeadline(ctx context.Context, sendTimeout, dialTimeout time.Duration) time.Time {

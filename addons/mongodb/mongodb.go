@@ -172,6 +172,13 @@ func (s *Service) Database(name ...string) *mongo.Database {
 }
 
 func (s *Service) Collection(name string) *Collection {
+	if s == nil {
+		return &Collection{
+			name: strings.TrimSpace(name),
+			err:  errors.New("mongodb service is not initialized"),
+		}
+	}
+
 	trimmedName := strings.TrimSpace(name)
 	if trimmedName == "" {
 		return &Collection{err: errors.New("collection name is required")}
@@ -321,6 +328,9 @@ func (c *Collection) CountDocuments(ctx context.Context, filter any, opts ...opt
 }
 
 func (s *Service) resolveDatabaseName(name ...string) string {
+	if s == nil {
+		return ""
+	}
 	if len(name) > 0 {
 		explicit := strings.TrimSpace(name[0])
 		if explicit != "" {
@@ -411,24 +421,24 @@ func buildClientOptions(cfg Config) (*options.ClientOptions, error) {
 		clientOptions.ApplyURI(cfg.URI)
 	} else {
 		clientOptions.ApplyURI(buildMongoURI(cfg))
+		if len(cfg.Hosts) > 0 {
+			clientOptions.SetHosts(cfg.Hosts)
+		}
+		if cfg.Username != "" || cfg.Password != "" || cfg.AuthSource != "" {
+			clientOptions.SetAuth(options.Credential{
+				Username:   cfg.Username,
+				Password:   cfg.Password,
+				AuthSource: cfg.AuthSource,
+			})
+		}
+		if cfg.ReplicaSet != "" {
+			clientOptions.SetReplicaSet(cfg.ReplicaSet)
+		}
+		if cfg.Direct {
+			clientOptions.SetDirect(true)
+		}
 	}
 
-	if cfg.URI == "" && len(cfg.Hosts) > 0 {
-		clientOptions.SetHosts(cfg.Hosts)
-	}
-	if cfg.Username != "" || cfg.Password != "" || cfg.AuthSource != "" {
-		clientOptions.SetAuth(options.Credential{
-			Username:   cfg.Username,
-			Password:   cfg.Password,
-			AuthSource: cfg.AuthSource,
-		})
-	}
-	if cfg.ReplicaSet != "" {
-		clientOptions.SetReplicaSet(cfg.ReplicaSet)
-	}
-	if cfg.Direct {
-		clientOptions.SetDirect(true)
-	}
 	if cfg.AppName != "" {
 		clientOptions.SetAppName(cfg.AppName)
 	}
@@ -453,7 +463,7 @@ func buildClientOptions(cfg Config) (*options.ClientOptions, error) {
 	if cfg.RetryWrites != nil {
 		clientOptions.SetRetryWrites(*cfg.RetryWrites)
 	}
-	if cfg.TLS != nil && cfg.TLS.Enabled {
+	if cfg.TLS != nil && cfg.TLS.Enabled && cfg.URI == "" {
 		clientOptions.SetTLSConfig(&tls.Config{
 			InsecureSkipVerify: cfg.TLS.InsecureSkipVerify,
 			MinVersion:         tls.VersionTLS12,
