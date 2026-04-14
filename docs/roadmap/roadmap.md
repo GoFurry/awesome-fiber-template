@@ -1,83 +1,93 @@
 # Roadmap
 
-This roadmap tracks the long-term evolution of `awesome-fiber-template` as a Fiber v3 engineering baseline repository.
+This roadmap now tracks only the next unfinished stages of `awesome-fiber-template`.
 
-## Current State
+Implemented work such as template tiering, centralized tests, template boundary rules, and the first productized addons is intentionally left out so this document stays focused on what comes next.
+
+## Current Position
 
 The repository already has:
 
 - four stable template tiers under `v3/`
-- a centralized black-box test module under `v3/test`
-- a documented template boundary system
-- an `addons/` capability layer with maintained reference implementations
+- centralized black-box tests under `v3/test`
+- formal template and addon boundary documentation
+- productized `migrate` and `redis` addons
+- community-first decisions for observability and auth integration
 
-That means the next steps are not about adding more random templates. They are about stabilizing the composition model.
+That means the next milestone is no longer about stabilizing the repository shape. It is about making composition easier.
 
-## Product Direction
+## P2: Composition Layer
 
-The repository should evolve along four layers:
+P2 is the next active milestone.
 
-1. template layer: `heavy`, `medium`, `light`, `extra-light`
-2. addon layer: optional reusable infrastructure capabilities
-3. composition layer: future generator and preset support
-4. quality layer: CI, smoke tests, race checks, and compatibility verification
+### Goal
 
-## P0 Status
+Reduce manual template duplication and make project generation more structured without turning the repository into a heavy framework.
 
-P0 is complete.
+### Planned Deliverables
 
-Delivered:
+- a minimal `aft` generator MVP
+- preset manifests for official starting points
+- capability manifests for optional composition rules
+- documented generation rules for template selection and addon injection
+- validation for generated project output
 
-- formal template boundary documentation
-- addon design rules
-- repository evolution rules
-- centralized documentation entrypoints
-- stronger CI separation for templates, centralized tests, and addons
+### Generator MVP Scope
 
-## P1 Status
+The first generator should stay intentionally small.
 
-P1 focuses on high-value reusable capabilities and clearer product boundaries.
+Expected commands:
 
-Delivered or being delivered:
+- `aft new <name> --preset heavy`
+- `aft new <name> --preset medium`
+- `aft new <name> --preset light`
+- `aft new <name> --preset extra-light`
+- optional `--with` flags for supported capabilities
 
-- `addons/migrate`: thin migration wrapper based on `pressly/goose/v3`
-- `addons/redis`: reusable Redis service aligned with the Redis shape kept in `heavy` and `medium`
+The MVP should handle:
 
-Boundary decisions:
+- module path replacement
+- preset selection
+- optional capability injection
+- basic README and config bootstrapping
 
-- observability: prefer `github.com/gofiber/contrib/v3/otel`
-- auth middleware: prefer `github.com/gofiber/contrib/v3/jwt`
+The MVP should not try to solve:
 
-These are intentionally community-first choices, not missing repository features.
+- AST-heavy code rewriting
+- remote template marketplaces
+- plugin systems
+- large internal DSLs
 
-## P2 Direction
+## P3: Data Access Expansion
 
-After the addon layer is stable, the next stage should be a minimal composition workflow:
+After the composition layer is stable, the next priority is expanding data-access choices without multiplying template tiers.
 
-- generator MVP
-- preset manifests
-- capability manifests
-- project bootstrap automation
+### Goal
 
-The goal is to reduce manual template duplication rather than introduce a heavy abstraction framework.
+Keep the current GORM-first path, while offering a cleaner SQL-first alternative.
 
-## What We Will Avoid
+### Candidate Deliverables
 
-To keep the repository maintainable, the roadmap explicitly avoids:
+- `medium-sql` as a preset or capability combination
+- SQL-first query tooling exploration
+- migration-aware database presets
+- clearer guidance for choosing ORM vs SQL-first paths
 
-- adding more and more template tiers
-- turning templates into business-heavy starter apps
-- rebuilding mature community integrations without a strong reason
-- coupling projects directly to repository internals
+## P4: Production Capability Packs
 
-## Near-Term Priorities
+Once generator and preset composition are stable, the next stage is deeper production-oriented capability packs.
 
-1. finish productizing `migrate` and `redis`
-2. keep template and addon boundaries stable
-3. strengthen validation and compatibility checks
-4. prepare a small generator MVP only after the addon model feels proven
+### Candidate Areas
 
-## Long-Term Goal
+- stronger observability presets
+- audit logging
+- webhook tooling
+- queue integration
+- security-oriented capability packs
+
+These should prefer preset and addon composition instead of creating more template tiers.
+
+## Long-Term Direction
 
 The long-term goal is not to become a giant boilerplate collection.
 
@@ -85,5 +95,14 @@ It is to become a practical Fiber v3 engineering baseline system with:
 
 - layered templates
 - reusable optional addons
-- clear selection rules
+- clear composition rules
 - future-ready project generation
+
+## What We Will Avoid
+
+To keep the repository maintainable, the roadmap explicitly avoids:
+
+- adding more and more template tiers
+- rebuilding mature community integrations without a strong reason
+- turning templates into business-heavy starter apps
+- coupling projects directly to repository internals
