@@ -90,7 +90,19 @@ func (s *Service) SetNX(ctx context.Context, key string, value any, expiration t
 	if err := s.ensureReady(); err != nil {
 		return false, err
 	}
-	return s.raw.SetNX(ctxOrBackground(ctx), key, value, expiration).Result()
+
+	result, err := s.raw.SetArgs(ctxOrBackground(ctx), key, value, goredis.SetArgs{
+		TTL:  expiration,
+		Mode: "NX",
+	}).Result()
+	switch {
+	case errors.Is(err, goredis.Nil):
+		return false, nil
+	case err != nil:
+		return false, err
+	default:
+		return strings.EqualFold(result, "OK"), nil
+	}
 }
 
 func (s *Service) Set(ctx context.Context, key string, value any) error {
