@@ -16,15 +16,11 @@
   request ID, access log, timeout, health probes, security headers, compression, ETag, rate limiting, pprof, Swagger, CSRF, and WAF
 - Optional embedded UI support, disabled by default
 
-## Project Positioning
+## Recommended Use
 
-This is the current `medium` version.
+Use `medium` when you want a production-oriented HTTP template that keeps the business layer plain while avoiding the heavier scheduler and Prometheus burden from `heavy`.
 
-- Compared with `heavy`, it removes scheduler and Prometheus-related runtime burden.
-- Compared with `light`, it still keeps Redis, WAF, service install/uninstall, and embedded UI support ready to use.
-- Compared with the old over-assembled style, it keeps business code plain: `controller`, `dao`, `service`, and `models`, with routes registered directly in `url.go`.
-
-If you want a backend template that is still production-oriented but avoids platform-style over-design, this is the intended direction.
+It is the most balanced choice for teams that still want Redis, WAF, Swagger, service-manager support, and embedded UI available when needed.
 
 ## Quick Start
 
@@ -158,6 +154,11 @@ That is the only schema bootstrap behavior kept in this `medium` version.
 - no migration tracking table
 
 If you later need stricter schema management, that can be added in another variant without making the default workflow heavier.
+
+For long-term repository rules and template boundaries, see the docs under the repository root:
+
+- `docs/architecture/template-boundaries.md`
+- `docs/architecture/repository-rules.md`
 
 ## Middleware Baseline
 

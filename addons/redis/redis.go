@@ -1,4 +1,4 @@
-package cache
+package redis
 
 import (
 	"context"
@@ -7,15 +7,7 @@ import (
 	"strings"
 	"time"
 
-	env "github.com/GoFurry/awesome-fiber-template/v3/heavy/config"
-	log "github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/infra/logging"
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/pkg/common"
 	goredis "github.com/redis/go-redis/v9"
-)
-
-var (
-	service           *Service
-	backgroundContext = context.Background()
 )
 
 type Config struct {
@@ -45,71 +37,20 @@ func New(ctx context.Context, cfg Config) (*Service, error) {
 		Password:  normalized.Password,
 		DB:        normalized.DB,
 		PoolSize:  normalized.PoolSize,
-		OnConnect: onConnect,
+		OnConnect: func(ctx context.Context, cn *goredis.Conn) error { return nil },
 	})
 
-	svc := &Service{
+	service := &Service{
 		cfg: normalized,
 		raw: client,
 	}
 
-	connCtx, cancel := context.WithTimeout(ctxOrBackground(ctx), 5*time.Second)
-	defer cancel()
-	if err := svc.Ping(connCtx); err != nil {
-		_ = svc.Close()
+	if err := service.Ping(ctx); err != nil {
+		_ = service.Close()
 		return nil, fmt.Errorf("ping redis failed: %w", err)
 	}
 
-	return svc, nil
-}
-
-func GetRedisService() *goredis.Client {
-	if service == nil {
-		return nil
-	}
-	return service.Raw()
-}
-
-func Raw() *goredis.Client {
-	return GetRedisService()
-}
-
-func RedisReady() bool {
-	if service == nil {
-		return false
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	return service.Ping(ctx) == nil
-}
-
-func InitRedisOnStart() error {
-	cfg := env.GetServerConfig().Redis
-	svc, err := New(context.Background(), Config{
-		Addr:     cfg.RedisAddr,
-		Username: cfg.RedisUsername,
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
-		PoolSize: cfg.RedisPoolSize,
-	})
-	if err != nil {
-		return fmt.Errorf("connect to redis failed: %w", err)
-	}
-
-	service = svc
-	log.Debug("redis connected")
-	return nil
-}
-
-func Close() error {
-	if service == nil {
-		return nil
-	}
-
-	err := service.Close()
-	service = nil
-	return err
+	return service, nil
 }
 
 func (s *Service) Raw() *goredis.Client {
@@ -333,7 +274,7 @@ func (s *Service) DelByPrefix(ctx context.Context, prefix string) error {
 	return s.Del(ctx, keys...)
 }
 
-func (s *Service) PipelineExec(ctx context.Context, fn func(pipe Pipeliner)) error {
+func (s *Service) PipelineExec(ctx context.Context, fn func(pipe goredis.Pipeliner)) error {
 	if err := s.ensureReady(); err != nil {
 		return err
 	}
@@ -345,152 +286,6 @@ func (s *Service) PipelineExec(ctx context.Context, fn func(pipe Pipeliner)) err
 	fn(pipe)
 	_, err := pipe.Exec(ctxOrBackground(ctx))
 	return err
-}
-
-func Get(key string) *goredis.Cmd {
-	if service == nil || service.Raw() == nil {
-		cmd := goredis.NewCmd(backgroundContext)
-		cmd.SetErr(errors.New("redis service is not ready"))
-		return cmd
-	}
-	return service.Raw().Do(backgroundContext, "GET", key)
-}
-
-func Del(keys ...string) common.Error {
-	if err := current().Del(backgroundContext, keys...); err != nil {
-		log.Errorf("redis DEL failed: %v", err)
-		return common.NewServiceError("delete redis keys failed")
-	}
-	return nil
-}
-
-func SetNX(key string, value any, expiration time.Duration) bool {
-	ok, err := current().SetNX(backgroundContext, key, value, expiration)
-	if err != nil {
-		log.Errorf("redis SETNX failed: %v", err)
-		return false
-	}
-	return ok
-}
-
-func Set(key string, value any) common.Error {
-	return SetExpire(key, value, 0)
-}
-
-func SetExpire(key string, value any, expiration time.Duration) common.Error {
-	if err := current().SetExpire(backgroundContext, key, value, expiration); err != nil {
-		log.Errorf("redis SET failed: %v", err)
-		return common.NewServiceError("set redis key failed")
-	}
-	return nil
-}
-
-func GetString(key string) (string, common.Error) {
-	value, err := current().GetString(backgroundContext, key)
-	if err != nil {
-		log.Errorf("redis GET failed: %v", err)
-		return "", common.NewServiceError("get redis key failed")
-	}
-	return value, nil
-}
-
-func HSetMap(key string, kvMap map[string]string) common.Error {
-	if err := current().HSetMap(backgroundContext, key, kvMap); err != nil {
-		log.Errorf("redis HSET map failed: %v", err)
-		return common.NewServiceError("set redis hash failed")
-	}
-	return nil
-}
-
-func HSet(key string, fieldName string, fieldVal string) common.Error {
-	if err := current().HSet(backgroundContext, key, fieldName, fieldVal); err != nil {
-		log.Errorf("redis HSET failed: %v", err)
-		return common.NewServiceError("set redis hash field failed")
-	}
-	return nil
-}
-
-func HGet(key string, fieldName string) (string, common.Error) {
-	value, err := current().HGet(backgroundContext, key, fieldName)
-	if err != nil {
-		log.Errorf("redis HGET failed: %v", err)
-		return "", common.NewServiceError("get redis hash field failed")
-	}
-	return value, nil
-}
-
-func HMGet(key string, fields ...string) ([]interface{}, common.Error) {
-	value, err := current().HMGet(backgroundContext, key, fields...)
-	if err != nil {
-		log.Errorf("redis HMGET failed: %v", err)
-		return nil, common.NewServiceError("get redis hash fields failed")
-	}
-	return value, nil
-}
-
-func HGetAll(key string) (map[string]string, common.Error) {
-	value, err := current().HGetAll(backgroundContext, key)
-	if err != nil {
-		log.Errorf("redis HGETALL failed: %v", err)
-		return nil, common.NewServiceError("get redis hash failed")
-	}
-	return value, nil
-}
-
-func HDel(key string, fields ...string) (int64, common.Error) {
-	value, err := current().HDel(backgroundContext, key, fields...)
-	if err != nil {
-		log.Errorf("redis HDEL failed: %v", err)
-		return 0, common.NewServiceError("delete redis hash fields failed")
-	}
-	return value, nil
-}
-
-func Incr(key string) {
-	if _, err := current().Incr(backgroundContext, key); err != nil {
-		log.Errorf("redis INCR failed: %v", err)
-	}
-}
-
-func CountByPrefix(prefix string) (int64, common.Error) {
-	value, err := current().CountByPrefix(backgroundContext, prefix)
-	if err != nil {
-		log.Errorf("redis SCAN failed: %v", err)
-		return 0, common.NewServiceError("scan redis keys failed")
-	}
-	return value, nil
-}
-
-func DelByPrefix(prefix string) common.Error {
-	if err := current().DelByPrefix(backgroundContext, prefix); err != nil {
-		log.Errorf("redis delete by prefix failed: %v", err)
-		return common.NewServiceError("scan redis keys failed")
-	}
-	return nil
-}
-
-func FindByPrefix(prefix string) ([]string, common.Error) {
-	value, err := current().FindByPrefix(backgroundContext, prefix)
-	if err != nil {
-		log.Errorf("redis scan failed: %v", err)
-		return nil, common.NewServiceError("scan redis keys failed")
-	}
-	return value, nil
-}
-
-func PipelineExec(fn func(pipe Pipeliner)) common.Error {
-	if err := current().PipelineExec(backgroundContext, fn); err != nil {
-		log.Errorf("redis pipeline execution failed: %v", err)
-		return common.NewServiceError("execute redis pipeline failed")
-	}
-	return nil
-}
-
-func current() *Service {
-	if service == nil {
-		return &Service{}
-	}
-	return service
 }
 
 func (s *Service) ensureReady() error {
@@ -513,11 +308,6 @@ func normalizeConfig(cfg Config) (Config, error) {
 		return Config{}, errors.New("redis pool size cannot be negative")
 	}
 	return normalized, nil
-}
-
-func onConnect(ctx context.Context, cn *goredis.Conn) error {
-	log.Debug("redis connection opened")
-	return nil
 }
 
 func ctxOrBackground(ctx context.Context) context.Context {

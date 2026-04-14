@@ -9,7 +9,16 @@
 
 这个仓库不再尝试覆盖多套 Web 框架，而是聚焦在 Fiber 上，并提供四个不同重量级的模板版本，方便你按项目规模和偏好直接选择。
 
-仓库里还保留了一个独立的 `addons/` 目录，用来放置可选增强能力的占位文档，例如 MongoDB、Redis、MinIO、Kafka、JWT、重试工具等。它们不会默认进入任何模板版本，只在项目需要时再按需接入。
+仓库里还保留了一个独立的 `addons/` 目录，用来放置可选增强能力模块。它们不会默认进入任何模板版本，只在项目需要时再按需接入。
+
+## 文档入口
+
+- [文档索引](./docs/README.md)
+- [模板边界](./docs/architecture/template-boundaries.md)
+- [Addon 设计规则](./docs/architecture/addon-design-rules.md)
+- [模板选择指南](./docs/guides/template-selection.md)
+- [Addon 接入指南](./docs/guides/addon-integration.md)
+- [路线图归档](./docs/roadmap/roadmap.md)
 
 ## 模板版本
 
