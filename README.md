@@ -1,7 +1,11 @@
 ﻿# awesome-fiber-template
 
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-6C757D?style=flat&color=3B82F6)
+![Release](https://img.shields.io/github/v/release/GoFurry/awesome-fiber-template?style=flat&color=blue)
 ![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go&logoColor=white)
+
+![Weekend Project](https://img.shields.io/badge/weekend-project-8B5CF6?style=flat)
+![Made with Love](https://img.shields.io/badge/made%20with-%E2%9D%A4-E11D48?style=flat&color=orange)
 
 [中文说明](./README_zh.md)
 
