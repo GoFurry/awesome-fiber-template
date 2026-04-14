@@ -4,6 +4,8 @@
 
 `extra-light` is the smallest edition in this scaffold family. It keeps only the minimum runtime pieces needed to start a Fiber service cleanly: native CLI, minimal config, SQLite bootstrap, logging, panic recovery, and health probes.
 
+Repository-wide template boundaries and evolution rules are maintained under the root `docs/` directory instead of inside this README.
+
 ## What This Template Includes
 
 - plain native CLI with `serve` and `version`

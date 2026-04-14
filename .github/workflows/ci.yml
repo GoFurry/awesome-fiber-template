@@ -25,7 +25,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.26.0"
+          go-version: "1.26"
           cache: true
           cache-dependency-path: |
             v3/**/go.sum
@@ -34,8 +34,52 @@ jobs:
       - name: Run checks
         run: bash .github/scripts/check-framework.sh v3
 
+      - name: Run template contracts
+        run: bash .github/scripts/check-v3-contracts.sh
+
+      - name: Run extra-light race checks
+        run: |
+          cd v3/extra-light
+          go test -race ./...
+
+  centralized-tests:
+    name: Centralized Template Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+          cache-dependency-path: |
+            v3/test/go.sum
+            v3/test/go.mod
+
       - name: Run centralized tests
         run: |
           cd v3/test
           go test ./...
           go vet ./...
+          go test -race ./...
+
+  addons:
+    name: Addons
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+          cache-dependency-path: |
+            addons/**/go.sum
+            addons/**/go.mod
+
+      - name: Run addon checks
+        run: bash .github/scripts/check-framework.sh addons

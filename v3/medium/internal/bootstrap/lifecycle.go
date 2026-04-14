@@ -13,12 +13,13 @@ import (
 	"github.com/GoFurry/awesome-fiber-template/v3/medium/internal/infra/db"
 	log "github.com/GoFurry/awesome-fiber-template/v3/medium/internal/infra/logging"
 	"github.com/GoFurry/awesome-fiber-template/v3/medium/pkg/common"
-	corazalite "github.com/GoFurry/coraza-fiber-lite"
+	fibercoraza "github.com/gofiber/contrib/v3/coraza"
 )
 
 var (
 	lifecycleMu sync.Mutex
 	started     atomic.Bool
+	wafEngine   *fibercoraza.Engine
 )
 
 func databaseModels() []any {
@@ -118,17 +119,30 @@ func initWAF(cfg *env.ServerConfigHolder) (err error) {
 		}
 	}()
 
-	corazalite.InitGlobalWAFWithCfg(corazalite.CorazaCfg{
-		DirectivesFile:     cfg.Waf.ConfPath,
-		RequestBodyAccess:  true,
-		ResponseBodyAccess: false,
-	})
-	corazalite.InitWAFBlockMessage("Request blocked by CorazaWAF")
+	corazaCfg := fibercoraza.ConfigDefault
+	corazaCfg.DirectivesFile = append([]string(nil), cfg.Waf.ConfPath...)
+	corazaCfg.BlockMessage = "Request blocked by CorazaWAF"
+
+	engine, initErr := fibercoraza.NewEngine(corazaCfg)
+	if initErr != nil {
+		wafEngine = nil
+		return fmt.Errorf("waf init failed: %w", initErr)
+	}
+
+	wafEngine = engine
 	return nil
+}
+
+func WAFEngine() *fibercoraza.Engine {
+	return wafEngine
 }
 
 func shutdownComponents(cfg *env.ServerConfigHolder) error {
 	var shutdownErr error
+
+	if cfg.Waf.Enabled {
+		wafEngine = nil
+	}
 
 	if cfg.Redis.Enabled {
 		if err := cache.Close(); err != nil {

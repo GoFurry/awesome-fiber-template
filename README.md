@@ -11,6 +11,15 @@ Instead of trying to cover many frameworks, this repository now stays focused on
 
 It also includes an `addons/` directory as an optional capability pool for reusable service wrappers and utility packages. Addons are intentionally kept outside the template tiers so each template can stay focused and opt in only when needed.
 
+## Docs
+
+- [Docs index](./docs/README.md)
+- [Template boundaries](./docs/architecture/template-boundaries.md)
+- [Addon design rules](./docs/architecture/addon-design-rules.md)
+- [Template selection guide](./docs/guides/template-selection.md)
+- [Addon integration guide](./docs/guides/addon-integration.md)
+- [Roadmap archive](./docs/roadmap/roadmap.md)
+
 ## Template Matrix
 
 - [`v3/heavy`](./v3/heavy): full-featured edition with Redis, scheduler, service install/uninstall, WAF, Prometheus, Swagger, reusable helper packages, and a stronger infrastructure baseline

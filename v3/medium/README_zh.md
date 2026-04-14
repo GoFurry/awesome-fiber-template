@@ -19,6 +19,7 @@
 - 希望模板更偏真实业务服务
 - 不想引入 scheduler 和 Prometheus 的额外负担
 - 想要完整中间件和部分增强能力，但业务层仍保持简单
+- 想保留 Redis、WAF、Swagger、service 管理和 embedded UI 的可选能力
 
 ## 快速开始
 
@@ -86,6 +87,7 @@ go run . uninstall
 - 比 `heavy` 更轻，但仍然偏工程化
 - 比 `light` 保留更多运行时能力和增强中间件
 - 适合作为大多数 HTTP 服务的均衡模板
+- 仓库层面的长期边界和演进规则统一放在根目录 `docs/` 下维护，而不是继续扩散到各模板 README
 
 ## 使用前检查
 

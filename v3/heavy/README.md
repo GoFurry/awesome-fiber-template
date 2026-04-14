@@ -15,14 +15,11 @@
   request ID, access log, timeout, health probes, security headers, compression, ETag, and rate limiting
 - Optional infrastructure switches for Redis, Prometheus, Swagger, WAF, scheduler, and embedded UI
 
-## Project Positioning
+## Recommended Use
 
-This is the current `heavy` version.
+Use `heavy` when you want the broadest built-in engineering baseline while keeping the business layer plain.
 
-- Compared with `light`, it keeps more infrastructure, middleware, and runtime wiring ready to use.
-- Compared with the removed old heavy design, it keeps the engineering baseline but drops the Java-like module assembly ceremony.
-
-If you want a heavier template without over-design in the business layer, this is the intended direction.
+This version is meant for projects that expect richer infrastructure from the start and are willing to keep a wider dependency surface in exchange for convenience.
 
 ## Quick Start
 
@@ -157,6 +154,11 @@ That is the only schema bootstrap behavior kept in this `heavy` version.
 - no migration tracking table
 
 If you later need stricter schema management, that can be added in another variant without making the default workflow heavier.
+
+For long-term repository rules and template boundaries, see the docs under the repository root:
+
+- `docs/architecture/template-boundaries.md`
+- `docs/architecture/repository-rules.md`
 
 ## Middleware Baseline
 

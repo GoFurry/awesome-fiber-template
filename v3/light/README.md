@@ -14,15 +14,11 @@
 - Official Fiber middleware baseline:
   request ID, access log, recover, health probes, route-level timeout, CORS, compression, ETag, and rate limiting
 
-## Project Positioning
+## Recommended Use
 
-This is the current `light` version.
+Use `light` when you want a practical API template that still feels close to a normal Go service.
 
-- Compared with `medium`, it removes Redis, service manager support, helper packages, WAF, Swagger, CSRF, Helmet, and pprof.
-- Compared with `extra-light`, it still keeps a practical API baseline, SQLite auto-migrate, and optional embedded UI support.
-- It is intentionally close to a normal Go service structure: `controller`, `dao`, `service`, and `models`, with routes registered directly in `url.go`.
-
-If you want a lightweight backend template that still feels complete enough for real work, this is the intended direction.
+It keeps a useful middleware baseline and SQLite-first startup, while leaving out Redis, service-manager support, extra helper packages, and heavier optional middleware.
 
 ## Quick Start
 
@@ -141,6 +137,11 @@ That is the only schema bootstrap behavior kept in this `light` version.
 - no explicit migration command
 - no migration directory requirement
 - no migration tracking table
+
+For long-term repository rules and template boundaries, see the docs under the repository root:
+
+- `docs/architecture/template-boundaries.md`
+- `docs/architecture/repository-rules.md`
 
 ## Middleware Baseline
 
