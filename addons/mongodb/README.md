@@ -27,7 +27,7 @@ import (
 	"context"
 	"log"
 
-	addonmongo "github.com/GoFurry/awesome-fiber-template/addons/mongodb"
+	addonmongo "github.com/GoFurry/fiberx/addons/mongodb"
 )
 
 type User struct {
@@ -38,7 +38,7 @@ func main() {
 	service, err := addonmongo.New(context.Background(), addonmongo.Config{
 		Hosts:    []string{"127.0.0.1:27017"},
 		Database: "awesome_app",
-		AppName:  "awesome-fiber-template",
+		AppName:  "fiberx",
 	})
 	if err != nil {
 		log.Fatal(err)

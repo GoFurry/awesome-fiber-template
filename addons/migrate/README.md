@@ -50,7 +50,7 @@ import (
 	"context"
 	"log"
 
-	addonmigrate "github.com/GoFurry/awesome-fiber-template/addons/migrate"
+	addonmigrate "github.com/GoFurry/fiberx/addons/migrate"
 )
 
 func main() {

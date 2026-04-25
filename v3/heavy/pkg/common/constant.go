@@ -2,11 +2,11 @@ package common
 
 // Project metadata.
 const (
-	COMMON_PROJECT_NAME = "awesome-fiber-template"
+	COMMON_PROJECT_NAME = "fiberx"
 	COMMON_PROJECT_HELP = `
-Awesome-Fiber-Template is a scaffold for building Go backend services.
+fiberx is a scaffold for building Go backend services.
 Usage:
-  ./awesome-fiber-template [command]
+  ./fiberx [command]
     install: install this service into systemd.
     uninstall: uninstall this service from systemd.
     version: show the current version.

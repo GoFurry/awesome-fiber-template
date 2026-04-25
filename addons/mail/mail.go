@@ -779,7 +779,7 @@ func renderTemplate(name TemplateName, data map[string]any) (string, error) {
 
 func templateData(data map[string]any) map[string]any {
 	normalized := map[string]any{
-		"app_name":       "Awesome Fiber Template",
+		"app_name":       "fiberx",
 		"headline":       "",
 		"recipient_name": "",
 		"intro":          "",

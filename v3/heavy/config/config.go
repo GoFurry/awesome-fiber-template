@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/pkg/common"
+	"github.com/GoFurry/fiberx/v3/heavy/pkg/common"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 )
@@ -664,7 +664,7 @@ func normalizeStringList(items []string) []string {
 func normalizeMetricNamespace(name string) string {
 	name = strings.TrimSpace(strings.ReplaceAll(name, "-", "_"))
 	if name == "" {
-		return "awesome_fiber_template"
+		return "fiberx"
 	}
 	return name
 }

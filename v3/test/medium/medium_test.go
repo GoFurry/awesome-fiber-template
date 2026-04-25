@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GoFurry/awesome-fiber-template/v3/test/internaltest"
+	"github.com/GoFurry/fiberx/v3/test/internaltest"
 )
 
 func TestMediumTemplateBlackBox(t *testing.T) {
@@ -174,8 +174,8 @@ waf:
 `, filepath.ToSlash(wafConfPath))
 	}
 	configBody := fmt.Sprintf(`server:
-  app_id: "awesome-fiber-template"
-  app_name: "Awesome Fiber Template"
+  app_id: "fiberx"
+  app_name: "fiberx"
   app_version: "v1.0.0"
   mode: "debug"
   ip_address: "127.0.0.1"

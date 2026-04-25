@@ -12,7 +12,7 @@ Instead:
 2. copy it into your project boundary
 3. wire its config and lifecycle in your own application
 
-That keeps the repository templates clean and keeps your project ownership clear.
+That keeps the repository reference presets clean and keeps your project ownership clear.
 
 ## When To Use A Repository Addon
 
@@ -54,7 +54,7 @@ Suggested destination examples:
 
 ### 2. Replace module-local imports if needed
 
-Repository addons are designed to avoid template coupling, so integration should mostly be a straight copy.
+Repository addons are designed to avoid preset coupling, so integration should mostly be a straight copy.
 
 ### 3. Define project-owned config
 
@@ -117,7 +117,7 @@ That means you can:
 
 ## Final Guideline
 
-Templates define the default starting point.
+Reference presets define the default starting point.
 
 Addons define optional infrastructure capabilities.
 

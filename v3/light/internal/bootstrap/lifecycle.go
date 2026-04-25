@@ -7,11 +7,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	env "github.com/GoFurry/awesome-fiber-template/v3/light/config"
-	usermodels "github.com/GoFurry/awesome-fiber-template/v3/light/internal/app/user/models"
-	"github.com/GoFurry/awesome-fiber-template/v3/light/internal/infra/db"
-	log "github.com/GoFurry/awesome-fiber-template/v3/light/internal/infra/logging"
-	"github.com/GoFurry/awesome-fiber-template/v3/light/pkg/common"
+	env "github.com/GoFurry/fiberx/v3/light/config"
+	usermodels "github.com/GoFurry/fiberx/v3/light/internal/app/user/models"
+	"github.com/GoFurry/fiberx/v3/light/internal/infra/db"
+	log "github.com/GoFurry/fiberx/v3/light/internal/infra/logging"
+	"github.com/GoFurry/fiberx/v3/light/pkg/common"
 )
 
 var (

@@ -1,7 +1,7 @@
 package router
 
 import (
-	user "github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/app/user/controller"
+	user "github.com/GoFurry/fiberx/v3/heavy/internal/app/user/controller"
 	"github.com/gofiber/fiber/v3"
 )
 

@@ -1,4 +1,4 @@
-module github.com/GoFurry/awesome-fiber-template/v3/medium
+module github.com/GoFurry/fiberx/v3/medium
 
 go 1.26.1
 

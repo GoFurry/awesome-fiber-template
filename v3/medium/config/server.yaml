@@ -3,8 +3,8 @@ cluster_id: 1
 
 # Server settings.
 server:
-  app_id: "awesome-fiber-template"
-  app_name: "Awesome Fiber Template"
+  app_id: "fiberx"
+  app_name: "fiberx"
   app_version: "v1.0.0"
   mode: "debug"
   ip_address: "127.0.0.1"
@@ -89,7 +89,7 @@ middleware:
     file_path: "./docs/swagger.json"
     base_path: "/"
     path: "/swagger"
-    title: "awesome-fiber-template"
+    title: "fiberx"
   cors:
     allow_origins: ["http://127.0.0.1:8888"]
   limiter:

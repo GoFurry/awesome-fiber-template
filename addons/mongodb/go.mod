@@ -1,4 +1,4 @@
-module github.com/GoFurry/awesome-fiber-template/addons/mongodb
+module github.com/GoFurry/fiberx/addons/mongodb
 
 go 1.26.0
 
