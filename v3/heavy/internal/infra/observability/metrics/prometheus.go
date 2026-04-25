@@ -52,7 +52,7 @@ func sanitizeNamespace(namespace string) string {
 	namespace = strings.TrimSpace(namespace)
 	namespace = strings.ReplaceAll(namespace, "-", "_")
 	if namespace == "" {
-		return "awesome_fiber_template"
+		return "fiberx"
 	}
 	return namespace
 }

@@ -1,0 +1,9 @@
+kind: injection
+name: redis-bootstrap-placeholder
+scope:
+  capabilities:
+    - redis
+target: internal/bootstrap/bootstrap.go
+anchor: "// fiberx:capability:redis"
+snippet: snippets/bootstrap.redis.snippet
+order: 10

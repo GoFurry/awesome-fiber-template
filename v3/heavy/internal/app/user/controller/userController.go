@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/app/user/models"
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/app/user/service"
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/pkg/common"
+	"github.com/GoFurry/fiberx/v3/heavy/internal/app/user/models"
+	"github.com/GoFurry/fiberx/v3/heavy/internal/app/user/service"
+	"github.com/GoFurry/fiberx/v3/heavy/pkg/common"
 	"github.com/gofiber/fiber/v3"
 )
 

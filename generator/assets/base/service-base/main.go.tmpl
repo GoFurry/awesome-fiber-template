@@ -1,0 +1,12 @@
+package main
+
+import (
+	"fmt"
+
+	"{{module_path}}/internal/bootstrap"
+)
+
+func main() {
+	fmt.Println("project={{project_name}}")
+	fmt.Println("services:", bootstrap.Services())
+}

@@ -1,0 +1,8 @@
+name: extra-light
+summary: minimal preset baseline
+description: Keeps the smallest starting point with native CLI wiring and only a minimal service surface.
+implemented: false
+base: ""
+packs: []
+default_capabilities: []
+allowed_capabilities: []

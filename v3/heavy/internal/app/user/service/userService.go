@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/app/user/dao"
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/internal/app/user/models"
-	"github.com/GoFurry/awesome-fiber-template/v3/heavy/pkg/common"
-	pkgmodels "github.com/GoFurry/awesome-fiber-template/v3/heavy/pkg/models"
+	"github.com/GoFurry/fiberx/v3/heavy/internal/app/user/dao"
+	"github.com/GoFurry/fiberx/v3/heavy/internal/app/user/models"
+	"github.com/GoFurry/fiberx/v3/heavy/pkg/common"
+	pkgmodels "github.com/GoFurry/fiberx/v3/heavy/pkg/models"
 )
 
 type userService struct{}

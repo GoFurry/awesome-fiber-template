@@ -1,5 +1,5 @@
 server:
-  app_name: "Awesome Fiber Template"
+  app_name: "fiberx"
   mode: "debug"
   ip_address: "127.0.0.1"
   port: "9999"

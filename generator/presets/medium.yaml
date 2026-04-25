@@ -1,0 +1,12 @@
+name: medium
+summary: balanced HTTP service baseline
+description: Keeps a production-oriented HTTP service setup while trimming scheduler and Prometheus complexity.
+implemented: true
+base: service-base
+packs:
+  - preset-medium
+default_capabilities: []
+allowed_capabilities:
+  - redis
+  - swagger
+  - embedded-ui

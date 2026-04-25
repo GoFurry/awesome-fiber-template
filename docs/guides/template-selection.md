@@ -1,6 +1,6 @@
 # Template Selection Guide
 
-Use this guide when choosing a starting point for a new service.
+Use this guide when choosing a reference preset as the starting point for a new service.
 
 ## Choose `heavy` if
 
@@ -10,13 +10,13 @@ Use this guide when choosing a starting point for a new service.
 
 ## Choose `medium` if
 
-- you want a practical production-oriented HTTP template
+- you want a practical production-oriented HTTP preset
 - you still want Redis, WAF, Swagger, service manager support, and embedded UI support
 - you do not want scheduler and Prometheus complexity in the default path
 
 ## Choose `light` if
 
-- you want a template that feels closer to a plain Go project
+- you want a preset that feels closer to a plain Go project
 - you want SQLite-first startup and common API middleware
 - you do not want Redis, service manager support, or extra helper packages by default
 

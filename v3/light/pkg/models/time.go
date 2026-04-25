@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoFurry/awesome-fiber-template/v3/light/pkg/common"
+	"github.com/GoFurry/fiberx/v3/light/pkg/common"
 )
 
 type LocalTime time.Time

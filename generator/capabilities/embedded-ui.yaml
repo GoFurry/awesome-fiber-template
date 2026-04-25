@@ -1,0 +1,10 @@
+name: embedded-ui
+summary: embedded UI capability
+description: Enables embedded UI capability wiring for presets that support serving bundled front-end assets.
+implemented: false
+packs: []
+allowed_presets:
+  - medium
+  - light
+depends_on: []
+conflicts_with: []

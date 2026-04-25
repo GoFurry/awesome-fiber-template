@@ -1,4 +1,4 @@
-module github.com/GoFurry/awesome-fiber-template/addons/redis
+module github.com/GoFurry/fiberx/addons/redis
 
 go 1.26.0
 

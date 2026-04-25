@@ -1,0 +1,11 @@
+package bootstrap
+
+import (
+	"{{module_path}}/internal/http"
+)
+
+func Services() []string {
+	services := []string{"http:" + http.RouterName()}
+	// fiberx:capability:redis
+	return services
+}

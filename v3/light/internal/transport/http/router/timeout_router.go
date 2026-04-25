@@ -3,8 +3,8 @@ package router
 import (
 	"time"
 
-	env "github.com/GoFurry/awesome-fiber-template/v3/light/config"
-	"github.com/GoFurry/awesome-fiber-template/v3/light/pkg/common"
+	env "github.com/GoFurry/fiberx/v3/light/config"
+	"github.com/GoFurry/fiberx/v3/light/pkg/common"
 	"github.com/gofiber/fiber/v3"
 	fibertimeout "github.com/gofiber/fiber/v3/middleware/timeout"
 )

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	env "github.com/GoFurry/awesome-fiber-template/v3/extra-light/config"
+	env "github.com/GoFurry/fiberx/v3/extra-light/config"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

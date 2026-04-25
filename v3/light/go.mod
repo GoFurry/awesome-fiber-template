@@ -1,4 +1,4 @@
-module github.com/GoFurry/awesome-fiber-template/v3/light
+module github.com/GoFurry/fiberx/v3/light
 
 go 1.26.0
 

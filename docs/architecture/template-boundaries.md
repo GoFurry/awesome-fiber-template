@@ -1,13 +1,13 @@
 # Template Boundaries
 
-This repository maintains four official Fiber v3 template tiers. Their boundaries are intentionally fixed so the repository can evolve without drifting back into an unstructured template collection.
+This repository currently preserves four official Fiber v3 reference presets. Their boundaries are intentionally fixed so `fiberx` can evolve toward a generator repository without losing the semantics of its official starting points.
 
 ## Boundary Rules
 
-- Templates only keep capabilities that are part of their default, high-frequency project path.
+- Reference presets only keep capabilities that are part of their default, high-frequency project path.
 - Capabilities that are optional, niche, or infrastructure-specific should prefer `addons/`.
-- New official template tiers should not be added to represent one-off capability combinations.
-- Templates should stay copy-friendly: a user should be able to pick one tier, replace the module path, and start building.
+- New official preset tiers should not be added to represent one-off capability combinations.
+- Reference presets should stay copy-friendly: a user should be able to pick one preset, replace the module path, and start building.
 
 ## `heavy`
 

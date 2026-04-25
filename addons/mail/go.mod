@@ -1,3 +1,3 @@
-module github.com/GoFurry/awesome-fiber-template/addons/mail
+module github.com/GoFurry/fiberx/addons/mail
 
 go 1.26.0

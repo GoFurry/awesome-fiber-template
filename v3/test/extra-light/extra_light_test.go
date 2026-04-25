@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/GoFurry/awesome-fiber-template/v3/test/internaltest"
+	"github.com/GoFurry/fiberx/v3/test/internaltest"
 )
 
 func TestExtraLightTemplateBlackBox(t *testing.T) {
@@ -48,7 +48,7 @@ func writeExtraLightConfig(t *testing.T, port string) (string, string) {
 
 	configPath := filepath.Join(tempDir, "server.yaml")
 	configBody := fmt.Sprintf(`server:
-  app_name: "Awesome Fiber Template"
+  app_name: "fiberx"
   mode: "debug"
   ip_address: "127.0.0.1"
   port: %q

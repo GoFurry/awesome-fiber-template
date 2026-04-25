@@ -75,7 +75,7 @@ func TestBuildClientOptionsStructuredConfig(t *testing.T) {
 		Database:               "app",
 		ReplicaSet:             "rs0",
 		Direct:                 false,
-		AppName:                "awesome-fiber-template",
+		AppName:                "fiberx",
 		MinPoolSize:            5,
 		MaxPoolSize:            50,
 		MaxConnIdleTime:        30 * time.Second,
@@ -102,7 +102,7 @@ func TestBuildClientOptionsStructuredConfig(t *testing.T) {
 	if opts.ReplicaSet == nil || *opts.ReplicaSet != "rs0" {
 		t.Fatalf("unexpected replica set: %+v", opts.ReplicaSet)
 	}
-	if opts.AppName == nil || *opts.AppName != "awesome-fiber-template" {
+	if opts.AppName == nil || *opts.AppName != "fiberx" {
 		t.Fatalf("unexpected app name: %+v", opts.AppName)
 	}
 	if opts.MinPoolSize == nil || *opts.MinPoolSize != 5 {

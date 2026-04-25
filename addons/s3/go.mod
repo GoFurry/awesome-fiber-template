@@ -1,4 +1,4 @@
-module github.com/GoFurry/awesome-fiber-template/addons/s3
+module github.com/GoFurry/fiberx/addons/s3
 
 go 1.26.0
 

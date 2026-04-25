@@ -1,0 +1,8 @@
+kind: replace
+name: global-placeholders
+scope: {}
+replacements:
+  - placeholder: "{{project_name}}"
+    value_from: project_name
+  - placeholder: "{{module_path}}"
+    value_from: module_path
