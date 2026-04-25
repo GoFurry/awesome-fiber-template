@@ -14,6 +14,8 @@ type PresetManifest struct {
 	Summary             string   `yaml:"summary"`
 	Description         string   `yaml:"description"`
 	Base                string   `yaml:"base"`
+	Implemented         bool     `yaml:"implemented"`
+	Packs               []string `yaml:"packs"`
 	DefaultCapabilities []string `yaml:"default_capabilities"`
 	AllowedCapabilities []string `yaml:"allowed_capabilities"`
 }
@@ -22,6 +24,8 @@ type CapabilityManifest struct {
 	Name           string   `yaml:"name"`
 	Summary        string   `yaml:"summary"`
 	Description    string   `yaml:"description"`
+	Implemented    bool     `yaml:"implemented"`
+	Packs          []string `yaml:"packs"`
 	AllowedPresets []string `yaml:"allowed_presets"`
 	DependsOn      []string `yaml:"depends_on"`
 	ConflictsWith  []string `yaml:"conflicts_with"`
@@ -66,6 +70,34 @@ func CapabilitiesDir(root string) string {
 
 func RulesDir(root string) string {
 	return filepath.Join(root, "rules")
+}
+
+func AssetsDir(root string) string {
+	return filepath.Join(root, "assets")
+}
+
+func BaseAssetsDir(root string) string {
+	return filepath.Join(AssetsDir(root), "base")
+}
+
+func PackAssetsDir(root string) string {
+	return filepath.Join(AssetsDir(root), "packs")
+}
+
+func CapabilityAssetsDir(root string) string {
+	return filepath.Join(AssetsDir(root), "capabilities")
+}
+
+func BaseAssetDir(root string, name string) string {
+	return filepath.Join(BaseAssetsDir(root), name)
+}
+
+func PackAssetDir(root string, name string) string {
+	return filepath.Join(PackAssetsDir(root), name)
+}
+
+func CapabilityAssetDir(root string, name string) string {
+	return filepath.Join(CapabilityAssetsDir(root), name)
 }
 
 func (c Catalog) FindPreset(name string) (PresetManifest, bool) {

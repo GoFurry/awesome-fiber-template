@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/GoFurry/fiberx/internal/manifest"
@@ -19,8 +20,8 @@ func ValidateCatalog(catalog manifest.Catalog) error {
 		if strings.TrimSpace(preset.Description) == "" {
 			return fmt.Errorf("preset %q description cannot be empty", preset.Name)
 		}
-		if strings.TrimSpace(preset.Base) == "" {
-			return fmt.Errorf("preset %q base cannot be empty", preset.Name)
+		if preset.Implemented && strings.TrimSpace(preset.Base) == "" {
+			return fmt.Errorf("preset %q base cannot be empty when implemented", preset.Name)
 		}
 		if _, exists := seenPresets[preset.Name]; exists {
 			return fmt.Errorf("duplicate preset %q", preset.Name)
@@ -133,6 +134,44 @@ func ValidateCatalog(catalog manifest.Catalog) error {
 	return nil
 }
 
+func ValidateAssets(root string, catalog manifest.Catalog) error {
+	for _, preset := range catalog.Presets {
+		if !preset.Implemented {
+			continue
+		}
+
+		if _, err := os.Stat(manifest.BaseAssetDir(root, preset.Base)); err != nil {
+			return fmt.Errorf("preset %q base asset %q is missing", preset.Name, preset.Base)
+		}
+
+		for _, pack := range preset.Packs {
+			if _, err := os.Stat(manifest.PackAssetDir(root, pack)); err != nil {
+				return fmt.Errorf("preset %q pack asset %q is missing", preset.Name, pack)
+			}
+		}
+	}
+
+	for _, capability := range catalog.Capabilities {
+		if !capability.Implemented {
+			continue
+		}
+
+		for _, pack := range capability.Packs {
+			if _, err := os.Stat(manifest.CapabilityAssetDir(root, pack)); err != nil {
+				return fmt.Errorf("capability %q pack asset %q is missing", capability.Name, pack)
+			}
+		}
+	}
+
+	for _, rule := range catalog.InjectionRules {
+		if err := validateInjectionRuleAssets(root, catalog, rule); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func ValidateRequest(projectName string, modulePath string, preset string, capabilities []string, catalog manifest.Catalog) error {
 	if strings.TrimSpace(projectName) == "" {
 		return fmt.Errorf("project name cannot be empty")
@@ -196,6 +235,20 @@ func ValidateRequest(projectName string, modulePath string, preset string, capab
 	return nil
 }
 
+func ValidateGenerationSupport(preset manifest.PresetManifest, capabilities []manifest.CapabilityManifest) error {
+	if !preset.Implemented {
+		return fmt.Errorf("preset %q assets are not implemented yet", preset.Name)
+	}
+
+	for _, capability := range capabilities {
+		if !capability.Implemented {
+			return fmt.Errorf("capability %q assets are not implemented yet", capability.Name)
+		}
+	}
+
+	return nil
+}
+
 func validateScope(scope manifest.Scope, catalog manifest.Catalog, context string) error {
 	for _, presetName := range scope.Presets {
 		if _, ok := catalog.FindPreset(presetName); !ok {
@@ -208,6 +261,99 @@ func validateScope(scope manifest.Scope, catalog manifest.Catalog, context strin
 		}
 	}
 	return nil
+}
+
+func validateInjectionRuleAssets(root string, catalog manifest.Catalog, rule manifest.InjectionRule) error {
+	roots := matchingSnippetRoots(root, catalog, rule.Scope)
+	if len(roots) == 0 {
+		return nil
+	}
+
+	snippetFound := false
+	for _, assetRoot := range roots {
+		if manifest.SnippetExists(assetRoot, rule.Snippet) {
+			snippetFound = true
+			break
+		}
+	}
+	if !snippetFound {
+		return fmt.Errorf("injection rule %q snippet %q does not exist in any matching asset root", rule.Name, rule.Snippet)
+	}
+
+	targetFound := false
+	for _, assetRoot := range implementedAssetRoots(root, catalog) {
+		files, err := manifest.CollectAssetFiles(assetRoot)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			if file.OutputPath == rule.Target {
+				targetFound = true
+				break
+			}
+		}
+		if targetFound {
+			break
+		}
+	}
+	if !targetFound {
+		return fmt.Errorf("injection rule %q target %q does not exist in any matching asset root", rule.Name, rule.Target)
+	}
+
+	return nil
+}
+
+func matchingSnippetRoots(root string, catalog manifest.Catalog, scope manifest.Scope) []string {
+	roots := []string{}
+
+	for _, capabilityName := range scope.Capabilities {
+		capability, ok := catalog.FindCapability(capabilityName)
+		if !ok || !capability.Implemented {
+			continue
+		}
+		for _, pack := range capability.Packs {
+			roots = append(roots, manifest.CapabilityAssetDir(root, pack))
+		}
+	}
+
+	for _, presetName := range scope.Presets {
+		preset, ok := catalog.FindPreset(presetName)
+		if !ok || !preset.Implemented {
+			continue
+		}
+		for _, pack := range preset.Packs {
+			roots = append(roots, manifest.PackAssetDir(root, pack))
+		}
+	}
+
+	return roots
+}
+
+func implementedAssetRoots(root string, catalog manifest.Catalog) []string {
+	roots := []string{}
+
+	for _, preset := range catalog.Presets {
+		if !preset.Implemented {
+			continue
+		}
+		if preset.Base != "" {
+			roots = append(roots, manifest.BaseAssetDir(root, preset.Base))
+		}
+		for _, pack := range preset.Packs {
+			roots = append(roots, manifest.PackAssetDir(root, pack))
+		}
+	}
+
+	for _, capability := range catalog.Capabilities {
+		if !capability.Implemented {
+			continue
+		}
+		for _, pack := range capability.Packs {
+			roots = append(roots, manifest.CapabilityAssetDir(root, pack))
+		}
+	}
+
+	return roots
 }
 
 func contains(items []string, target string) bool {

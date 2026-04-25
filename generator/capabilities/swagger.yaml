@@ -1,6 +1,8 @@
 name: swagger
 summary: API documentation capability
 description: Enables Swagger-oriented capability wiring for presets that expose API documentation.
+implemented: false
+packs: []
 allowed_presets:
   - heavy
   - medium

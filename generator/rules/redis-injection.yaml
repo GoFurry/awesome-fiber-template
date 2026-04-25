@@ -5,5 +5,5 @@ scope:
     - redis
 target: internal/bootstrap/bootstrap.go
 anchor: "// fiberx:capability:redis"
-snippet: "redis capability placeholder"
+snippet: snippets/bootstrap.redis.snippet
 order: 10

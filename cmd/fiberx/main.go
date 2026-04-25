@@ -69,13 +69,20 @@ func runNew(args []string) error {
 	}
 
 	projectName := positionals[0]
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	targetDir := filepath.Join(cwd, projectName)
 	req := fiberx.Request{
 		ProjectName:  projectName,
 		ModulePath:   defaultModulePath(projectName, *modulePath),
 		Preset:       *preset,
 		Capabilities: parseCapabilities(*with),
 		Options: map[string]string{
-			"command": "new",
+			"command":     "new",
+			"output_mode": "new",
+			"target_dir":  targetDir,
 		},
 	}
 
@@ -83,8 +90,7 @@ func runNew(args []string) error {
 		return err
 	}
 
-	fmt.Printf("Phase 3 dry-run accepted request: project=%q preset=%q module=%q capabilities=%d\n", req.ProjectName, req.Preset, req.ModulePath, len(req.Capabilities))
-	fmt.Println("Declaration loading, validation, and planning ran successfully. Project file writing stays deferred to later phases.")
+	fmt.Printf("Generated project %q with preset=%q module=%q capabilities=%d at %s\n", req.ProjectName, req.Preset, req.ModulePath, len(req.Capabilities), targetDir)
 	return nil
 }
 
@@ -117,13 +123,20 @@ func runInit(args []string) error {
 		projectName = filepath.Base(cwd)
 	}
 
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
 	req := fiberx.Request{
 		ProjectName:  projectName,
 		ModulePath:   defaultModulePath(projectName, *modulePath),
 		Preset:       *preset,
 		Capabilities: parseCapabilities(*with),
 		Options: map[string]string{
-			"command": "init",
+			"command":     "init",
+			"output_mode": "init",
+			"target_dir":  cwd,
 		},
 	}
 
@@ -131,8 +144,7 @@ func runInit(args []string) error {
 		return err
 	}
 
-	fmt.Printf("Phase 3 dry-run initialized request for current directory: project=%q preset=%q module=%q capabilities=%d\n", req.ProjectName, req.Preset, req.ModulePath, len(req.Capabilities))
-	fmt.Println("Declaration loading, validation, and planning ran successfully. Asset rendering and writing stay deferred to later phases.")
+	fmt.Printf("Initialized current directory with project=%q preset=%q module=%q capabilities=%d\n", req.ProjectName, req.Preset, req.ModulePath, len(req.Capabilities))
 	return nil
 }
 
@@ -178,14 +190,14 @@ func runExplain(args []string) error {
 		if !ok {
 			return fmt.Errorf("unknown preset %q", args[1])
 		}
-		fmt.Printf("preset: %s\nsummary: %s\ndescription: %s\nbase: %s\ndefault_capabilities: %s\nallowed_capabilities: %s\n", preset.Name, preset.Summary, preset.Description, preset.Base, strings.Join(preset.DefaultCapabilities, ","), strings.Join(preset.AllowedCapabilities, ","))
+		fmt.Printf("preset: %s\nsummary: %s\ndescription: %s\nimplemented: %t\nbase: %s\npacks: %s\ndefault_capabilities: %s\nallowed_capabilities: %s\n", preset.Name, preset.Summary, preset.Description, preset.Implemented, preset.Base, strings.Join(preset.Packs, ","), strings.Join(preset.DefaultCapabilities, ","), strings.Join(preset.AllowedCapabilities, ","))
 		return nil
 	case "capability":
 		capability, ok := catalog.FindCapability(args[1])
 		if !ok {
 			return fmt.Errorf("unknown capability %q", args[1])
 		}
-		fmt.Printf("capability: %s\nsummary: %s\ndescription: %s\nallowed_presets: %s\ndepends_on: %s\nconflicts_with: %s\n", capability.Name, capability.Summary, capability.Description, strings.Join(capability.AllowedPresets, ","), strings.Join(capability.DependsOn, ","), strings.Join(capability.ConflictsWith, ","))
+		fmt.Printf("capability: %s\nsummary: %s\ndescription: %s\nimplemented: %t\npacks: %s\nallowed_presets: %s\ndepends_on: %s\nconflicts_with: %s\n", capability.Name, capability.Summary, capability.Description, capability.Implemented, strings.Join(capability.Packs, ","), strings.Join(capability.AllowedPresets, ","), strings.Join(capability.DependsOn, ","), strings.Join(capability.ConflictsWith, ","))
 		return nil
 	default:
 		return fmt.Errorf("unknown explain target %q", args[0])
@@ -204,8 +216,12 @@ func runValidate(args []string) error {
 	if err := validator.ValidateCatalog(catalog); err != nil {
 		return err
 	}
+	if err := validator.ValidateAssets(manifest.ResolveRoot(""), catalog); err != nil {
+		return err
+	}
 
-	fmt.Printf("Phase 3 declarations validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
+	fmt.Printf("Phase 4 assets validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
+	fmt.Println("Implemented generation slice: medium + redis")
 	return nil
 }
 
@@ -219,7 +235,7 @@ func runDoctor(args []string) error {
 		return err
 	}
 
-	root := manifest.DefaultRoot()
+	root := manifest.ResolveRoot("")
 	catalog, err := manifest.LoadCatalog(root)
 	if err != nil {
 		return err
@@ -231,13 +247,15 @@ func runDoctor(args []string) error {
 
 	fmt.Printf("cwd: %s\n", cwd)
 	fmt.Printf("go: %s\n", runtime.Version())
-	fmt.Printf("phase: %s\n", "phase-3-declarations")
+	fmt.Printf("phase: %s\n", "phase-4-assets")
 	fmt.Printf("manifest-root: %s\n", rootAbs)
 	fmt.Printf("presets: %d\n", len(catalog.Presets))
 	fmt.Printf("capabilities: %d\n", len(catalog.Capabilities))
 	fmt.Printf("replace-rules: %d\n", len(catalog.ReplaceRules))
 	fmt.Printf("injection-rules: %d\n", len(catalog.InjectionRules))
-	fmt.Println("writer-mode: dry-run")
+	fmt.Printf("implemented-presets: %s\n", strings.Join(implementedPresets(catalog), ","))
+	fmt.Printf("implemented-capabilities: %s\n", strings.Join(implementedCapabilities(catalog), ","))
+	fmt.Println("writer-mode: real-write")
 	return nil
 }
 
@@ -248,7 +266,7 @@ func newFlagSet(name string) *flag.FlagSet {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "fiberx is the Phase 3 generator CLI with disk-backed declarations.")
+	fmt.Fprintln(w, "fiberx is the Phase 4 generator CLI with disk-backed declarations and asset rendering.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2]")
@@ -262,7 +280,27 @@ func printUsage(w io.Writer) {
 }
 
 func loadCatalog() (manifest.Catalog, error) {
-	return manifest.LoadCatalog(manifest.DefaultRoot())
+	return manifest.LoadCatalog(manifest.ResolveRoot(""))
+}
+
+func implementedPresets(catalog manifest.Catalog) []string {
+	names := make([]string, 0, len(catalog.Presets))
+	for _, preset := range catalog.Presets {
+		if preset.Implemented {
+			names = append(names, preset.Name)
+		}
+	}
+	return names
+}
+
+func implementedCapabilities(catalog manifest.Catalog) []string {
+	names := make([]string, 0, len(catalog.Capabilities))
+	for _, capability := range catalog.Capabilities {
+		if capability.Implemented {
+			names = append(names, capability.Name)
+		}
+	}
+	return names
 }
 
 func parseCapabilities(raw string) []string {

@@ -85,6 +85,19 @@ func TestValidateRequestRejectsInvalidPresetCapabilityCombination(t *testing.T) 
 	}
 }
 
+func TestValidateAssetsAcceptsImplementedSlice(t *testing.T) {
+	catalog, err := manifest.LoadCatalog(filepathJoinGenerator())
+	if err != nil {
+		t.Fatalf("LoadCatalog() returned error: %v", err)
+	}
+	if err := ValidateCatalog(catalog); err != nil {
+		t.Fatalf("ValidateCatalog() returned error: %v", err)
+	}
+	if err := ValidateAssets(filepathJoinGenerator(), catalog); err != nil {
+		t.Fatalf("ValidateAssets() returned error: %v", err)
+	}
+}
+
 func filepathJoinGenerator() string {
 	return "../../generator"
 }

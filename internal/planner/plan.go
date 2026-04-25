@@ -2,17 +2,28 @@ package planner
 
 import "github.com/GoFurry/fiberx/internal/manifest"
 
-type Plan struct {
-	ProjectName    string
-	ModulePath     string
-	Preset         manifest.PresetManifest
-	Capabilities   []manifest.CapabilityManifest
-	ReplaceRules   []manifest.ReplaceRule
-	InjectionRules []manifest.InjectionRule
-	Options        map[string]string
+type AssetSelection struct {
+	Kind string
+	Name string
+	Dir  string
 }
 
-func BuildPlan(projectName string, modulePath string, presetName string, capabilityNames []string, options map[string]string, catalog manifest.Catalog) Plan {
+type Plan struct {
+	ProjectName     string
+	ModulePath      string
+	TargetDir       string
+	Preset          manifest.PresetManifest
+	Capabilities    []manifest.CapabilityManifest
+	Base            AssetSelection
+	PresetPacks     []AssetSelection
+	CapabilityPacks []AssetSelection
+	Assets          []AssetSelection
+	ReplaceRules    []manifest.ReplaceRule
+	InjectionRules  []manifest.InjectionRule
+	Options         map[string]string
+}
+
+func BuildPlan(projectName string, modulePath string, presetName string, capabilityNames []string, options map[string]string, catalogRoot string, catalog manifest.Catalog) Plan {
 	preset, _ := catalog.FindPreset(presetName)
 
 	selectedCapabilityNames := mergeCapabilityNames(catalog.AppliedDefaultCapabilities(preset), capabilityNames)
@@ -25,14 +36,52 @@ func BuildPlan(projectName string, modulePath string, presetName string, capabil
 		capabilities = append(capabilities, capability)
 	}
 
+	base := AssetSelection{
+		Kind: "base",
+		Name: preset.Base,
+		Dir:  manifest.BaseAssetDir(catalogRoot, preset.Base),
+	}
+
+	presetPacks := make([]AssetSelection, 0, len(preset.Packs))
+	for _, pack := range preset.Packs {
+		presetPacks = append(presetPacks, AssetSelection{
+			Kind: "preset-pack",
+			Name: pack,
+			Dir:  manifest.PackAssetDir(catalogRoot, pack),
+		})
+	}
+
+	capabilityPacks := make([]AssetSelection, 0)
+	for _, capability := range capabilities {
+		for _, pack := range capability.Packs {
+			capabilityPacks = append(capabilityPacks, AssetSelection{
+				Kind: "capability-pack",
+				Name: pack,
+				Dir:  manifest.CapabilityAssetDir(catalogRoot, pack),
+			})
+		}
+	}
+
+	assets := make([]AssetSelection, 0, 1+len(presetPacks)+len(capabilityPacks))
+	if base.Name != "" {
+		assets = append(assets, base)
+	}
+	assets = append(assets, presetPacks...)
+	assets = append(assets, capabilityPacks...)
+
 	return Plan{
-		ProjectName:    projectName,
-		ModulePath:     modulePath,
-		Preset:         preset,
-		Capabilities:   capabilities,
-		ReplaceRules:   selectReplaceRules(catalog.ReplaceRules, preset.Name, selectedCapabilityNames),
-		InjectionRules: selectInjectionRules(catalog.InjectionRules, preset.Name, selectedCapabilityNames),
-		Options:        cloneOptions(options),
+		ProjectName:     projectName,
+		ModulePath:      modulePath,
+		TargetDir:       options["target_dir"],
+		Preset:          preset,
+		Capabilities:    capabilities,
+		Base:            base,
+		PresetPacks:     presetPacks,
+		CapabilityPacks: capabilityPacks,
+		Assets:          assets,
+		ReplaceRules:    selectReplaceRules(catalog.ReplaceRules, preset.Name, selectedCapabilityNames),
+		InjectionRules:  selectInjectionRules(catalog.InjectionRules, preset.Name, selectedCapabilityNames),
+		Options:         cloneOptions(options),
 	}
 }
 

@@ -375,6 +375,8 @@ v1 不支持 AST 级结构改写。
 
 `generator/assets/*` 才是后续生成器资产的主维护区域。
 
+在当前阶段，`generator/assets/*` 先通过一条最小 vertical slice 落地真实生成链路，再逐步扩展到更多 preset 与 capability。
+
 ### 9.5 `generator/presets`、`generator/capabilities`、`generator/rules`
 
 这三处目录承载生成器的声明层：

@@ -10,10 +10,7 @@ import (
 )
 
 func Generate(req Request) error {
-	catalogRoot := manifest.DefaultRoot()
-	if root := req.Options["manifest_root"]; root != "" {
-		catalogRoot = root
-	}
+	catalogRoot := manifest.ResolveRoot(req.Options["manifest_root"])
 
 	catalog, err := manifest.LoadCatalog(catalogRoot)
 	if err != nil {
@@ -23,14 +20,33 @@ func Generate(req Request) error {
 	if err := validator.ValidateCatalog(catalog); err != nil {
 		return err
 	}
+	if err := validator.ValidateAssets(catalogRoot, catalog); err != nil {
+		return err
+	}
 
 	if err := validator.ValidateRequest(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, catalog); err != nil {
 		return err
 	}
 
-	plan := planner.BuildPlan(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, req.Options, catalog)
-	rendered := renderer.Render(plan)
-	writeResult, err := writer.NewDryRunWriter().Write(rendered)
+	preset, _ := catalog.FindPreset(req.Preset)
+	selectedCapabilities := make([]manifest.CapabilityManifest, 0, len(req.Capabilities))
+	for _, name := range req.Capabilities {
+		capability, ok := catalog.FindCapability(name)
+		if !ok {
+			continue
+		}
+		selectedCapabilities = append(selectedCapabilities, capability)
+	}
+	if err := validator.ValidateGenerationSupport(preset, selectedCapabilities); err != nil {
+		return err
+	}
+
+	plan := planner.BuildPlan(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, req.Options, catalogRoot, catalog)
+	rendered, err := renderer.Render(plan)
+	if err != nil {
+		return err
+	}
+	writeResult, err := writer.New(req.Options["target_dir"]).Write(rendered)
 	if err != nil {
 		return err
 	}
