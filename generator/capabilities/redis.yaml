@@ -1,0 +1,8 @@
+name: redis
+summary: shared Redis capability
+description: Enables a Redis-oriented capability contract for presets that support external cache integration.
+allowed_presets:
+  - heavy
+  - medium
+depends_on: []
+conflicts_with: []

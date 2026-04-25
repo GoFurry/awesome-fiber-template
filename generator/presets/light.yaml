@@ -1,0 +1,7 @@
+name: light
+summary: plain Go-style service baseline
+description: Keeps a smaller service structure with common middleware and fewer infrastructure concerns.
+base: light
+default_capabilities: []
+allowed_capabilities:
+  - embedded-ui

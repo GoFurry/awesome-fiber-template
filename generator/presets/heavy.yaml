@@ -1,0 +1,8 @@
+name: heavy
+summary: full-featured reference baseline
+description: Keeps the broadest infrastructure baseline with observability, scheduler, Redis, Swagger, and more operational defaults.
+base: heavy
+default_capabilities: []
+allowed_capabilities:
+  - redis
+  - swagger
