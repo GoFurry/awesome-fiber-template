@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: "{{project_name}} API"
+  version: "v1.0.0"
+servers:
+  - url: http://127.0.0.1:3000
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: service health
+  /api/v1/user/:
+    get:
+      summary: List users
+      responses:
+        "200":
+          description: user list
+    post:
+      summary: Create user
+      responses:
+        "200":
+          description: created user
+  /api/v1/user/{id}:
+    get:
+      summary: Get user
+      responses:
+        "200":
+          description: user detail
+    put:
+      summary: Update user
+      responses:
+        "200":
+          description: updated user
+    delete:
+      summary: Delete user
+      responses:
+        "200":
+          description: delete result

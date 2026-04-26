@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"{{module_path}}/internal/bootstrap"
+	"{{module_path}}/cmd"
 )
 
 func main() {
-	fmt.Println("project={{project_name}}")
-	fmt.Println("services:", bootstrap.Services())
+	if err := cmd.Execute(os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 }

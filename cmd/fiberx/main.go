@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
-	"github.com/GoFurry/fiberx"
+	"github.com/GoFurry/fiberx/internal/core"
 	"github.com/GoFurry/fiberx/internal/manifest"
+	"github.com/GoFurry/fiberx/internal/report"
 	"github.com/GoFurry/fiberx/internal/validator"
 )
 
@@ -74,7 +76,7 @@ func runNew(args []string) error {
 		return err
 	}
 	targetDir := filepath.Join(cwd, projectName)
-	req := fiberx.Request{
+	req := core.Request{
 		ProjectName:  projectName,
 		ModulePath:   defaultModulePath(projectName, *modulePath),
 		Preset:       *preset,
@@ -86,11 +88,12 @@ func runNew(args []string) error {
 		},
 	}
 
-	if err := fiberx.Generate(req); err != nil {
+	summary, err := core.Run(req)
+	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Generated project %q with preset=%q module=%q capabilities=%d at %s\n", req.ProjectName, req.Preset, req.ModulePath, len(req.Capabilities), targetDir)
+	printSummary(os.Stdout, summary)
 	return nil
 }
 
@@ -128,7 +131,7 @@ func runInit(args []string) error {
 		return err
 	}
 
-	req := fiberx.Request{
+	req := core.Request{
 		ProjectName:  projectName,
 		ModulePath:   defaultModulePath(projectName, *modulePath),
 		Preset:       *preset,
@@ -140,11 +143,12 @@ func runInit(args []string) error {
 		},
 	}
 
-	if err := fiberx.Generate(req); err != nil {
+	summary, err := core.Run(req)
+	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Initialized current directory with project=%q preset=%q module=%q capabilities=%d\n", req.ProjectName, req.Preset, req.ModulePath, len(req.Capabilities))
+	printSummary(os.Stdout, summary)
 	return nil
 }
 
@@ -161,12 +165,12 @@ func runList(args []string) error {
 	switch args[0] {
 	case "presets":
 		for _, preset := range catalog.Presets {
-			fmt.Printf("%s\t%s\n", preset.Name, preset.Summary)
+			fmt.Printf("%s\timplemented=%t\t%s\n", preset.Name, preset.Implemented, preset.Summary)
 		}
 		return nil
 	case "capabilities":
 		for _, capability := range catalog.Capabilities {
-			fmt.Printf("%s\t%s\n", capability.Name, capability.Summary)
+			fmt.Printf("%s\timplemented=%t\t%s\n", capability.Name, capability.Implemented, capability.Summary)
 		}
 		return nil
 	default:
@@ -190,14 +194,14 @@ func runExplain(args []string) error {
 		if !ok {
 			return fmt.Errorf("unknown preset %q", args[1])
 		}
-		fmt.Printf("preset: %s\nsummary: %s\ndescription: %s\nimplemented: %t\nbase: %s\npacks: %s\ndefault_capabilities: %s\nallowed_capabilities: %s\n", preset.Name, preset.Summary, preset.Description, preset.Implemented, preset.Base, strings.Join(preset.Packs, ","), strings.Join(preset.DefaultCapabilities, ","), strings.Join(preset.AllowedCapabilities, ","))
+		fmt.Printf("preset: %s\nsummary: %s\ndescription: %s\nimplemented: %t\nbase: %s\npacks: %s\ndefault_capabilities: %s\nallowed_capabilities: %s\n", preset.Name, preset.Summary, preset.Description, preset.Implemented, joinOrNone([]string{preset.Base}), joinOrNone(preset.Packs), joinOrNone(preset.DefaultCapabilities), joinOrNone(preset.AllowedCapabilities))
 		return nil
 	case "capability":
 		capability, ok := catalog.FindCapability(args[1])
 		if !ok {
 			return fmt.Errorf("unknown capability %q", args[1])
 		}
-		fmt.Printf("capability: %s\nsummary: %s\ndescription: %s\nimplemented: %t\npacks: %s\nallowed_presets: %s\ndepends_on: %s\nconflicts_with: %s\n", capability.Name, capability.Summary, capability.Description, capability.Implemented, strings.Join(capability.Packs, ","), strings.Join(capability.AllowedPresets, ","), strings.Join(capability.DependsOn, ","), strings.Join(capability.ConflictsWith, ","))
+		fmt.Printf("capability: %s\nsummary: %s\ndescription: %s\nimplemented: %t\npacks: %s\nallowed_presets: %s\ndepends_on: %s\nconflicts_with: %s\n", capability.Name, capability.Summary, capability.Description, capability.Implemented, joinOrNone(capability.Packs), joinOrNone(capability.AllowedPresets), joinOrNone(capability.DependsOn), joinOrNone(capability.ConflictsWith))
 		return nil
 	default:
 		return fmt.Errorf("unknown explain target %q", args[0])
@@ -220,8 +224,11 @@ func runValidate(args []string) error {
 		return err
 	}
 
-	fmt.Printf("Phase 4 assets validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
-	fmt.Println("Implemented generation slice: medium + redis")
+	fmt.Printf("state 1 generator validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
+	fmt.Printf("implemented presets: %s\n", joinOrNone(implementedPresets(catalog)))
+	fmt.Printf("implemented capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
+	fmt.Printf("deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
+	fmt.Println("default medium experience: swagger,embedded-ui")
 	return nil
 }
 
@@ -247,14 +254,18 @@ func runDoctor(args []string) error {
 
 	fmt.Printf("cwd: %s\n", cwd)
 	fmt.Printf("go: %s\n", runtime.Version())
-	fmt.Printf("phase: %s\n", "phase-4-assets")
+	fmt.Printf("state: %s\n", "state-1")
+	fmt.Printf("phase: %s\n", "phase-6-medium-production-baseline")
 	fmt.Printf("manifest-root: %s\n", rootAbs)
 	fmt.Printf("presets: %d\n", len(catalog.Presets))
 	fmt.Printf("capabilities: %d\n", len(catalog.Capabilities))
 	fmt.Printf("replace-rules: %d\n", len(catalog.ReplaceRules))
 	fmt.Printf("injection-rules: %d\n", len(catalog.InjectionRules))
-	fmt.Printf("implemented-presets: %s\n", strings.Join(implementedPresets(catalog), ","))
-	fmt.Printf("implemented-capabilities: %s\n", strings.Join(implementedCapabilities(catalog), ","))
+	fmt.Printf("implemented-presets: %s\n", joinOrNone(implementedPresets(catalog)))
+	fmt.Printf("implemented-capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
+	fmt.Printf("deferred-capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
+	fmt.Printf("medium-production-baseline: %s\n", "enabled")
+	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Println("writer-mode: real-write")
 	return nil
 }
@@ -266,7 +277,7 @@ func newFlagSet(name string) *flag.FlagSet {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "fiberx is the Phase 4 generator CLI with disk-backed declarations and asset rendering.")
+	fmt.Fprintln(w, "fiberx is the State 1 generator CLI with a medium production baseline and real project generation.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2]")
@@ -290,7 +301,7 @@ func implementedPresets(catalog manifest.Catalog) []string {
 			names = append(names, preset.Name)
 		}
 	}
-	return names
+	return orderNames(names, []string{"heavy", "medium", "light", "extra-light"})
 }
 
 func implementedCapabilities(catalog manifest.Catalog) []string {
@@ -300,7 +311,78 @@ func implementedCapabilities(catalog manifest.Catalog) []string {
 			names = append(names, capability.Name)
 		}
 	}
-	return names
+	return orderNames(names, []string{"redis", "swagger", "embedded-ui"})
+}
+
+func deferredCapabilities(catalog manifest.Catalog) []string {
+	names := make([]string, 0, len(catalog.Capabilities))
+	for _, capability := range catalog.Capabilities {
+		if capability.Implemented {
+			continue
+		}
+		names = append(names, capability.Name)
+	}
+	return orderNames(names, []string{"swagger", "embedded-ui", "redis"})
+}
+
+func joinOrNone(items []string) string {
+	filtered := make([]string, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item) == "" {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	if len(filtered) == 0 {
+		return "(none)"
+	}
+	return strings.Join(filtered, ",")
+}
+
+func orderNames(items []string, preferred []string) []string {
+	if len(items) <= 1 {
+		return append([]string(nil), items...)
+	}
+
+	order := make(map[string]int, len(preferred))
+	for index, name := range preferred {
+		order[name] = index
+	}
+
+	ordered := append([]string(nil), items...)
+	sort.SliceStable(ordered, func(i int, j int) bool {
+		left, leftOK := order[ordered[i]]
+		right, rightOK := order[ordered[j]]
+		switch {
+		case leftOK && rightOK:
+			return left < right
+		case leftOK:
+			return true
+		case rightOK:
+			return false
+		default:
+			return ordered[i] < ordered[j]
+		}
+	})
+
+	return ordered
+}
+
+func printSummary(w io.Writer, summary report.Summary) {
+	fmt.Fprintf(w, "generated preset=%s target=%s\n", summary.Preset, summary.TargetDir)
+	fmt.Fprintf(w, "base: %s\n", summary.Base)
+	fmt.Fprintf(w, "preset packs: %s\n", joinOrNone(summary.PresetPacks))
+	fmt.Fprintf(w, "capabilities: %s\n", joinOrNone(summary.Capabilities))
+	fmt.Fprintf(w, "capability packs: %s\n", joinOrNone(summary.CapabilityPacks))
+	fmt.Fprintf(w, "replace rules: %s\n", joinOrNone(summary.ReplaceRules))
+	fmt.Fprintf(w, "injection rules: %s\n", joinOrNone(summary.InjectionRules))
+	fmt.Fprintf(w, "written files: %d\n", summary.WrittenFiles)
+	for _, path := range summary.WrittenPaths {
+		fmt.Fprintf(w, "  - %s\n", path)
+	}
+	if len(summary.Warnings) > 0 {
+		fmt.Fprintf(w, "warnings: %s\n", joinOrNone(summary.Warnings))
+	}
 }
 
 func parseCapabilities(raw string) []string {

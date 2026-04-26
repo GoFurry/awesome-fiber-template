@@ -1,0 +1,9 @@
+kind: injection
+name: embedded-ui-bootstrap-placeholder
+scope:
+  capabilities:
+    - embedded-ui
+target: internal/bootstrap/bootstrap.go
+anchor: "// fiberx:capability:embedded-ui"
+snippet: snippets/bootstrap.embedded-ui.snippet
+order: 10

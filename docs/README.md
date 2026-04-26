@@ -1,6 +1,6 @@
 # Docs
 
-This directory contains the long-term rules and guidance for `fiberx`.
+This directory contains the long-term rules, architecture notes, and implementation roadmap for `fiberx`.
 
 ## Contents
 
@@ -12,4 +12,16 @@ This directory contains the long-term rules and guidance for `fiberx`.
 - [`guides/addon-integration.md`](./guides/addon-integration.md)
 - [`roadmap/roadmap.md`](./roadmap/roadmap.md)
 
-Use the root README to understand the repository at a glance, then start from the generator architecture document when making structural decisions.
+Use the root README for a quick repository overview, then start from the generator architecture document when making structural decisions.
+
+## Current State 1 Support Matrix
+
+- Generatable presets: `heavy`, `medium`, `light`, `extra-light`
+- Implemented capabilities: `redis`, `swagger`, `embedded-ui`
+- Current production baseline: `medium`
+- Default medium experience: `swagger`, `embedded-ui`
+
+## Current Roadmap Position
+
+- Completed state: `State 1`
+- Current stage: `State 2 / Phase 7`

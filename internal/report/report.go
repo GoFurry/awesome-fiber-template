@@ -14,7 +14,8 @@ type Summary struct {
 	Capabilities    []string
 	ReplaceRules    []string
 	InjectionRules  []string
-	PreviewFiles    []string
+	WrittenFiles    int
+	WrittenPaths    []string
 	Warnings        []string
 	DryRun          bool
 	TargetDir       string
@@ -36,11 +37,6 @@ func Build(plan planner.Plan, rendered renderer.Result, writeResult writer.Resul
 		capabilityPacks = append(capabilityPacks, pack.Name)
 	}
 
-	files := make([]string, 0, len(rendered.Files))
-	for _, file := range rendered.Files {
-		files = append(files, file.Path)
-	}
-
 	return Summary{
 		Base:            plan.Base.Name,
 		PresetPacks:     presetPacks,
@@ -49,7 +45,8 @@ func Build(plan planner.Plan, rendered renderer.Result, writeResult writer.Resul
 		Capabilities:    capabilities,
 		ReplaceRules:    append([]string(nil), rendered.ReplaceRuleHits...),
 		InjectionRules:  append([]string(nil), rendered.InjectionHits...),
-		PreviewFiles:    files,
+		WrittenFiles:    writeResult.WrittenFiles,
+		WrittenPaths:    append([]string(nil), writeResult.WrittenPaths...),
 		Warnings:        append([]string(nil), rendered.Warnings...),
 		DryRun:          writeResult.DryRun,
 		TargetDir:       writeResult.TargetDir,

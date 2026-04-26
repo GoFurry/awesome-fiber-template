@@ -1,0 +1,8 @@
+package config
+
+type RedisConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+}

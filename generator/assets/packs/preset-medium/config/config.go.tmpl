@@ -1,0 +1,147 @@
+package config
+
+import (
+	"net"
+	"os"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Server     ServerConfig     `yaml:"server"`
+	Database   DatabaseConfig   `yaml:"database"`
+	Log        LogConfig        `yaml:"log"`
+	Middleware MiddlewareConfig `yaml:"middleware"`
+	Swagger    SwaggerConfig    `yaml:"swagger"`
+	EmbeddedUI EmbeddedUIConfig `yaml:"embedded_ui"`
+	Redis      RedisConfig      `yaml:"redis"`
+}
+
+type ServerConfig struct {
+	AppID         string `yaml:"app_id"`
+	AppName       string `yaml:"app_name"`
+	AppVersion    string `yaml:"app_version"`
+	Mode          string `yaml:"mode"`
+	IPAddress     string `yaml:"ip_address"`
+	Port          string `yaml:"port"`
+	Network       string `yaml:"network"`
+	EnablePrefork bool   `yaml:"enable_prefork"`
+	IsFullStack   bool   `yaml:"is_full_stack"`
+}
+
+type DatabaseConfig struct {
+	Enabled     bool         `yaml:"enabled"`
+	AutoMigrate bool         `yaml:"auto_migrate"`
+	DBType      string       `yaml:"db_type"`
+	SQLite      SQLiteConfig `yaml:"sqlite"`
+}
+
+type SQLiteConfig struct {
+	Path string `yaml:"path"`
+}
+
+type LogConfig struct {
+	LogLevel string `yaml:"log_level"`
+	LogMode  string `yaml:"log_mode"`
+	LogPath  string `yaml:"log_path"`
+}
+
+type MiddlewareConfig struct {
+	CORS CORSConfig `yaml:"cors"`
+	Gzip GzipConfig `yaml:"gzip"`
+}
+
+type CORSConfig struct {
+	AllowOrigins []string `yaml:"allow_origins"`
+}
+
+type GzipConfig struct {
+	Enabled bool `yaml:"enabled"`
+}
+
+type SwaggerConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	RoutePrefix string `yaml:"route_prefix"`
+}
+
+type EmbeddedUIConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	RoutePrefix string `yaml:"route_prefix"`
+}
+
+type RedisConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+}
+
+func Load(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, err
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, err
+	}
+
+	cfg.applyDefaults()
+	return cfg, nil
+}
+
+func (c Config) Address() string {
+	return net.JoinHostPort(c.Server.IPAddress, c.Server.Port)
+}
+
+func (c *Config) applyDefaults() {
+	if c.Server.AppID == "" {
+		c.Server.AppID = "fiberx"
+	}
+	if c.Server.AppName == "" {
+		c.Server.AppName = "{{project_name}}"
+	}
+	if c.Server.AppVersion == "" {
+		c.Server.AppVersion = "v1.0.0"
+	}
+	if c.Server.Mode == "" {
+		c.Server.Mode = "debug"
+	}
+	if c.Server.IPAddress == "" {
+		c.Server.IPAddress = "127.0.0.1"
+	}
+	if c.Server.Port == "" {
+		c.Server.Port = "3000"
+	}
+	if c.Server.Network == "" {
+		c.Server.Network = "tcp"
+	}
+	if c.Database.DBType == "" {
+		c.Database.DBType = "sqlite"
+	}
+	if c.Database.SQLite.Path == "" {
+		c.Database.SQLite.Path = "./data/app.db"
+	}
+	if c.Log.LogLevel == "" {
+		c.Log.LogLevel = "info"
+	}
+	if c.Log.LogMode == "" {
+		c.Log.LogMode = "text"
+	}
+	if c.Log.LogPath == "" {
+		c.Log.LogPath = "./logs/app.log"
+	}
+	if len(c.Middleware.CORS.AllowOrigins) == 0 {
+		c.Middleware.CORS.AllowOrigins = []string{"*"}
+	}
+	if c.Swagger.RoutePrefix == "" {
+		c.Swagger.RoutePrefix = "/docs"
+	}
+	if c.EmbeddedUI.RoutePrefix == "" {
+		c.EmbeddedUI.RoutePrefix = "/ui"
+	}
+	if c.Redis.Addr == "" {
+		c.Redis.Addr = "127.0.0.1:6379"
+	}
+}

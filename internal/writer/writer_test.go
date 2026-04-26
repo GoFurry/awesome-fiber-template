@@ -1,6 +1,7 @@
 package writer
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/GoFurry/fiberx/internal/renderer"
@@ -14,8 +15,15 @@ func TestWriteRefusesOverwrite(t *testing.T) {
 		},
 	}
 
-	if _, err := New(targetDir).Write(rendered); err != nil {
+	result, err := New(targetDir).Write(rendered)
+	if err != nil {
 		t.Fatalf("first Write() returned error: %v", err)
+	}
+	if result.WrittenFiles != 1 {
+		t.Fatalf("expected one written file, got %d", result.WrittenFiles)
+	}
+	if !reflect.DeepEqual(result.WrittenPaths, []string{"main.go"}) {
+		t.Fatalf("expected written paths to be tracked, got %#v", result.WrittenPaths)
 	}
 
 	if _, err := New(targetDir).Write(rendered); err == nil {

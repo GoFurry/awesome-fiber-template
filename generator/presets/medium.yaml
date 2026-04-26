@@ -5,7 +5,9 @@ implemented: true
 base: service-base
 packs:
   - preset-medium
-default_capabilities: []
+default_capabilities:
+  - swagger
+  - embedded-ui
 allowed_capabilities:
   - redis
   - swagger

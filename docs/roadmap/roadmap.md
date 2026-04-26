@@ -1,206 +1,224 @@
 # Roadmap
 
-这份路线图服务于 `fiberx` 作为 CLI-first Fiber 项目生成器的落地实施。
+这份路线图服务于 `fiberx` 作为 CLI-first Fiber 项目生成器的持续落地，而不是继续扩张模板仓库。
 
-它不是愿景宣言，也不是继续扩张模板仓库的计划说明，而是基于 `docs/architecture/fiberx-generator-architecture.md` 制定的实施路线图。本文档只覆盖从当前基础推进到生成器 v1，再到 v2 少量高价值 capability 扩展的阶段安排。
+它以 [fiberx-generator-architecture.md](../architecture/fiberx-generator-architecture.md) 为上位设计依据，按 `State -> Phase` 两层结构组织实施节奏。
 
 ## 当前状态
 
 当前仓库已经具备以下基础：
 
 - 四个官方 preset：`heavy`、`medium`、`light`、`extra-light`
-- 集中化模板验证：`v3/test`
-- 模板边界与 addon 边界文档
-- 独立维护的 `addons/` 能力层
+- 生成器骨架、声明层、资产层、真实写出链路
+- 基础回归与生成级测试
+- `v3/test`
+- 独立维护的 `addons/`
 
-这意味着后续主线不再是继续稳定模板仓库形态，而是将现有规则、边界和验证能力收敛为可执行的生成器系统。
+同时需要明确：
 
-## 总体目标
-
-`fiberx` 的总体目标是从模板仓库演进为生成器仓库：
-
-- 以 CLI 作为唯一正式入口
-- 以统一请求模型驱动生成流程
-- 以 `base / packs / capabilities` 作为内部资产体系
-- 以 `preset` 和 `capability` 作为用户可见概念
-- 以可验证、可回归的输出结果作为质量约束
-
-在这条主线上：
-
-- `/v3/*` 只是模板工程参考快照，不是生成器输入源
-- `addons/` 在 v1 中继续保持独立，不进入生成器直装配路径
+- `/v3/*` 只是参考快照，不是生成器输入源
+- `addons/` 继续独立，不进入 v1 直装配路径
+- 生成器公开概念仍然只有 `preset` 与 `capability`
 
 ## 当前阶段
 
-- 已完成：`Phase 1：文档与命名统一`
-- 已完成：`Phase 2：生成器骨架与统一请求模型`
-- 已完成：`Phase 3：声明层与基础执行链路`
-- 已完成：`Phase 4：生成器资产体系落地`
-- 当前阶段：`Phase 5：v1 可用生成器闭环`
+- 已完成：`State 1`
+- 当前阶段：`State 2 / Phase 7`
 
-## Phase 1：文档与命名统一
+## State 1：生成器基础成立
 
-目标：让仓库定位、文档叙述和主设计基线保持一致。
+`State 1` 的目标是让 `fiberx` 从模板仓库完成向生成器仓库的第一阶段转型，并建立一条近生产主线。
 
-本阶段交付物：
+### Phase 1：文档与命名统一
 
-- 完成仓库命名、CLI 命名和文档主命名统一
-- 让 `fiberx-generator-architecture.md` 成为生成器方向的上位设计文档
-- 清理仍以“模板仓库扩张”为前提的旧叙事
-- 统一 roadmap、README 与架构文档中的核心术语
+已完成。
 
-完成标准：
+交付结果：
 
-- 主要文档不再把 `fiberx` 表述为持续扩张的模板集合
-- 文档中对 `/v3/*`、`addons/`、preset、capability 的含义不冲突
+- 仓库主命名统一到 `fiberx`
+- 文档身份统一到“CLI-first 生成器仓库”
+- 主设计文档成为上位依据
 
-## Phase 2：生成器骨架与统一请求模型
+### Phase 2：生成器骨架与统一请求模型
 
-目标：建立生成器最小骨架，让后续实现围绕统一入口展开。
+已完成。
 
-本阶段交付物：
+交付结果：
 
 - 建立 `/cmd/fiberx`
-- 建立 `/internal/core`、`/internal/manifest`、`/internal/planner`、`/internal/validator`、`/internal/renderer`、`/internal/writer`、`/internal/report`
-- 定义统一请求对象 `Request`
-- 明确生成器主入口 `Generate(req Request) error`
-- 确定首批 CLI 命令与职责：
-  - `fiberx new`
-  - `fiberx init`
-  - `fiberx list presets`
-  - `fiberx list capabilities`
-  - `fiberx explain preset <name>`
-  - `fiberx explain capability <name>`
-  - `fiberx validate`
-  - `fiberx doctor`
+- 建立 `/internal/core`、`manifest`、`planner`、`validator`、`renderer`、`writer`、`report`
+- 统一请求对象 `Request`
+- 统一入口 `Generate(req Request) error`
 
-阶段约束：
+### Phase 3：声明层与基础执行链路
 
-- 所有命令最终都必须收敛到统一请求模型
-- 不允许命令直接绕过内核写项目文件
+已完成。
 
-## Phase 3：声明层与基础执行链路
+交付结果：
 
-目标：把组合规则从文档和人工约定收敛为可读、可校验的声明层。
+- YAML manifest 落盘
+- preset / capability / replace rule / injection rule 统一加载
+- `load -> validate -> plan` 基础链路成立
 
-本阶段交付物：
+### Phase 4：生成器资产体系落地
 
-- 建立 preset manifests
-- 建立 capability manifests
-- 建立 replace rules
-- 建立 injection rules
-- 建立 manifest loading 流程
-- 建立 validation 与 planning 的基础执行链路
+已完成。
 
-阶段重点：
-
-- preset manifest 描述官方起点组合
-- capability manifest 描述依赖、冲突与注入行为
-- replace rules 负责规则化文本替换
-- injection rules 负责锚点式片段注入
-
-阶段约束：
-
-- 这一阶段只建立声明层与基础解析链路
-- 不引入 AST-heavy 改写
-
-## Phase 4：生成器资产体系落地
-
-目标：建立真正由生成器维护的内部资产体系。
-
-本阶段交付物：
+交付结果：
 
 - 建立 `generator/assets/base`
 - 建立 `generator/assets/packs`
 - 建立 `generator/assets/capabilities`
-- 建立 `generator/presets`
-- 建立 `generator/rules`
+- 打通真实渲染与真实写出
 
-阶段重点：
+### Phase 5：v1 可用生成器闭环
 
-- 以 `base / packs / capabilities` 为第一原则组织资产
-- pack 作为内部装配单元，不暴露为用户新模板层
-- 生成器资产不从 `/v3/*` 目录结构反推
+已完成。
 
-阶段约束：
+交付结果：
 
-- `/v3/*` 只能作为语义和回归参考
-- `/v3/*` 不是 source of truth
+- `new / init / list / explain / validate / doctor` 全部可用
+- 四个 preset 全部可真实生成
+- `redis` 成为首个正式实现的 capability
+- 生成级 temp dir 回归建立
 
-## Phase 5：v1 可用生成器闭环
+### Phase 6：`medium` 核心生产基线
 
-目标：形成首个可用、可验证、可解释的生成器闭环。
+已完成。
 
-本阶段交付物：
+交付结果：
 
-- 贯通 `new / init / list / explain / validate / doctor`
-- 完成请求进入、装配规划、渲染、写出、报告的主链路
-- 支持规则化文本替换
-- 支持锚点式片段注入
-- 建立基础验证方式
-- 建立与生成结果相关的基础回归方式
+- `medium` 从薄脚手架升级为接近可直接投入生产起步阶段的服务型工程
+- 默认内置：
+  - 配置加载
+  - 日志初始化
+  - sqlite 默认接入
+  - 健康检查：`/healthz`、`/livez`、`/readyz`、`/startupz`
+  - `user` CRUD 示例闭环
+  - request id
+  - recovery
+  - 安全头
+  - gzip
+  - ETag
+- `redis` 在 `medium` 上进入真实业务链路
+- `swagger` 与 `embedded-ui` 进入 `medium` 默认体验层，同时保留 capability 公开模型
 
-v1 范围内应支持：
+### State 1 完成定义
 
-- module path 替换
-- preset 选择
-- capability 叠加
-- README 与配置基础生成
+`State 1` 完成意味着：
 
-v1 明确不做：
+- 生成器架构成立
+- 四个 preset 都可生成
+- `medium` 成为第一条近生产主线
+- 生成结果具备基础回归与行为验证
 
-- AST 级结构改写
-- 远程模板市场
-- 插件化平台能力
-- 直接装配 `addons/`
+## State 2：生产能力深化
 
-完成标准：
+`State 2` 的目标是把“单条近生产主线”扩展为“多档可选的成熟生产基线”。
 
-- 读者可以通过 CLI 完成最小生成闭环
-- 输出结果可以被基础验证和回归检查覆盖
+### Phase 7：`heavy` 生产级主线
 
-## Phase 6：v2 高价值 capability 扩展
+当前阶段。
 
-目标：在 v1 闭环稳定后，扩展少量高价值、结构清晰、便于验证的 capability。
+目标：
 
-本阶段优先方向：
+- 将 `heavy` 升级为第二条生产级主线
+- 引入更完整的 infra 组织
+- 加入 observability 基线
+- 引入 scheduler / jobs 等更偏运维场景的能力
+- 建立比 `medium` 更强的回归矩阵
 
-- `redis`
-- `swagger`
-- `embedded-ui`
+### Phase 8：`light / extra-light` 产品化定位
 
-本阶段交付物：
+目标：
 
-- 增加少量高价值 capability 的声明与资产支持
-- 完善 capability 依赖与冲突处理
-- 提升 capability 注入后的验证能力
-- 补强 capability 层面的回归检查
+- 保持轻量，但不是简单瘦身版 `medium`
+- 明确两档 preset 的适用场景、目录结构与默认能力
+- 让轻量 preset 也达到各自语义下的成熟可用
 
-阶段原则：
+### Phase 9：横向生产能力补强
 
-- 少量优先，不做能力大杂烩
-- 优先结构影响清晰、价值高、容易验证的能力
-- 扩展 capability，而不是扩张公开 preset 数量
+目标：
+
+- 部署说明与运行手册
+- 更清晰的分环境配置组织
+- 更系统的错误处理与返回约定
+- 更完整的生成后验证矩阵
+
+## State 3：能力体系化
+
+`State 3` 的目标是让 capability 从“少量可用”进入“结构稳定、组合清晰、易扩展”的阶段。
+
+### Phase 10：现有 capability 收口
+
+目标：
+
+- 正式收口 `swagger / embedded-ui / redis`
+- 明确默认体验与显式装配边界
+- 强化依赖与冲突模型
+
+### Phase 11：新增高价值 capability
+
+目标：
+
+- 只引入结构清晰、验证容易的高价值能力
+- 保持 capability 体系节制，不做能力大杂烩
+
+### Phase 12：capability 级验证体系
+
+目标：
+
+- 建立组合矩阵
+- 建立规则层断言
+- 建立 capability 级生成产物行为验证
+
+## State 4：生成后维护与工程化
+
+`State 4` 的目标是让 `fiberx` 从“能生成”推进到“能长期维护”。
+
+### Phase 13：版本升级与差异检测
+
+目标：
+
+- 支持生成器版本演进后的差异识别
+- 明确生成产物与资产版本之间的关系
+
+### Phase 14：迁移助手与兼容性策略
+
+目标：
+
+- 提供基础迁移辅助
+- 明确向后兼容与破坏性变更策略
+
+### Phase 15：团队工程化工具
+
+目标：
+
+- 增强 `doctor`
+- 增强 `validate`
+- 提供生成后检查与修复建议
 
 ## 当前不做
 
-为避免路线图被误读，当前明确不进入以下方向：
+当前 roadmap 明确不进入以下方向：
 
-- 不做 GUI
-- 不做 AST-heavy 改写
-- 不新增第五类官方 preset
-- 不把 `/v3/*` 作为生成器输入源
-- v1 不直接装配 `addons/`
-- 不把这份 roadmap 理解为模板继续膨胀的计划
+- GUI
+- AST-heavy 改写
+- 第五类官方 preset
+- 将 `/v3/*` 作为生成器输入源
+- 在 v1/v2 主线上直接装配 `addons/`
+- 远程模板源或模板市场
 
 ## 完成标准
 
-当这份路线图对应的实施推进到位时，应满足以下判断：
+当 `State 1` 完成后，读者应能从文档、CLI 和测试中清楚看出：
 
-- `fiberx` 已明确成为生成器仓库，而不是继续增长的模板仓库
-- 用户通过 `preset` 和 `capability` 理解系统，而不是通过内部 pack 结构理解系统
-- `Request` 与 `Generate(req Request) error` 成为统一生成入口
-- `/v3/*` 被稳定地视为参考快照，而不是生成器资产源
-- `addons/` 继续作为独立复用层，而不是 v1 生成器直装配层
-- v1 提供完整可用闭环
-- v2 在不破坏边界的前提下扩展少量高价值 capability
+- 哪些 preset 只是可生成
+- 哪些 preset 已达到近生产厚度
+- 哪些 capability 属于默认体验的一部分
+- 哪些 capability 仍属于后续深化内容
+
+当前这个判断已经成立：
+
+- `medium` 是近生产主线
+- `heavy / light / extra-light` 目前是可生成 preset，但不宣称与 `medium` 同等厚度

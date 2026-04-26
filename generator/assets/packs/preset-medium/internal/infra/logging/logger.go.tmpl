@@ -1,0 +1,48 @@
+package logging
+
+import (
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"{{module_path}}/config"
+)
+
+func New(cfg config.LogConfig) (*slog.Logger, func(), error) {
+	writers := []io.Writer{os.Stdout}
+	cleanup := func() {}
+
+	if strings.TrimSpace(cfg.LogPath) != "" {
+		if err := os.MkdirAll(filepath.Dir(cfg.LogPath), 0o755); err != nil {
+			return nil, nil, err
+		}
+		file, err := os.OpenFile(cfg.LogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			return nil, nil, err
+		}
+		writers = append(writers, file)
+		cleanup = func() {
+			_ = file.Close()
+		}
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.MultiWriter(writers...), &slog.HandlerOptions{
+		Level: parseLevel(cfg.LogLevel),
+	}))
+	return logger, cleanup, nil
+}
+
+func parseLevel(raw string) slog.Level {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}

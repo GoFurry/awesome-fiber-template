@@ -108,6 +108,12 @@ func replacementValue(name string, plan planner.Plan) string {
 		return plan.ProjectName
 	case "module_path":
 		return plan.ModulePath
+	case "preset_name":
+		return plan.Preset.Name
+	case "preset_summary":
+		return plan.Preset.Summary
+	case "preset_description":
+		return plan.Preset.Description
 	default:
 		return ""
 	}

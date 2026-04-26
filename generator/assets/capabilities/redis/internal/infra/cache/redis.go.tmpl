@@ -1,5 +1,48 @@
 package cache
 
-func Component() string {
-	return "redis"
+import (
+	"context"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+
+	"{{module_path}}/config"
+)
+
+type redisStore struct {
+	client *redis.Client
+}
+
+func init() {
+	newStoreFn = func(cfg config.RedisConfig) Store {
+		if !cfg.Enabled {
+			return noopStore{}
+		}
+
+		return &redisStore{
+			client: redis.NewClient(&redis.Options{
+				Addr:     cfg.Addr,
+				Password: cfg.Password,
+				DB:       cfg.DB,
+			}),
+		}
+	}
+}
+
+func (r *redisStore) Get(key string) ([]byte, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	value, err := r.client.Get(ctx, key).Bytes()
+	if err != nil {
+		return nil, false
+	}
+	return value, true
+}
+
+func (r *redisStore) Set(key string, value []byte) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_ = r.client.Set(ctx, key, value, 30*time.Second).Err()
 }

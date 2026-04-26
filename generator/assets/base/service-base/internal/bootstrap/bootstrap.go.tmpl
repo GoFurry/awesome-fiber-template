@@ -1,11 +1,52 @@
 package bootstrap
 
 import (
-	"{{module_path}}/internal/http"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"strings"
 )
 
+var serveFn = func(configPath string) error {
+	return fmt.Errorf("serve command is not implemented for preset {{preset_name}}")
+}
+
+var serviceNamesFn = func() []string {
+	return []string{"preset:{{preset_name}}"}
+}
+
+func Main(args []string) error {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stdout, "project={{project_name}}\n")
+		fmt.Fprintf(os.Stdout, "services=%s\n", strings.Join(Services(), ","))
+		return nil
+	}
+
+	switch args[0] {
+	case "serve":
+		fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		configPath := fs.String("config", "config/server.yaml", "config file path")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if len(fs.Args()) != 0 {
+			return fmt.Errorf("serve does not accept positional arguments")
+		}
+		return serveFn(*configPath)
+	case "services":
+		fmt.Fprintf(os.Stdout, "%s\n", strings.Join(Services(), ","))
+		return nil
+	default:
+		return fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
 func Services() []string {
-	services := []string{"http:" + http.RouterName()}
+	services := append([]string{}, serviceNamesFn()...)
+	// fiberx:capability:swagger
+	// fiberx:capability:embedded-ui
 	// fiberx:capability:redis
 	return services
 }

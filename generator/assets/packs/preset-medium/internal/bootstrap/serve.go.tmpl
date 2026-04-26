@@ -1,0 +1,56 @@
+package bootstrap
+
+import (
+	"log/slog"
+
+	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
+	userdao "{{module_path}}/internal/app/user/dao"
+	userservice "{{module_path}}/internal/app/user/service"
+	"{{module_path}}/internal/infra/cache"
+	"{{module_path}}/internal/infra/db"
+	"{{module_path}}/internal/infra/logging"
+	httprouter "{{module_path}}/internal/transport/http/router"
+)
+
+func init() {
+	serveFn = serve
+	serviceNamesFn = func() []string {
+		return []string{"http:medium"}
+	}
+}
+
+func serve(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger, cleanup, err := logging.New(cfg.Log)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	database, err := db.OpenSQLite(cfg.Database)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	cacheStore := cache.New(cfg.Redis)
+	userStore := userdao.NewStore(database)
+	userService := userservice.New(userStore, cacheStore)
+	userController := usercontroller.New(userService)
+
+	logger.Info("fiberx medium service starting", slog.String("addr", cfg.Address()))
+
+	app := httprouter.NewApp(httprouter.Dependencies{
+		Config:         cfg,
+		Logger:         logger,
+		UserController: userController,
+		Services:       Services(),
+	})
+
+	return app.Listen(cfg.Address())
+}

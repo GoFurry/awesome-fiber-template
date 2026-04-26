@@ -32,10 +32,21 @@ func TestRenderAppliesReplacementsAndInjection(t *testing.T) {
 	if !strings.Contains(bootstrap, `services = append(services, "cache:redis")`) {
 		t.Fatalf("expected redis injection in bootstrap.go, got:\n%s", bootstrap)
 	}
+	if !strings.Contains(bootstrap, `services = append(services, "docs:swagger")`) {
+		t.Fatalf("expected swagger injection in bootstrap.go, got:\n%s", bootstrap)
+	}
+	if !strings.Contains(bootstrap, `services = append(services, "ui:embedded")`) {
+		t.Fatalf("expected embedded-ui injection in bootstrap.go, got:\n%s", bootstrap)
+	}
 
 	goMod := findRenderedFile(t, result, "go.mod")
 	if !strings.Contains(goMod, "module github.com/example/demo") {
 		t.Fatalf("expected rendered go.mod module path, got:\n%s", goMod)
+	}
+
+	openAPI := findRenderedFile(t, result, "docs/openapi.yaml")
+	if !strings.Contains(openAPI, "demo API") {
+		t.Fatalf("expected swagger docs to be rendered, got:\n%s", openAPI)
 	}
 }
 

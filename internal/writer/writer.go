@@ -11,6 +11,7 @@ import (
 type Result struct {
 	DryRun       bool
 	WrittenFiles int
+	WrittenPaths []string
 	TargetDir    string
 }
 
@@ -31,6 +32,7 @@ func (w Writer) Write(rendered renderer.Result) (Result, error) {
 		return Result{}, fmt.Errorf("create target directory %q: %w", w.TargetDir, err)
 	}
 
+	writtenPaths := make([]string, 0, len(rendered.Files))
 	for _, file := range rendered.Files {
 		target := filepath.Join(w.TargetDir, filepath.FromSlash(file.Path))
 		if _, err := os.Stat(target); err == nil {
@@ -45,11 +47,13 @@ func (w Writer) Write(rendered renderer.Result) (Result, error) {
 		if err := os.WriteFile(target, file.Content, 0o644); err != nil {
 			return Result{}, fmt.Errorf("write target file %q: %w", target, err)
 		}
+		writtenPaths = append(writtenPaths, filepath.ToSlash(file.Path))
 	}
 
 	return Result{
 		DryRun:       false,
 		WrittenFiles: len(rendered.Files),
+		WrittenPaths: writtenPaths,
 		TargetDir:    w.TargetDir,
 	}, nil
 }

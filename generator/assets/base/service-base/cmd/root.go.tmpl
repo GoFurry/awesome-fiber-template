@@ -1,0 +1,7 @@
+package cmd
+
+import "{{module_path}}/internal/bootstrap"
+
+func Execute(args []string) error {
+	return bootstrap.Main(args)
+}

@@ -28,13 +28,28 @@ func TestBuildPlanSelectsMediumRedisAssetsAndRules(t *testing.T) {
 	if len(plan.PresetPacks) != 1 || plan.PresetPacks[0].Name != "preset-medium" {
 		t.Fatalf("expected one preset pack preset-medium, got %#v", plan.PresetPacks)
 	}
-	if len(plan.CapabilityPacks) != 1 || plan.CapabilityPacks[0].Name != "redis" {
-		t.Fatalf("expected one capability pack redis, got %#v", plan.CapabilityPacks)
+	if len(plan.CapabilityPacks) != 3 {
+		t.Fatalf("expected three capability packs for medium defaults + redis, got %#v", plan.CapabilityPacks)
 	}
+	assertPlanHasPack(t, plan.CapabilityPacks, "swagger")
+	assertPlanHasPack(t, plan.CapabilityPacks, "embedded-ui")
+	assertPlanHasPack(t, plan.CapabilityPacks, "redis")
 	if len(plan.ReplaceRules) != 1 {
 		t.Fatalf("expected 1 replace rule, got %d", len(plan.ReplaceRules))
 	}
-	if len(plan.InjectionRules) != 1 {
-		t.Fatalf("expected 1 injection rule, got %d", len(plan.InjectionRules))
+	if len(plan.InjectionRules) != 3 {
+		t.Fatalf("expected 3 injection rules, got %d", len(plan.InjectionRules))
 	}
+}
+
+func assertPlanHasPack(t *testing.T, assets []AssetSelection, name string) {
+	t.Helper()
+
+	for _, asset := range assets {
+		if asset.Name == name {
+			return
+		}
+	}
+
+	t.Fatalf("expected asset selection %q in %#v", name, assets)
 }

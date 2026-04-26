@@ -6,3 +6,9 @@ replacements:
     value_from: project_name
   - placeholder: "{{module_path}}"
     value_from: module_path
+  - placeholder: "{{preset_name}}"
+    value_from: preset_name
+  - placeholder: "{{preset_summary}}"
+    value_from: preset_summary
+  - placeholder: "{{preset_description}}"
+    value_from: preset_description

@@ -1,0 +1,9 @@
+kind: injection
+name: swagger-bootstrap-placeholder
+scope:
+  capabilities:
+    - swagger
+target: internal/bootstrap/bootstrap.go
+anchor: "// fiberx:capability:swagger"
+snippet: snippets/bootstrap.swagger.snippet
+order: 10
