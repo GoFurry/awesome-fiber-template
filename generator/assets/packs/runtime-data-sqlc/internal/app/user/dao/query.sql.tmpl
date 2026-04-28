@@ -1,0 +1,22 @@
+-- name: CreateUser :one
+INSERT INTO users (name, email, age, status)
+VALUES (?, ?, ?, ?);
+
+-- name: ListUsers :many
+SELECT id, name, email, age, status
+FROM users
+ORDER BY id ASC
+LIMIT ? OFFSET ?;
+
+-- name: GetUser :one
+SELECT id, name, email, age, status
+FROM users
+WHERE id = ?;
+
+-- name: UpdateUser :exec
+UPDATE users
+SET name = ?, email = ?, age = ?, status = ?
+WHERE id = ?;
+
+-- name: DeleteUser :exec
+DELETE FROM users WHERE id = ?;

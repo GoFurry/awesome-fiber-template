@@ -1,0 +1,134 @@
+package db
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+
+	"{{module_path}}/config"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "modernc.org/sqlite"
+)
+
+type Handle struct {
+	DB      *sql.DB
+	Dialect string
+}
+
+func Open(cfg config.DatabaseConfig) (*Handle, error) {
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("database is disabled")
+	}
+
+	driver, dialect, dsn, err := resolve(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	database, err := sql.Open(driver, dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := database.PingContext(context.Background()); err != nil {
+		_ = database.Close()
+		return nil, err
+	}
+	if cfg.AutoMigrate {
+		if err := ensureSchema(context.Background(), database, dialect); err != nil {
+			_ = database.Close()
+			return nil, err
+		}
+	}
+
+	return &Handle{DB: database, Dialect: dialect}, nil
+}
+
+func (h *Handle) Close() error {
+	if h == nil || h.DB == nil {
+		return nil
+	}
+	return h.DB.Close()
+}
+
+func resolve(cfg config.DatabaseConfig) (string, string, string, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.DBType)) {
+	case "", "sqlite":
+		if cfg.SQLite.DSN != "" {
+			return "sqlite", "sqlite", cfg.SQLite.DSN, nil
+		}
+		path := cfg.SQLite.Path
+		if path == "" {
+			path = "./data/app.db"
+		}
+		return "sqlite", "sqlite", path, nil
+	case "postgres":
+		if cfg.Postgres.DSN != "" {
+			return "pgx", "postgres", cfg.Postgres.DSN, nil
+		}
+		return "pgx", "postgres", fmt.Sprintf(
+			"host=%s port=%s dbname=%s user=%s password=%s sslmode=%s",
+			cfg.Postgres.DBHost,
+			cfg.Postgres.DBPort,
+			cfg.Postgres.DBName,
+			cfg.Postgres.DBUsername,
+			cfg.Postgres.DBPassword,
+			cfg.Postgres.SSLMode,
+		), nil
+	case "mysql":
+		if cfg.MySQL.DSN != "" {
+			return "mysql", "mysql", cfg.MySQL.DSN, nil
+		}
+		return "mysql", "mysql", fmt.Sprintf(
+			"%s:%s@tcp(%s:%s)/%s?parseTime=true&multiStatements=true",
+			cfg.MySQL.DBUsername,
+			cfg.MySQL.DBPassword,
+			cfg.MySQL.DBHost,
+			cfg.MySQL.DBPort,
+			cfg.MySQL.DBName,
+		), nil
+	default:
+		return "", "", "", fmt.Errorf("unsupported db_type %q", cfg.DBType)
+	}
+}
+
+func ensureSchema(ctx context.Context, database *sql.DB, dialect string) error {
+	statement := sqliteSchema
+	switch dialect {
+	case "postgres":
+		statement = postgresSchema
+	case "mysql":
+		statement = mysqlSchema
+	}
+	_, err := database.ExecContext(ctx, statement)
+	return err
+}
+
+const sqliteSchema = `
+CREATE TABLE IF NOT EXISTS users (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	name TEXT NOT NULL,
+	email TEXT NOT NULL UNIQUE,
+	age INTEGER NOT NULL,
+	status TEXT NOT NULL
+);`
+
+const postgresSchema = `
+CREATE TABLE IF NOT EXISTS users (
+	id BIGSERIAL PRIMARY KEY,
+	name TEXT NOT NULL,
+	email TEXT NOT NULL UNIQUE,
+	age BIGINT NOT NULL,
+	status TEXT NOT NULL
+);`
+
+const mysqlSchema = `
+CREATE TABLE IF NOT EXISTS users (
+	id BIGINT AUTO_INCREMENT PRIMARY KEY,
+	name VARCHAR(255) NOT NULL,
+	email VARCHAR(255) NOT NULL UNIQUE,
+	age BIGINT NOT NULL,
+	status VARCHAR(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`

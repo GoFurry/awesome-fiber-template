@@ -1,22 +1,32 @@
 package planner
 
-import "github.com/GoFurry/fiberx/internal/manifest"
+import (
+	"github.com/GoFurry/fiberx/internal/manifest"
+	"github.com/GoFurry/fiberx/internal/stack"
+)
 
 type AssetSelection struct {
-	Kind string
-	Name string
-	Dir  string
+	Kind          string
+	Name          string
+	Dir           string
+	AllowOverride bool
 }
 
 type Plan struct {
 	ProjectName     string
 	ModulePath      string
 	TargetDir       string
+	FiberVersion    string
+	CLIStyle        string
+	Logger          string
+	Database        string
+	DataAccess      string
 	Preset          manifest.PresetManifest
 	Capabilities    []manifest.CapabilityManifest
 	Base            AssetSelection
 	PresetPacks     []AssetSelection
 	CapabilityPacks []AssetSelection
+	RuntimeOverlays []AssetSelection
 	Assets          []AssetSelection
 	ReplaceRules    []manifest.ReplaceRule
 	InjectionRules  []manifest.InjectionRule
@@ -24,6 +34,7 @@ type Plan struct {
 }
 
 func BuildPlan(projectName string, modulePath string, presetName string, capabilityNames []string, options map[string]string, catalogRoot string, catalog manifest.Catalog) Plan {
+	options = stack.NormalizeOptions(options)
 	preset, _ := catalog.FindPreset(presetName)
 
 	selectedCapabilityNames := mergeCapabilityNames(catalog.AppliedDefaultCapabilities(preset), capabilityNames)
@@ -38,16 +49,17 @@ func BuildPlan(projectName string, modulePath string, presetName string, capabil
 
 	base := AssetSelection{
 		Kind: "base",
-		Name: preset.Base,
-		Dir:  manifest.BaseAssetDir(catalogRoot, preset.Base),
+		Name: stack.BaseName(preset.Base, options),
+		Dir:  manifest.BaseAssetDir(catalogRoot, stack.BaseName(preset.Base, options)),
 	}
 
 	presetPacks := make([]AssetSelection, 0, len(preset.Packs))
 	for _, pack := range preset.Packs {
+		resolvedPack := stack.PackName(pack, options)
 		presetPacks = append(presetPacks, AssetSelection{
 			Kind: "preset-pack",
-			Name: pack,
-			Dir:  manifest.PackAssetDir(catalogRoot, pack),
+			Name: resolvedPack,
+			Dir:  manifest.PackAssetDir(catalogRoot, resolvedPack),
 		})
 	}
 
@@ -62,22 +74,48 @@ func BuildPlan(projectName string, modulePath string, presetName string, capabil
 		}
 	}
 
-	assets := make([]AssetSelection, 0, 1+len(presetPacks)+len(capabilityPacks))
+	runtimeOverlays := make([]AssetSelection, 0)
+	for _, pack := range stack.RuntimeOverlayPacks(options, preset.Name) {
+		runtimeOverlays = append(runtimeOverlays, AssetSelection{
+			Kind:          "runtime-overlay",
+			Name:          pack,
+			Dir:           manifest.PackAssetDir(catalogRoot, pack),
+			AllowOverride: true,
+		})
+	}
+
+	assets := make([]AssetSelection, 0, 1+len(presetPacks)+len(capabilityPacks)+len(runtimeOverlays))
 	if base.Name != "" {
 		assets = append(assets, base)
 	}
 	assets = append(assets, presetPacks...)
 	assets = append(assets, capabilityPacks...)
+	assets = append(assets, runtimeOverlays...)
+
+	loggerName := stack.Logger(options)
+	databaseName := stack.DB(options)
+	dataAccessName := stack.DataAccess(options)
+	if preset.Name == "extra-light" {
+		loggerName = "slog"
+		databaseName = stack.DBSQLite
+		dataAccessName = "builtin"
+	}
 
 	return Plan{
 		ProjectName:     projectName,
 		ModulePath:      modulePath,
 		TargetDir:       options["target_dir"],
+		FiberVersion:    stack.FiberVersion(options),
+		CLIStyle:        stack.CLIStyle(options),
+		Logger:          loggerName,
+		Database:        databaseName,
+		DataAccess:      dataAccessName,
 		Preset:          preset,
 		Capabilities:    capabilities,
 		Base:            base,
 		PresetPacks:     presetPacks,
 		CapabilityPacks: capabilityPacks,
+		RuntimeOverlays: runtimeOverlays,
 		Assets:          assets,
 		ReplaceRules:    selectReplaceRules(catalog.ReplaceRules, preset.Name, selectedCapabilityNames),
 		InjectionRules:  selectInjectionRules(catalog.InjectionRules, preset.Name, selectedCapabilityNames),

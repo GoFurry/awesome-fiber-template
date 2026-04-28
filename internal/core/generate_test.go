@@ -13,39 +13,59 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/GoFurry/fiberx/internal/stack"
 )
 
 func TestRunSupportsV1PresetMatrix(t *testing.T) {
 	testCases := []struct {
-		name         string
-		preset       string
-		capabilities []string
-		routerPath   string
-		routerSnippet string
-		expectRedis  bool
-		expectMedium bool
+		name             string
+		preset           string
+		capabilities     []string
+		fiberVersion     string
+		cliStyle         string
+		routerPath       string
+		routerSnippet    string
+		expectRedis      bool
+		expectMedium     bool
+		expectHeavy      bool
+		expectLight      bool
+		expectExtraLight bool
+		expectDocsAsset  bool
+		expectUIAsset    bool
 	}{
-		{name: "heavy", preset: "heavy", routerPath: filepath.Join("internal", "http", "router.go"), routerSnippet: `return "heavy"`},
-		{name: "heavy with redis", preset: "heavy", capabilities: []string{"redis"}, routerPath: filepath.Join("internal", "http", "router.go"), routerSnippet: `return "heavy"`, expectRedis: true},
-		{name: "medium", preset: "medium", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true},
-		{name: "medium with redis", preset: "medium", capabilities: []string{"redis"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectRedis: true, expectMedium: true},
-		{name: "light", preset: "light", routerPath: filepath.Join("internal", "http", "router.go"), routerSnippet: `return "light"`},
-		{name: "extra-light", preset: "extra-light", routerPath: filepath.Join("internal", "http", "router.go"), routerSnippet: `return "extra-light"`},
+		{name: "heavy default", preset: "heavy", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerMetricsRoutes(app, deps)`, expectHeavy: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "heavy fiber-v3 native", preset: "heavy", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerMetricsRoutes(app, deps)`, expectHeavy: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "heavy fiber-v2 cobra", preset: "heavy", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerMetricsRoutes(app, deps)`, expectHeavy: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "heavy fiber-v2 native", preset: "heavy", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerMetricsRoutes(app, deps)`, expectHeavy: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "heavy with redis", preset: "heavy", capabilities: []string{"redis"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerMetricsRoutes(app, deps)`, expectRedis: true, expectHeavy: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "medium default", preset: "medium", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "medium fiber-v3 native", preset: "medium", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "medium fiber-v2 cobra", preset: "medium", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "medium fiber-v2 native", preset: "medium", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "medium with redis", preset: "medium", capabilities: []string{"redis"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectRedis: true, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
+		{name: "light default", preset: "light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
+		{name: "light fiber-v2 native", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
+		{name: "light fiber-v3 native", preset: "light", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
+		{name: "light fiber-v2 cobra", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
+		{name: "light with swagger", preset: "light", capabilities: []string{"swagger"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectLight: true, expectDocsAsset: true},
+		{name: "light with embedded-ui", preset: "light", capabilities: []string{"embedded-ui"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerEmbeddedUIRoutes(app, deps.Config)`, expectLight: true, expectUIAsset: true},
+		{name: "extra-light default", preset: "extra-light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerHealthRoutes(app, deps)`, expectExtraLight: true},
+		{name: "extra-light fiber-v2 native", preset: "extra-light", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerHealthRoutes(app, deps)`, expectExtraLight: true},
+		{name: "extra-light fiber-v3 native", preset: "extra-light", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerHealthRoutes(app, deps)`, expectExtraLight: true},
+		{name: "extra-light fiber-v2 cobra", preset: "extra-light", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerHealthRoutes(app, deps)`, expectExtraLight: true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			targetDir := t.TempDir()
+			options := requestOptionsForTest(targetDir, tc.fiberVersion, tc.cliStyle)
 			req := Request{
 				ProjectName:  "demo",
 				ModulePath:   "github.com/example/demo",
 				Preset:       tc.preset,
 				Capabilities: tc.capabilities,
-				Options: map[string]string{
-					"command":       "new",
-					"manifest_root": "../../generator",
-					"target_dir":    targetDir,
-				},
+				Options:      options,
 			}
 
 			summary, err := Run(req)
@@ -59,14 +79,56 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 			if summary.TargetDir != targetDir {
 				t.Fatalf("expected target dir %q, got %q", targetDir, summary.TargetDir)
 			}
+			if summary.FiberVersion != expectedFiberVersion(tc.fiberVersion) {
+				t.Fatalf("expected fiber version %q, got %q", expectedFiberVersion(tc.fiberVersion), summary.FiberVersion)
+			}
+			if summary.CLIStyle != expectedCLIStyle(tc.cliStyle) {
+				t.Fatalf("expected cli style %q, got %q", expectedCLIStyle(tc.cliStyle), summary.CLIStyle)
+			}
+			if summary.Base != expectedBaseName(tc.cliStyle) {
+				t.Fatalf("expected base %q, got %q", expectedBaseName(tc.cliStyle), summary.Base)
+			}
 
 			assertGeneratedFileContains(t, targetDir, "README.md", tc.preset)
 			assertGeneratedFileContains(t, targetDir, "README.md", "github.com/example/demo")
+			assertGeneratedFileContains(t, targetDir, "README.md", "fiber version: `"+expectedFiberVersion(tc.fiberVersion)+"`")
+			assertGeneratedFileContains(t, targetDir, "README.md", "cli style: `"+expectedCLIStyle(tc.cliStyle)+"`")
+			assertGeneratedFileContains(t, targetDir, "README.md", "docs/runbook.md")
+			assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "runbook.md"), "config/server.prod.yaml")
+			assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "configuration.md"), "config/server.dev.yaml")
+			assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "api-contract.md"), `"code": 1`)
+			assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "verification.md"), "/healthz")
+			assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.dev.yaml"), `mode: "debug"`)
+			assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.prod.yaml"), `mode: "release"`)
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, tc.routerSnippet)
-			if tc.expectMedium {
+			assertGeneratedFileContains(t, targetDir, tc.routerPath, `github.com/gofiber/fiber/`+expectedFiberVersion(tc.fiberVersion))
+			assertGeneratedFileContains(t, targetDir, "go.mod", expectedFiberDependency(tc.fiberVersion))
+			if expectedCLIStyle(tc.cliStyle) == stack.CLICobra {
+				assertGeneratedFileContains(t, targetDir, filepath.Join("cmd", "root.go"), `github.com/spf13/cobra`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("cmd", "root.go"), `github.com/spf13/viper`)
+			} else {
+				assertGeneratedFileContains(t, targetDir, filepath.Join("cmd", "root.go"), `bootstrap.Main(args)`)
+			}
+			if tc.expectDocsAsset {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `route_prefix: "/docs"`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "openapi.yaml"), "openapi: 3.0.3")
+			} else {
+				assertGeneratedFileMissing(t, targetDir, filepath.Join("docs", "openapi.yaml"))
+			}
+			if tc.expectUIAsset {
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `route_prefix: "/ui"`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "webui", "dist", "index.html"), "embedded UI ships")
+			} else {
+				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "transport", "http", "webui", "dist", "index.html"))
+			}
+			if tc.expectHeavy {
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `route_prefix: "/metrics"`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `interval: "1s"`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `jobs.Start(cfg.Scheduler, logger, metricsCollector)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `"metrics:http"`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `"jobs:scheduler"`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "infra", "metrics", "metrics.go"), "fiberx_requests_total")
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "jobs", "scheduler.go"), "fiberx heavy demo job ran")
 			}
 
 			bootstrap := readGeneratedFile(t, targetDir, filepath.Join("internal", "bootstrap", "bootstrap.go"))
@@ -82,10 +144,64 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 					t.Fatalf("expected default medium capabilities in bootstrap, got:\n%s", bootstrap)
 				}
 			}
+			if tc.expectHeavy {
+				if !strings.Contains(bootstrap, `"docs:swagger"`) || !strings.Contains(bootstrap, `"ui:embedded"`) {
+					t.Fatalf("expected default heavy capabilities in bootstrap, got:\n%s", bootstrap)
+				}
+			}
+			if tc.expectLight {
+				if hasCapability(tc.capabilities, "swagger") {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), "swagger:\n  enabled: true")
+				} else {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), "swagger:\n  enabled: false")
+				}
+				if hasCapability(tc.capabilities, "embedded-ui") {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), "embedded_ui:\n  enabled: true")
+				} else {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), "embedded_ui:\n  enabled: false")
+				}
+				if hasCapability(tc.capabilities, "swagger") {
+					if !strings.Contains(bootstrap, `"docs:swagger"`) {
+						t.Fatalf("expected light swagger capability in bootstrap, got:\n%s", bootstrap)
+					}
+				} else if strings.Contains(bootstrap, `"docs:swagger"`) {
+					t.Fatalf("did not expect light swagger capability by default, got:\n%s", bootstrap)
+				}
+
+				if hasCapability(tc.capabilities, "embedded-ui") {
+					if !strings.Contains(bootstrap, `"ui:embedded"`) {
+						t.Fatalf("expected light embedded-ui capability in bootstrap, got:\n%s", bootstrap)
+					}
+				} else if strings.Contains(bootstrap, `"ui:embedded"`) {
+					t.Fatalf("did not expect light embedded-ui capability by default, got:\n%s", bootstrap)
+				}
+			}
+			if tc.expectExtraLight {
+				if strings.Contains(bootstrap, `"docs:swagger"`) || strings.Contains(bootstrap, `"ui:embedded"`) || strings.Contains(bootstrap, `"cache:redis"`) {
+					t.Fatalf("did not expect extra-light optional services in bootstrap, got:\n%s", bootstrap)
+				}
+			}
 
 			runGeneratedProjectTests(t, targetDir)
 			if tc.expectMedium {
 				runMediumBlackBoxScenario(t, targetDir, tc.expectRedis)
+			}
+			if tc.expectHeavy {
+				runHeavyBlackBoxScenario(t, targetDir, tc.expectRedis)
+			}
+			if tc.expectLight {
+				if (expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 && expectedCLIStyle(tc.cliStyle) == stack.CLICobra) || (expectedFiberVersion(tc.fiberVersion) == stack.FiberV2 && expectedCLIStyle(tc.cliStyle) == stack.CLINative) || len(tc.capabilities) > 0 {
+					runLightBlackBoxScenario(t, targetDir, hasCapability(tc.capabilities, "swagger"), hasCapability(tc.capabilities, "embedded-ui"))
+				} else {
+					runLightStartupSmokeScenario(t, targetDir)
+				}
+			}
+			if tc.expectExtraLight {
+				if (expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 && expectedCLIStyle(tc.cliStyle) == stack.CLICobra) || (expectedFiberVersion(tc.fiberVersion) == stack.FiberV2 && expectedCLIStyle(tc.cliStyle) == stack.CLINative) {
+					runExtraLightBlackBoxScenario(t, targetDir)
+				} else {
+					runExtraLightStartupSmokeScenario(t, targetDir)
+				}
 			}
 		})
 	}
@@ -100,27 +216,103 @@ func TestGenerateRejectsUnsupportedCombinations(t *testing.T) {
 	}{
 		{name: "light with redis", preset: "light", capabilities: []string{"redis"}, want: `not allowed for preset "light"`},
 		{name: "extra-light with redis", preset: "extra-light", capabilities: []string{"redis"}, want: `not allowed for preset "extra-light"`},
-		{name: "light with embedded-ui", preset: "light", capabilities: []string{"embedded-ui"}, want: `not allowed for preset "light"`},
-		{name: "heavy with swagger", preset: "heavy", capabilities: []string{"swagger"}, want: `not allowed for preset "heavy"`},
+		{name: "extra-light with embedded-ui", preset: "extra-light", capabilities: []string{"embedded-ui"}, want: `not allowed for preset "extra-light"`},
+		{name: "extra-light with swagger", preset: "extra-light", capabilities: []string{"swagger"}, want: `not allowed for preset "extra-light"`},
+		{name: "invalid fiber version", preset: "medium", capabilities: []string{}, want: `fiber version "v9" is not supported`},
+		{name: "invalid cli style", preset: "medium", capabilities: []string{}, want: `cli style "bash" is not supported`},
+		{name: "invalid logger", preset: "medium", capabilities: []string{}, want: `logger "printf" is not supported`},
+		{name: "invalid db", preset: "medium", capabilities: []string{}, want: `database "oracle" is not supported`},
+		{name: "invalid data access", preset: "medium", capabilities: []string{}, want: `data access "gorm" is not supported`},
+		{name: "extra-light logger unsupported", preset: "extra-light", capabilities: []string{}, want: `does not support logger option`},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			options := map[string]string{
+				"manifest_root": "../../generator",
+				"target_dir":    t.TempDir(),
+			}
+			if tc.name == "invalid fiber version" {
+				options[stack.OptionFiberVersion] = "v9"
+			}
+			if tc.name == "invalid cli style" {
+				options[stack.OptionCLIStyle] = "bash"
+			}
+			if tc.name == "invalid logger" {
+				options[stack.OptionLogger] = "printf"
+			}
+			if tc.name == "invalid db" {
+				options[stack.OptionDB] = "oracle"
+			}
+			if tc.name == "invalid data access" {
+				options[stack.OptionDataAccess] = "gorm"
+			}
+			if tc.name == "extra-light logger unsupported" {
+				options[stack.OptionLogger] = "zap"
+			}
 			req := Request{
 				ProjectName:  "demo",
 				ModulePath:   "github.com/example/demo",
 				Preset:       tc.preset,
 				Capabilities: tc.capabilities,
-				Options: map[string]string{
-					"manifest_root": "../../generator",
-					"target_dir":    t.TempDir(),
-				},
+				Options:      options,
 			}
 
 			err := Generate(req)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected error containing %q, got %v", tc.want, err)
 			}
+		})
+	}
+}
+
+func TestRunSupportsPhase11RuntimeSelections(t *testing.T) {
+	testCases := []struct {
+		name       string
+		preset     string
+		logger     string
+		dbKind     string
+		dataAccess string
+	}{
+		{name: "medium slog pgsql sqlx", preset: "medium", logger: stack.LoggerSlog, dbKind: stack.DBPgSQL, dataAccess: stack.DataAccessSQLX},
+		{name: "light zap mysql sqlc", preset: "light", logger: stack.LoggerZap, dbKind: stack.DBMySQL, dataAccess: stack.DataAccessSQLC},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetDir := t.TempDir()
+			options := requestOptionsForTest(targetDir, stack.FiberV3, stack.CLICobra)
+			options[stack.OptionLogger] = tc.logger
+			options[stack.OptionDB] = tc.dbKind
+			options[stack.OptionDataAccess] = tc.dataAccess
+
+			summary, err := Run(Request{
+				ProjectName: "demo",
+				ModulePath:  "github.com/example/demo",
+				Preset:      tc.preset,
+				Options:     options,
+			})
+			if err != nil {
+				t.Fatalf("Run() returned error: %v", err)
+			}
+
+			if summary.Logger != tc.logger || summary.Database != tc.dbKind || summary.DataAccess != tc.dataAccess {
+				t.Fatalf("unexpected runtime summary: %+v", summary)
+			}
+
+			assertGeneratedFileContains(t, targetDir, "README.md", "logger: `"+tc.logger+"`")
+			switch tc.dbKind {
+			case stack.DBPgSQL:
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `db_type: "postgres"`)
+			case stack.DBMySQL:
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `db_type: "mysql"`)
+			}
+			if tc.dataAccess == stack.DataAccessSQLC {
+				assertGeneratedFileContains(t, targetDir, "sqlc.yaml", `engine: "mysql"`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "dao", "query.sql"), `-- name: CreateUser :one`)
+			}
+
+			runGeneratedProjectTests(t, targetDir)
 		})
 	}
 }
@@ -145,6 +337,69 @@ func readGeneratedFile(t *testing.T, targetDir string, relativePath string) stri
 	return string(data)
 }
 
+func assertGeneratedFileMissing(t *testing.T, targetDir string, relativePath string) {
+	t.Helper()
+
+	path := filepath.Join(targetDir, relativePath)
+	if _, err := os.Stat(path); err == nil {
+		t.Fatalf("expected generated file %q to be absent", path)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("stat generated file %q: %v", path, err)
+	}
+}
+
+func requestOptionsForTest(targetDir, fiberVersion, cliStyle string) map[string]string {
+	options := map[string]string{
+		"command":       "new",
+		"manifest_root": "../../generator",
+		"target_dir":    targetDir,
+	}
+	if fiberVersion != "" {
+		options[stack.OptionFiberVersion] = fiberVersion
+	}
+	if cliStyle != "" {
+		options[stack.OptionCLIStyle] = cliStyle
+	}
+	return options
+}
+
+func expectedFiberVersion(raw string) string {
+	if raw == "" {
+		return stack.DefaultFiberVersion()
+	}
+	return raw
+}
+
+func expectedCLIStyle(raw string) string {
+	if raw == "" {
+		return stack.DefaultCLIStyle()
+	}
+	return raw
+}
+
+func expectedBaseName(cliStyle string) string {
+	if expectedCLIStyle(cliStyle) == stack.CLICobra {
+		return "service-base-cobra"
+	}
+	return "service-base"
+}
+
+func expectedFiberDependency(fiberVersion string) string {
+	if expectedFiberVersion(fiberVersion) == stack.FiberV2 {
+		return "github.com/gofiber/fiber/v2 v2."
+	}
+	return "github.com/gofiber/fiber/v3 v3."
+}
+
+func hasCapability(capabilities []string, want string) bool {
+	for _, capability := range capabilities {
+		if capability == want {
+			return true
+		}
+	}
+	return false
+}
+
 func runGeneratedProjectTests(t *testing.T, targetDir string) {
 	t.Helper()
 
@@ -153,6 +408,313 @@ func runGeneratedProjectTests(t *testing.T, targetDir string) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("generated project go test failed: %v\n%s", err, string(output))
+	}
+}
+
+func runLightStartupSmokeScenario(t *testing.T, targetDir string) {
+	t.Helper()
+
+	port := randomPort(t)
+	tempDir := t.TempDir()
+	databasePath := filepath.Join(tempDir, "data", "app.db")
+	logPath := filepath.Join(tempDir, "logs", "app.log")
+	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
+		t.Fatalf("create database dir failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		t.Fatalf("create log dir failed: %v", err)
+	}
+
+	configBody := `server:
+  app_id: "fiberx"
+  app_name: "demo"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "` + port + `"
+database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    path: "` + filepath.ToSlash(databasePath) + `"
+log:
+  log_level: "debug"
+  log_mode: "text"
+  log_path: "` + filepath.ToSlash(logPath) + `"
+middleware:
+  cors:
+    allow_origins:
+      - "*"
+  gzip:
+    enabled: true
+swagger:
+  enabled: false
+  route_prefix: "/docs"
+embedded_ui:
+  enabled: false
+  route_prefix: "/ui"
+`
+	configPath := filepath.Join(tempDir, "server.yaml")
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	binaryPath := buildBinary(t, targetDir)
+	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
+	cmd.Dir = targetDir
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start light smoke service failed: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+
+	baseURL := "http://127.0.0.1:" + port
+	waitForReady(t, baseURL+"/healthz", &output, cmd)
+	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
+	if health.StatusCode != 200 || health.Code != 1 {
+		t.Fatalf("unexpected light smoke health response: %+v", health)
+	}
+}
+
+func runExtraLightStartupSmokeScenario(t *testing.T, targetDir string) {
+	t.Helper()
+
+	port := randomPort(t)
+	tempDir := t.TempDir()
+	databasePath := filepath.Join(tempDir, "data", "app.db")
+	logPath := filepath.Join(tempDir, "logs", "app.log")
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		t.Fatalf("create log dir failed: %v", err)
+	}
+
+	configBody := `server:
+  app_name: "demo"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "` + port + `"
+database:
+  path: "` + filepath.ToSlash(databasePath) + `"
+log:
+  log_level: "debug"
+  log_path: "` + filepath.ToSlash(logPath) + `"
+`
+	configPath := filepath.Join(tempDir, "server.yaml")
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	binaryPath := buildBinary(t, targetDir)
+	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
+	cmd.Dir = targetDir
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start extra-light smoke service failed: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+
+	baseURL := "http://127.0.0.1:" + port
+	waitForReady(t, baseURL+"/healthz", &output, cmd)
+	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
+	if health.StatusCode != 200 || health.Code != 1 {
+		t.Fatalf("unexpected extra-light smoke health response: %+v", health)
+	}
+}
+
+func runLightBlackBoxScenario(t *testing.T, targetDir string, enableSwagger bool, enableEmbeddedUI bool) {
+	t.Helper()
+
+	port := randomPort(t)
+	tempDir := t.TempDir()
+	databasePath := filepath.Join(tempDir, "data", "app.db")
+	logPath := filepath.Join(tempDir, "logs", "app.log")
+	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
+		t.Fatalf("create database dir failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		t.Fatalf("create log dir failed: %v", err)
+	}
+
+	configBody := `server:
+  app_id: "fiberx"
+  app_name: "demo"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "` + port + `"
+database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    path: "` + filepath.ToSlash(databasePath) + `"
+log:
+  log_level: "debug"
+  log_mode: "text"
+  log_path: "` + filepath.ToSlash(logPath) + `"
+middleware:
+  cors:
+    allow_origins:
+      - "*"
+  gzip:
+    enabled: true
+swagger:
+  enabled: ` + strconv.FormatBool(enableSwagger) + `
+  route_prefix: "/docs"
+embedded_ui:
+  enabled: ` + strconv.FormatBool(enableEmbeddedUI) + `
+  route_prefix: "/ui"
+`
+	configPath := filepath.Join(tempDir, "server.yaml")
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	binaryPath := buildBinary(t, targetDir)
+	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
+	cmd.Dir = targetDir
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start light service failed: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+
+	baseURL := "http://127.0.0.1:" + port
+	waitForReady(t, baseURL+"/healthz", &output, cmd)
+
+	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
+	if health.StatusCode != 200 || health.Code != 1 {
+		t.Fatalf("unexpected health response: %+v", health)
+	}
+	if health.Headers.Get("X-Request-ID") == "" || health.Headers.Get("X-Content-Type-Options") == "" {
+		t.Fatalf("expected request-id and security headers on light health response")
+	}
+	if !healthBodyContainsService(t, health.Data, "http:light") {
+		t.Fatalf("expected light service to appear in health payload: %s", string(health.Data))
+	}
+	if enableSwagger && !healthBodyContainsService(t, health.Data, "docs:swagger") {
+		t.Fatalf("expected swagger service to appear in light health payload: %s", string(health.Data))
+	}
+	if !enableSwagger && healthBodyContainsService(t, health.Data, "docs:swagger") {
+		t.Fatalf("did not expect swagger service in default light health payload: %s", string(health.Data))
+	}
+	if enableEmbeddedUI && !healthBodyContainsService(t, health.Data, "ui:embedded") {
+		t.Fatalf("expected embedded-ui service to appear in light health payload: %s", string(health.Data))
+	}
+	if !enableEmbeddedUI && healthBodyContainsService(t, health.Data, "ui:embedded") {
+		t.Fatalf("did not expect embedded-ui service in default light health payload: %s", string(health.Data))
+	}
+
+	for _, path := range []string{"/livez", "/readyz", "/startupz"} {
+		resp := doJSONRequest(t, "GET", baseURL+path, nil, nil)
+		if resp.StatusCode != 200 {
+			t.Fatalf("expected %s to return 200, got %+v", path, resp)
+		}
+	}
+
+	if enableSwagger {
+		assertDocsRoute(t, baseURL)
+	} else {
+		assertRouteMissing(t, baseURL+"/docs/openapi.yaml")
+	}
+	if enableEmbeddedUI {
+		assertUIRoute(t, baseURL)
+	} else {
+		assertRouteMissing(t, baseURL+"/ui")
+	}
+	assertRouteMissing(t, baseURL+"/metrics")
+
+	runUserCRUDScenario(t, baseURL, databasePath)
+}
+
+func runExtraLightBlackBoxScenario(t *testing.T, targetDir string) {
+	t.Helper()
+
+	port := randomPort(t)
+	tempDir := t.TempDir()
+	databasePath := filepath.Join(tempDir, "data", "app.db")
+	logPath := filepath.Join(tempDir, "logs", "app.log")
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		t.Fatalf("create log dir failed: %v", err)
+	}
+
+	configBody := `server:
+  app_name: "demo"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "` + port + `"
+database:
+  path: "` + filepath.ToSlash(databasePath) + `"
+log:
+  log_level: "debug"
+  log_path: "` + filepath.ToSlash(logPath) + `"
+`
+	configPath := filepath.Join(tempDir, "server.yaml")
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	binaryPath := buildBinary(t, targetDir)
+	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
+	cmd.Dir = targetDir
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start extra-light service failed: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+
+	baseURL := "http://127.0.0.1:" + port
+	waitForReady(t, baseURL+"/healthz", &output, cmd)
+
+	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
+	if health.StatusCode != 200 || health.Code != 1 {
+		t.Fatalf("unexpected extra-light health response: %+v", health)
+	}
+	if health.Headers.Get("X-Request-ID") != "" || health.Headers.Get("X-Content-Type-Options") != "" {
+		t.Fatalf("did not expect request-id or security headers on extra-light health response")
+	}
+	payload := decodeExtraLightHealthData(t, health.Data)
+	if !payload.Database.Ready {
+		t.Fatalf("expected extra-light database readiness payload, got %+v", payload)
+	}
+	if !containsService(payload.Services, "http:extra-light") {
+		t.Fatalf("expected extra-light service in health payload, got %+v", payload)
+	}
+
+	for _, path := range []string{"/livez", "/readyz", "/startupz"} {
+		resp := doJSONRequest(t, "GET", baseURL+path, nil, nil)
+		if resp.StatusCode != 200 {
+			t.Fatalf("expected %s to return 200, got %+v", path, resp)
+		}
+	}
+
+	assertRouteMissing(t, baseURL+"/docs/openapi.yaml")
+	assertRouteMissing(t, baseURL+"/ui")
+	assertRouteMissing(t, baseURL+"/api/v1/user/")
+	assertRouteMissing(t, baseURL+"/metrics")
+
+	if _, err := os.Stat(databasePath); err != nil {
+		t.Fatalf("expected sqlite database at %s: %v", databasePath, err)
 	}
 }
 
@@ -245,6 +807,174 @@ redis:
 		}
 	}
 
+	assertDocsRoute(t, baseURL)
+	assertUIRoute(t, baseURL)
+	runUserCRUDScenario(t, baseURL, databasePath)
+}
+
+func runHeavyBlackBoxScenario(t *testing.T, targetDir string, enableRedis bool) {
+	t.Helper()
+
+	port := randomPort(t)
+	tempDir := t.TempDir()
+	databasePath := filepath.Join(tempDir, "data", "app.db")
+	logPath := filepath.Join(tempDir, "logs", "app.log")
+	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
+		t.Fatalf("create database dir failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		t.Fatalf("create log dir failed: %v", err)
+	}
+
+	configBody := `server:
+  app_id: "fiberx"
+  app_name: "demo"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "` + port + `"
+database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    path: "` + filepath.ToSlash(databasePath) + `"
+log:
+  log_level: "debug"
+  log_mode: "text"
+  log_path: "` + filepath.ToSlash(logPath) + `"
+middleware:
+  cors:
+    allow_origins:
+      - "*"
+  gzip:
+    enabled: true
+swagger:
+  enabled: true
+  route_prefix: "/docs"
+embedded_ui:
+  enabled: true
+  route_prefix: "/ui"
+metrics:
+  enabled: true
+  route_prefix: "/metrics"
+scheduler:
+  enabled: true
+  interval: "100ms"
+redis:
+  enabled: ` + strconv.FormatBool(enableRedis) + `
+  addr: "127.0.0.1:0"
+  password: ""
+  db: 0
+`
+	configPath := filepath.Join(tempDir, "server.yaml")
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	binaryPath := buildBinary(t, targetDir)
+	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
+	cmd.Dir = targetDir
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start heavy service failed: %v", err)
+	}
+	defer func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	}()
+
+	baseURL := "http://127.0.0.1:" + port
+	waitForReady(t, baseURL+"/healthz", &output, cmd)
+
+	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
+	if health.StatusCode != 200 || health.Code != 1 {
+		t.Fatalf("unexpected health response: %+v", health)
+	}
+	if health.Headers.Get("X-Request-ID") == "" || health.Headers.Get("X-Content-Type-Options") == "" {
+		t.Fatalf("expected request-id and security headers on health response")
+	}
+
+	healthData := decodeHeavyHealthData(t, health.Data)
+	if !containsService(healthData.Services, "metrics:http") || !containsService(healthData.Services, "jobs:scheduler") {
+		t.Fatalf("expected metrics and jobs services in health payload: %+v", healthData)
+	}
+	if !containsService(healthData.Services, "docs:swagger") || !containsService(healthData.Services, "ui:embedded") {
+		t.Fatalf("expected default heavy capability services in health payload: %+v", healthData)
+	}
+	if enableRedis && !containsService(healthData.Services, "cache:redis") {
+		t.Fatalf("expected redis service to appear in health payload: %+v", healthData)
+	}
+
+	for _, path := range []string{"/livez", "/readyz", "/startupz"} {
+		resp := doJSONRequest(t, "GET", baseURL+path, nil, nil)
+		if resp.StatusCode != 200 {
+			t.Fatalf("expected %s to return 200, got %+v", path, resp)
+		}
+	}
+
+	waitForHeavyJobRuns(t, baseURL)
+	assertDocsRoute(t, baseURL)
+	assertUIRoute(t, baseURL)
+	assertMetricsRoute(t, baseURL)
+	runUserCRUDScenario(t, baseURL, databasePath)
+}
+
+type heavyHealthData struct {
+	Services       []string `json:"services"`
+	RequestsTotal  uint64   `json:"requests_total"`
+	JobRunsTotal   int64    `json:"job_runs_total"`
+	LastJobRunUnix int64    `json:"last_job_run_unix"`
+}
+
+type extraLightHealthData struct {
+	Services []string `json:"services"`
+	Database struct {
+		Ready bool `json:"ready"`
+	} `json:"database"`
+}
+
+func decodeHeavyHealthData(t *testing.T, raw json.RawMessage) heavyHealthData {
+	t.Helper()
+
+	var payload heavyHealthData
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode heavy health payload failed: %v", err)
+	}
+	return payload
+}
+
+func decodeExtraLightHealthData(t *testing.T, raw json.RawMessage) extraLightHealthData {
+	t.Helper()
+
+	var payload extraLightHealthData
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode extra-light health payload failed: %v", err)
+	}
+	return payload
+}
+
+func waitForHeavyJobRuns(t *testing.T, baseURL string) {
+	t.Helper()
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
+		payload := decodeHeavyHealthData(t, health.Data)
+		if payload.JobRunsTotal > 0 && payload.LastJobRunUnix > 0 {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Fatalf("expected heavy scheduler job to run within deadline")
+}
+
+func assertDocsRoute(t *testing.T, baseURL string) {
+	t.Helper()
+
 	docsResp, err := http.Get(baseURL + "/docs/openapi.yaml")
 	if err != nil {
 		t.Fatalf("fetch docs failed: %v", err)
@@ -254,6 +984,10 @@ redis:
 	if docsResp.StatusCode != 200 || !strings.Contains(string(body), "openapi: 3.0.3") {
 		t.Fatalf("unexpected docs response: status=%d body=%s", docsResp.StatusCode, string(body))
 	}
+}
+
+func assertUIRoute(t *testing.T, baseURL string) {
+	t.Helper()
 
 	uiResp, err := http.Get(baseURL + "/ui")
 	if err != nil {
@@ -264,6 +998,50 @@ redis:
 	if uiResp.StatusCode != 200 || !strings.Contains(string(uiBody), "embedded UI ships") {
 		t.Fatalf("unexpected ui response: status=%d body=%s", uiResp.StatusCode, string(uiBody))
 	}
+}
+
+func assertMetricsRoute(t *testing.T, baseURL string) {
+	t.Helper()
+
+	metricsResp, err := http.Get(baseURL + "/metrics")
+	if err != nil {
+		t.Fatalf("fetch metrics failed: %v", err)
+	}
+	body, _ := io.ReadAll(metricsResp.Body)
+	_ = metricsResp.Body.Close()
+	metricsBody := string(body)
+	if metricsResp.StatusCode != 200 || !strings.Contains(metricsBody, "fiberx_requests_total") || !strings.Contains(metricsBody, "fiberx_job_runs_total") {
+		t.Fatalf("unexpected metrics response: status=%d body=%s", metricsResp.StatusCode, metricsBody)
+	}
+}
+
+func assertRouteMissing(t *testing.T, url string) {
+	t.Helper()
+
+	resp, err := rawRequest("GET", url, nil, nil)
+	if err != nil {
+		t.Fatalf("fetch missing route failed: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected missing route %s to return 404, got status=%d body=%s", url, resp.StatusCode, string(body))
+	}
+	if !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "application/json") {
+		t.Fatalf("expected missing route %s to return json envelope, got content-type=%q body=%s", url, resp.Header.Get("Content-Type"), string(body))
+	}
+	var decoded apiResponse
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("decode missing route response failed: %v body=%s", err, string(body))
+	}
+	message := strings.ToLower(decoded.Message)
+	if decoded.Code != 0 || (!strings.Contains(message, "not found") && !strings.Contains(message, "cannot get")) {
+		t.Fatalf("expected missing route %s to use error envelope, got %+v", url, decoded)
+	}
+}
+
+func runUserCRUDScenario(t *testing.T, baseURL, databasePath string) {
+	t.Helper()
 
 	createPayload := map[string]any{
 		"name":   "Alice",
@@ -441,6 +1219,15 @@ func healthBodyContainsService(t *testing.T, raw json.RawMessage, want string) b
 		t.Fatalf("decode health payload failed: %v", err)
 	}
 	for _, service := range payload.Services {
+		if service == want {
+			return true
+		}
+	}
+	return false
+}
+
+func containsService(services []string, want string) bool {
+	for _, service := range services {
 		if service == want {
 			return true
 		}

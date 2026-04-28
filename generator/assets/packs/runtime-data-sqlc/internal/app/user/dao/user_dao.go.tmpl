@@ -1,0 +1,196 @@
+package dao
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+
+	"{{module_path}}/internal/app/user/models"
+	"{{module_path}}/internal/infra/db"
+)
+
+var ErrNotFound = errors.New("user not found")
+
+type Store struct {
+	queries *Queries
+}
+
+func NewStore(handle *db.Handle) *Store {
+	return &Store{
+		queries: NewQueries(handle.DB, handle.Dialect),
+	}
+}
+
+func (s *Store) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {
+	return s.queries.Create(ctx, input)
+}
+
+func (s *Store) List(ctx context.Context, offset, limit int) (models.UserList, error) {
+	return s.queries.List(ctx, offset, limit)
+}
+
+func (s *Store) Get(ctx context.Context, id int64) (models.User, error) {
+	return s.queries.Get(ctx, id)
+}
+
+func (s *Store) Update(ctx context.Context, id int64, input models.UpdateUserInput) (models.User, error) {
+	return s.queries.Update(ctx, id, input)
+}
+
+func (s *Store) Delete(ctx context.Context, id int64) error {
+	return s.queries.Delete(ctx, id)
+}
+
+type Queries struct {
+	db      *sql.DB
+	dialect string
+}
+
+func NewQueries(database *sql.DB, dialect string) *Queries {
+	return &Queries{db: database, dialect: dialect}
+}
+
+func (q *Queries) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {
+	if q.dialect == "postgres" {
+		var id int64
+		err := q.db.QueryRowContext(ctx, `
+			INSERT INTO users (name, email, age, status)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`, input.Name, input.Email, input.Age, input.Status).Scan(&id)
+		if err != nil {
+			return models.User{}, err
+		}
+		return q.Get(ctx, id)
+	}
+
+	result, err := q.db.ExecContext(ctx, `
+		INSERT INTO users (name, email, age, status)
+		VALUES (?, ?, ?, ?)
+	`, input.Name, input.Email, input.Age, input.Status)
+	if err != nil {
+		return models.User{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return models.User{}, err
+	}
+	return q.Get(ctx, id)
+}
+
+func (q *Queries) List(ctx context.Context, offset, limit int) (models.UserList, error) {
+	var total int64
+	if err := q.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM users`).Scan(&total); err != nil {
+		return models.UserList{}, err
+	}
+
+	query := `
+		SELECT id, name, email, age, status
+		FROM users
+		ORDER BY id ASC
+		LIMIT ? OFFSET ?
+	`
+	args := []any{limit, offset}
+	if q.dialect == "postgres" {
+		query = `
+			SELECT id, name, email, age, status
+			FROM users
+			ORDER BY id ASC
+			LIMIT $1 OFFSET $2
+		`
+	}
+	rows, err := q.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return models.UserList{}, err
+	}
+	defer rows.Close()
+
+	list := make([]models.User, 0, limit)
+	for rows.Next() {
+		var user models.User
+		if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Age, &user.Status); err != nil {
+			return models.UserList{}, err
+		}
+		list = append(list, user)
+	}
+	if err := rows.Err(); err != nil {
+		return models.UserList{}, err
+	}
+
+	return models.UserList{Total: total, List: list}, nil
+}
+
+func (q *Queries) Get(ctx context.Context, id int64) (models.User, error) {
+	var (
+		user  models.User
+		query = `
+			SELECT id, name, email, age, status
+			FROM users
+			WHERE id = ?
+		`
+		args = []any{id}
+	)
+	if q.dialect == "postgres" {
+		query = `
+			SELECT id, name, email, age, status
+			FROM users
+			WHERE id = $1
+		`
+	}
+	err := q.db.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.Name, &user.Email, &user.Age, &user.Status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.User{}, ErrNotFound
+	}
+	if err != nil {
+		return models.User{}, err
+	}
+	return user, nil
+}
+
+func (q *Queries) Update(ctx context.Context, id int64, input models.UpdateUserInput) (models.User, error) {
+	query := `
+		UPDATE users
+		SET name = ?, email = ?, age = ?, status = ?
+		WHERE id = ?
+	`
+	args := []any{input.Name, input.Email, input.Age, input.Status, id}
+	if q.dialect == "postgres" {
+		query = `
+			UPDATE users
+			SET name = $1, email = $2, age = $3, status = $4
+			WHERE id = $5
+		`
+	}
+	result, err := q.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return models.User{}, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return models.User{}, err
+	}
+	if affected == 0 {
+		return models.User{}, ErrNotFound
+	}
+	return q.Get(ctx, id)
+}
+
+func (q *Queries) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM users WHERE id = ?`
+	args := []any{id}
+	if q.dialect == "postgres" {
+		query = `DELETE FROM users WHERE id = $1`
+	}
+	result, err := q.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

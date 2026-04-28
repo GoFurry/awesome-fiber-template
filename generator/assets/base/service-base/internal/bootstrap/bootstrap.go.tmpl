@@ -16,6 +16,10 @@ var serviceNamesFn = func() []string {
 	return []string{"preset:{{preset_name}}"}
 }
 
+func Serve(configPath string) error {
+	return serveFn(configPath)
+}
+
 func Main(args []string) error {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stdout, "project={{project_name}}\n")
@@ -34,7 +38,7 @@ func Main(args []string) error {
 		if len(fs.Args()) != 0 {
 			return fmt.Errorf("serve does not accept positional arguments")
 		}
-		return serveFn(*configPath)
+		return Serve(*configPath)
 	case "services":
 		fmt.Fprintf(os.Stdout, "%s\n", strings.Join(Services(), ","))
 		return nil

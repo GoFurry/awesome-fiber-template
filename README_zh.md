@@ -51,6 +51,14 @@ go run . serve
 
 每个参考 preset 都是独立的 Go module，拥有各自的 `go.mod`、配置文件、README 和依赖边界。
 
+当前生成器默认产物已经切到 `Fiber v3 + Cobra + Viper`，同时保留 `Fiber v2 + native-cli` 兼容回退，并且会额外生成 `server.yaml / server.dev.yaml / server.prod.yaml` 以及运行手册、返回约定和验证文档。
+
+当前 `medium / heavy / light` 的默认运行时已经切到 `zap + sqlite + stdlib`，并开始支持 Phase 11 运行时参数：
+
+- `--logger zap|slog`
+- `--db sqlite|pgsql|mysql`
+- `--data-access stdlib|sqlx|sqlc`
+
 ## 仓库目标
 
 这个仓库的目标是把当前 preset 语义、规则和验证能力沉淀为生成器系统，同时保持边界清晰：

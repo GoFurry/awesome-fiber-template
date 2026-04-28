@@ -1,0 +1,152 @@
+package dao
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+
+	"{{module_path}}/internal/app/user/models"
+	"{{module_path}}/internal/infra/db"
+)
+
+var ErrNotFound = errors.New("user not found")
+
+type Store struct {
+	handle *db.Handle
+}
+
+func NewStore(handle *db.Handle) *Store {
+	return &Store{handle: handle}
+}
+
+func (s *Store) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {
+	if s.handle.Dialect == "postgres" {
+		var id int64
+		err := s.handle.DB.GetContext(ctx, &id, `
+			INSERT INTO users (name, email, age, status)
+			VALUES ($1, $2, $3, $4)
+			RETURNING id
+		`, input.Name, input.Email, input.Age, input.Status)
+		if err != nil {
+			return models.User{}, err
+		}
+		return s.Get(ctx, id)
+	}
+
+	result, err := s.handle.DB.ExecContext(ctx, `
+		INSERT INTO users (name, email, age, status)
+		VALUES (?, ?, ?, ?)
+	`, input.Name, input.Email, input.Age, input.Status)
+	if err != nil {
+		return models.User{}, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return models.User{}, err
+	}
+	return s.Get(ctx, id)
+}
+
+func (s *Store) List(ctx context.Context, offset, limit int) (models.UserList, error) {
+	var total int64
+	if err := s.handle.DB.GetContext(ctx, &total, `SELECT COUNT(1) FROM users`); err != nil {
+		return models.UserList{}, err
+	}
+
+	query := `
+		SELECT id, name, email, age, status
+		FROM users
+		ORDER BY id ASC
+		LIMIT ? OFFSET ?
+	`
+	args := []any{limit, offset}
+	if s.handle.Dialect == "postgres" {
+		query = `
+			SELECT id, name, email, age, status
+			FROM users
+			ORDER BY id ASC
+			LIMIT $1 OFFSET $2
+		`
+	}
+
+	list := make([]models.User, 0, limit)
+	if err := s.handle.DB.SelectContext(ctx, &list, query, args...); err != nil {
+		return models.UserList{}, err
+	}
+	return models.UserList{Total: total, List: list}, nil
+}
+
+func (s *Store) Get(ctx context.Context, id int64) (models.User, error) {
+	var (
+		user  models.User
+		query = `
+			SELECT id, name, email, age, status
+			FROM users
+			WHERE id = ?
+		`
+		args = []any{id}
+	)
+	if s.handle.Dialect == "postgres" {
+		query = `
+			SELECT id, name, email, age, status
+			FROM users
+			WHERE id = $1
+		`
+	}
+	err := s.handle.DB.GetContext(ctx, &user, query, args...)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.User{}, ErrNotFound
+	}
+	if err != nil {
+		return models.User{}, err
+	}
+	return user, nil
+}
+
+func (s *Store) Update(ctx context.Context, id int64, input models.UpdateUserInput) (models.User, error) {
+	query := `
+		UPDATE users
+		SET name = ?, email = ?, age = ?, status = ?
+		WHERE id = ?
+	`
+	args := []any{input.Name, input.Email, input.Age, input.Status, id}
+	if s.handle.Dialect == "postgres" {
+		query = `
+			UPDATE users
+			SET name = $1, email = $2, age = $3, status = $4
+			WHERE id = $5
+		`
+	}
+	result, err := s.handle.DB.ExecContext(ctx, query, args...)
+	if err != nil {
+		return models.User{}, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return models.User{}, err
+	}
+	if affected == 0 {
+		return models.User{}, ErrNotFound
+	}
+	return s.Get(ctx, id)
+}
+
+func (s *Store) Delete(ctx context.Context, id int64) error {
+	query := `DELETE FROM users WHERE id = ?`
+	args := []any{id}
+	if s.handle.Dialect == "postgres" {
+		query = `DELETE FROM users WHERE id = $1`
+	}
+	result, err := s.handle.DB.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

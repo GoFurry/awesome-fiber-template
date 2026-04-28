@@ -1,0 +1,43 @@
+server:
+  app_id: "fiberx"
+  app_name: "{{project_name}}"
+  app_version: "v1.0.0"
+  mode: "debug"
+  ip_address: "127.0.0.1"
+  port: "3000"
+  network: "tcp"
+  enable_prefork: false
+  is_full_stack: false
+database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    path: "./data/dev-app.db"
+log:
+  log_level: "debug"
+  log_mode: "text"
+  log_path: "./logs/dev-app.log"
+middleware:
+  cors:
+    allow_origins:
+      - "*"
+  gzip:
+    enabled: true
+swagger:
+  enabled: true
+  route_prefix: "/docs"
+embedded_ui:
+  enabled: true
+  route_prefix: "/ui"
+metrics:
+  enabled: true
+  route_prefix: "/metrics"
+scheduler:
+  enabled: true
+  interval: "1s"
+redis:
+  enabled: false
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0

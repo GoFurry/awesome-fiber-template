@@ -1,0 +1,72 @@
+package bootstrap
+
+import (
+	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
+	userdao "{{module_path}}/internal/app/user/dao"
+	userservice "{{module_path}}/internal/app/user/service"
+	"{{module_path}}/internal/infra/cache"
+	"{{module_path}}/internal/infra/db"
+	"{{module_path}}/internal/infra/logging"
+	appmetrics "{{module_path}}/internal/infra/metrics"
+	"{{module_path}}/internal/jobs"
+	httprouter "{{module_path}}/internal/transport/http/router"
+)
+
+func init() {
+	serveFn = serve
+	serviceNamesFn = func() []string {
+		return []string{"http:heavy"}
+	}
+}
+
+func serve(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger, cleanup, err := logging.New(cfg.Log)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	database, err := db.Open(cfg.Database)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	metricsCollector := appmetrics.New()
+	stopScheduler, err := jobs.Start(cfg.Scheduler, logger, metricsCollector)
+	if err != nil {
+		return err
+	}
+	defer stopScheduler()
+
+	cacheStore := cache.New(cfg.Redis)
+	userStore := userdao.NewStore(database)
+	userService := userservice.New(userStore, cacheStore)
+	userController := usercontroller.New(userService)
+
+	services := append([]string{}, Services()...)
+	if cfg.Metrics.Enabled {
+		services = append(services, "metrics:http")
+	}
+	if cfg.Scheduler.Enabled {
+		services = append(services, "jobs:scheduler")
+	}
+
+	logger.Info("fiberx heavy service starting", logging.String("addr", cfg.Address()))
+
+	app := httprouter.NewApp(httprouter.Dependencies{
+		Config:         cfg,
+		Logger:         logger,
+		Metrics:        metricsCollector,
+		UserController: userController,
+		Services:       services,
+	})
+
+	return app.Listen(cfg.Address())
+}

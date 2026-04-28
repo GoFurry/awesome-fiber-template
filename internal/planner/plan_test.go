@@ -22,15 +22,26 @@ func TestBuildPlanSelectsMediumRedisAssetsAndRules(t *testing.T) {
 
 	plan := BuildPlan("demo", "github.com/example/demo", "medium", []string{"redis"}, map[string]string{"target_dir": t.TempDir()}, root, catalog)
 
-	if plan.Base.Name != "service-base" {
-		t.Fatalf("expected base service-base, got %q", plan.Base.Name)
+	if plan.Base.Name != "service-base-cobra" {
+		t.Fatalf("expected default base service-base-cobra, got %q", plan.Base.Name)
 	}
-	if len(plan.PresetPacks) != 1 || plan.PresetPacks[0].Name != "preset-medium" {
-		t.Fatalf("expected one preset pack preset-medium, got %#v", plan.PresetPacks)
+	if plan.FiberVersion != "v3" || plan.CLIStyle != "cobra" {
+		t.Fatalf("expected default stack v3/cobra, got fiber=%q cli=%q", plan.FiberVersion, plan.CLIStyle)
+	}
+	if len(plan.PresetPacks) != 1 || plan.PresetPacks[0].Name != "preset-medium-v3" {
+		t.Fatalf("expected one preset pack preset-medium-v3, got %#v", plan.PresetPacks)
 	}
 	if len(plan.CapabilityPacks) != 3 {
 		t.Fatalf("expected three capability packs for medium defaults + redis, got %#v", plan.CapabilityPacks)
 	}
+	if plan.Logger != "zap" || plan.Database != "sqlite" || plan.DataAccess != "stdlib" {
+		t.Fatalf("expected default runtime options zap/sqlite/stdlib, got logger=%q db=%q data=%q", plan.Logger, plan.Database, plan.DataAccess)
+	}
+	if len(plan.RuntimeOverlays) != 2 {
+		t.Fatalf("expected two runtime overlays, got %#v", plan.RuntimeOverlays)
+	}
+	assertPlanHasPack(t, plan.RuntimeOverlays, "runtime-logger-zap")
+	assertPlanHasPack(t, plan.RuntimeOverlays, "runtime-data-stdlib")
 	assertPlanHasPack(t, plan.CapabilityPacks, "swagger")
 	assertPlanHasPack(t, plan.CapabilityPacks, "embedded-ui")
 	assertPlanHasPack(t, plan.CapabilityPacks, "redis")

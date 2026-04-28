@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - engine: "{{db_kind}}"
+    queries: "internal/app/user/dao/query.sql"
+    schema: "internal/app/user/dao/query.sql"
+    gen:
+      go:
+        package: "dao"
+        out: "internal/app/user/dao"

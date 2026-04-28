@@ -1,0 +1,35 @@
+# {{project_name}} API Contract
+
+Generated JSON handlers use a shared envelope:
+
+```json
+{
+  "code": 1,
+  "message": "success",
+  "data": {}
+}
+```
+
+## Success Responses
+
+- HTTP status carries transport meaning, usually `200`
+- `code = 1`
+- `message = "success"`
+- `data` contains the handler payload
+
+## Error Responses
+
+- HTTP status carries the error category, such as `400`, `404`, or `500`
+- `code = 0`
+- `message` contains the error text
+- `data` falls back to an empty object
+
+Generated routers preserve `fiber.Error` status codes, so missing routes stay `404` instead of being flattened into `500`.
+
+## Exceptions
+
+- `/docs` may return HTML or YAML when Swagger is enabled
+- `/ui` may return HTML when embedded UI is enabled
+- `/metrics` returns plain text on the `heavy` preset
+
+Treat those routes as operational surfaces rather than JSON business APIs.

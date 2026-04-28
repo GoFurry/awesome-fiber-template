@@ -1,0 +1,161 @@
+package logging
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+
+	"{{module_path}}/config"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+type Field struct {
+	Key   string
+	Value any
+}
+
+type Logger struct {
+	base *zap.Logger
+}
+
+func New(cfg config.LogConfig) (*Logger, func(), error) {
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "info"
+	}
+	if cfg.LogMode == "" {
+		cfg.LogMode = "dev"
+	}
+	if cfg.LogPath == "" {
+		cfg.LogPath = "./logs/app.log"
+	}
+	if cfg.LogMaxSize == 0 {
+		cfg.LogMaxSize = 100
+	}
+	if cfg.LogMaxBackups == 0 {
+		cfg.LogMaxBackups = 7
+	}
+	if cfg.LogMaxAge == 0 {
+		cfg.LogMaxAge = 30
+	}
+	if !cfg.LogCompress {
+		cfg.LogCompress = true
+	}
+	if !cfg.LogShowLine {
+		cfg.LogShowLine = true
+	}
+
+	level := zapcore.InfoLevel
+	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
+		return nil, nil, err
+	}
+
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+
+	writer, closer, err := writerFromConfig(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	encoder := zapcore.NewConsoleEncoder(encoderConfig)
+	if cfg.LogJSON || cfg.LogMode == "prod" || cfg.LogMode == "json" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	}
+
+	options := []zap.Option{zap.AddStacktrace(zapcore.ErrorLevel)}
+	if cfg.LogShowLine {
+		options = append(options, zap.AddCaller())
+	}
+
+	base := zap.New(zapcore.NewCore(encoder, writer, level), options...)
+	return &Logger{base: base}, func() {
+		_ = base.Sync()
+		if closer != nil {
+			_ = closer.Close()
+		}
+	}, nil
+}
+
+func Default() *Logger {
+	base, _ := zap.NewDevelopment()
+	return &Logger{base: base}
+}
+
+func (l *Logger) Info(message string, fields ...Field) {
+	l.withDefault().Info(message, toZapFields(fields)...)
+}
+
+func (l *Logger) Error(message string, fields ...Field) {
+	l.withDefault().Error(message, toZapFields(fields)...)
+}
+
+func (l *Logger) Warn(message string, fields ...Field) {
+	l.withDefault().Warn(message, toZapFields(fields)...)
+}
+
+func (l *Logger) Debug(message string, fields ...Field) {
+	l.withDefault().Debug(message, toZapFields(fields)...)
+}
+
+func String(key, value string) Field {
+	return Field{Key: key, Value: value}
+}
+
+func Int(key string, value int) Field {
+	return Field{Key: key, Value: value}
+}
+
+func Bool(key string, value bool) Field {
+	return Field{Key: key, Value: value}
+}
+
+func Any(key string, value any) Field {
+	return Field{Key: key, Value: value}
+}
+
+func (l *Logger) withDefault() *zap.Logger {
+	if l == nil || l.base == nil {
+		base, _ := zap.NewDevelopment()
+		return base
+	}
+	return l.base
+}
+
+func toZapFields(fields []Field) []zap.Field {
+	converted := make([]zap.Field, 0, len(fields))
+	for _, field := range fields {
+		converted = append(converted, zap.Any(field.Key, field.Value))
+	}
+	return converted
+}
+
+func writerFromConfig(cfg config.LogConfig) (zapcore.WriteSyncer, io.Closer, error) {
+	if cfg.LogMode == "prod" || cfg.LogMode == "json" {
+		if err := os.MkdirAll(filepath.Dir(cfg.LogPath), 0o755); err != nil {
+			return nil, nil, err
+		}
+		roller := &lumberjack.Logger{
+			Filename:   cfg.LogPath,
+			MaxSize:    cfg.LogMaxSize,
+			MaxBackups: cfg.LogMaxBackups,
+			MaxAge:     cfg.LogMaxAge,
+			Compress:   cfg.LogCompress,
+			LocalTime:  true,
+		}
+		return zapcore.AddSync(roller), roller, nil
+	}
+
+	return zapcore.AddSync(os.Stdout), nil, nil
+}

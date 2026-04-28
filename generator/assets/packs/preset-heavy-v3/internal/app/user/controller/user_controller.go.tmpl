@@ -1,0 +1,99 @@
+package controller
+
+import (
+	"errors"
+	"strconv"
+
+	"github.com/gofiber/fiber/v3"
+
+	"{{module_path}}/internal/app/user/dao"
+	"{{module_path}}/internal/app/user/models"
+	"{{module_path}}/internal/app/user/service"
+	"{{module_path}}/pkg/common"
+)
+
+type Controller struct {
+	service *service.Service
+}
+
+func New(service *service.Service) *Controller {
+	return &Controller{service: service}
+}
+
+func (ctl *Controller) Create(c fiber.Ctx) error {
+	var input models.CreateUserInput
+	if err := c.Bind().Body(&input); err != nil {
+		return common.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	user, err := ctl.service.Create(c.Context(), input)
+	if err != nil {
+		return writeServiceError(c, err)
+	}
+	return common.Success(c, user)
+}
+
+func (ctl *Controller) List(c fiber.Ctx) error {
+	pageNum, _ := strconv.Atoi(c.Query("page_num", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "10"))
+
+	result, err := ctl.service.List(c.Context(), pageNum, pageSize)
+	if err != nil {
+		return writeServiceError(c, err)
+	}
+	return common.Success(c, result)
+}
+
+func (ctl *Controller) Get(c fiber.Ctx) error {
+	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	if err != nil {
+		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	user, err := ctl.service.Get(c.Context(), id)
+	if err != nil {
+		return writeServiceError(c, err)
+	}
+	return common.Success(c, user)
+}
+
+func (ctl *Controller) Update(c fiber.Ctx) error {
+	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	if err != nil {
+		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	var input models.UpdateUserInput
+	if err := c.Bind().Body(&input); err != nil {
+		return common.Error(c, fiber.StatusBadRequest, "invalid request body")
+	}
+
+	user, err := ctl.service.Update(c.Context(), id, input)
+	if err != nil {
+		return writeServiceError(c, err)
+	}
+	return common.Success(c, user)
+}
+
+func (ctl *Controller) Delete(c fiber.Ctx) error {
+	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
+	if err != nil {
+		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
+	}
+
+	if err := ctl.service.Delete(c.Context(), id); err != nil {
+		return writeServiceError(c, err)
+	}
+	return common.Success(c, fiber.Map{"id": id})
+}
+
+func writeServiceError(c fiber.Ctx, err error) error {
+	switch {
+	case errors.Is(err, service.ErrInvalidUserInput):
+		return common.Error(c, fiber.StatusBadRequest, "invalid user input")
+	case errors.Is(err, dao.ErrNotFound):
+		return common.Error(c, fiber.StatusNotFound, "user not found")
+	default:
+		return common.Error(c, fiber.StatusInternalServerError, err.Error())
+	}
+}

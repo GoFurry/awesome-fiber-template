@@ -1,0 +1,28 @@
+package models
+
+type User struct {
+	ID     int64  `json:"id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Age    int    `json:"age"`
+	Status string `json:"status"`
+}
+
+type CreateUserInput struct {
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Age    int    `json:"age"`
+	Status string `json:"status"`
+}
+
+type UpdateUserInput struct {
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Age    int    `json:"age"`
+	Status string `json:"status"`
+}
+
+type UserList struct {
+	Total int64  `json:"total"`
+	List  []User `json:"list"`
+}

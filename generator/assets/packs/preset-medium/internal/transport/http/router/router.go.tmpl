@@ -1,7 +1,7 @@
 package router
 
 import (
-	"log/slog"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +15,7 @@ import (
 
 	"{{module_path}}/config"
 	usercontroller "{{module_path}}/internal/app/user/controller"
+	applogging "{{module_path}}/internal/infra/logging"
 	httpmiddleware "{{module_path}}/internal/transport/http/middleware"
 	"{{module_path}}/internal/transport/http/webui"
 	"{{module_path}}/pkg/common"
@@ -22,7 +23,7 @@ import (
 
 type Dependencies struct {
 	Config         config.Config
-	Logger         *slog.Logger
+	Logger         *applogging.Logger
 	UserController *usercontroller.Controller
 	Services       []string
 }
@@ -30,14 +31,21 @@ type Dependencies struct {
 func NewApp(deps Dependencies) *fiber.App {
 	logger := deps.Logger
 	if logger == nil {
-		logger = slog.Default()
+		logger = applogging.Default()
 	}
 
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			logger.Error("request failed", slog.String("path", c.Path()), slog.String("error", err.Error()))
-			return common.Error(c, fiber.StatusInternalServerError, err.Error())
+			logger.Error("request failed", applogging.String("path", c.Path()), applogging.String("error", err.Error()))
+			status := fiber.StatusInternalServerError
+			message := err.Error()
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				status = fiberErr.Code
+				message = fiberErr.Message
+			}
+			return common.Error(c, status, message)
 		},
 	})
 

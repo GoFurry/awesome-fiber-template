@@ -8,8 +8,14 @@ import (
 
 type Summary struct {
 	Base            string
+	FiberVersion    string
+	CLIStyle        string
+	Logger          string
+	Database        string
+	DataAccess      string
 	PresetPacks     []string
 	CapabilityPacks []string
+	RuntimeOverlays []string
 	Preset          string
 	Capabilities    []string
 	ReplaceRules    []string
@@ -37,10 +43,21 @@ func Build(plan planner.Plan, rendered renderer.Result, writeResult writer.Resul
 		capabilityPacks = append(capabilityPacks, pack.Name)
 	}
 
+	runtimeOverlays := make([]string, 0, len(plan.RuntimeOverlays))
+	for _, pack := range plan.RuntimeOverlays {
+		runtimeOverlays = append(runtimeOverlays, pack.Name)
+	}
+
 	return Summary{
 		Base:            plan.Base.Name,
+		FiberVersion:    plan.FiberVersion,
+		CLIStyle:        plan.CLIStyle,
+		Logger:          plan.Logger,
+		Database:        plan.Database,
+		DataAccess:      plan.DataAccess,
 		PresetPacks:     presetPacks,
 		CapabilityPacks: capabilityPacks,
+		RuntimeOverlays: runtimeOverlays,
 		Preset:          plan.Preset.Name,
 		Capabilities:    capabilities,
 		ReplaceRules:    append([]string(nil), rendered.ReplaceRuleHits...),

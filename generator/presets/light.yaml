@@ -1,9 +1,11 @@
 name: light
 summary: plain Go-style service baseline
-description: Keeps a smaller service structure with common middleware and fewer infrastructure concerns.
+description: Keeps a lightweight runnable HTTP service with common middleware, sqlite startup, and a smaller application surface than medium.
 implemented: true
 base: service-base
 packs:
   - preset-light
 default_capabilities: []
-allowed_capabilities: []
+allowed_capabilities:
+  - swagger
+  - embedded-ui

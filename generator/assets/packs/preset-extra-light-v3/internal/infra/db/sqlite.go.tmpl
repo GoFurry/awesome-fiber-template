@@ -1,0 +1,32 @@
+package db
+
+import (
+	"database/sql"
+	"os"
+	"path/filepath"
+
+	_ "modernc.org/sqlite"
+
+	"{{module_path}}/config"
+)
+
+func OpenSQLite(cfg config.DatabaseConfig) (*sql.DB, error) {
+	path := cfg.Path
+	if path == "" {
+		path = "./data/app.db"
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+
+	database, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+	if err := database.Ping(); err != nil {
+		database.Close()
+		return nil, err
+	}
+
+	return database, nil
+}

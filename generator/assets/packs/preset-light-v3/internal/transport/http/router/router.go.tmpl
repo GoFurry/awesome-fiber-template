@@ -1,0 +1,141 @@
+package router
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/compress"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/etag"
+	"github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/fiber/v3/middleware/requestid"
+
+	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
+	applogging "{{module_path}}/internal/infra/logging"
+	httpmiddleware "{{module_path}}/internal/transport/http/middleware"
+	"{{module_path}}/pkg/common"
+)
+
+type Dependencies struct {
+	Config         config.Config
+	Logger         *applogging.Logger
+	UserController *usercontroller.Controller
+	Services       []string
+}
+
+func NewApp(deps Dependencies) *fiber.App {
+	logger := deps.Logger
+	if logger == nil {
+		logger = applogging.Default()
+	}
+
+	app := fiber.New(fiber.Config{
+
+		ErrorHandler: func(c fiber.Ctx, err error) error {
+			logger.Error("request failed", applogging.String("path", c.Path()), applogging.String("error", err.Error()))
+			status := fiber.StatusInternalServerError
+			message := err.Error()
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				status = fiberErr.Code
+				message = fiberErr.Message
+			}
+			return common.Error(c, status, message)
+		},
+	})
+
+	app.Use(requestid.New())
+	app.Use(recover.New())
+	app.Use(httpmiddleware.SecurityHeaders())
+	app.Use(etag.New())
+	if deps.Config.Middleware.Gzip.Enabled {
+		app.Use(compress.New())
+	}
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: deps.Config.Middleware.CORS.AllowOrigins,
+	}))
+
+	registerHealthRoutes(app, deps)
+	registerUserRoutes(app, deps.UserController)
+	registerSwaggerRoutes(app, deps.Config)
+	registerEmbeddedUIRoutes(app, deps.Config)
+
+	return app
+}
+
+func registerHealthRoutes(app *fiber.App, deps Dependencies) {
+	payload := fiber.Map{
+		"app_id":      deps.Config.Server.AppID,
+		"app_name":    deps.Config.Server.AppName,
+		"app_version": deps.Config.Server.AppVersion,
+		"services":    deps.Services,
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return common.Success(c, payload)
+	}
+
+	app.Get(HealthzPath, handler)
+	app.Get(LivezPath, handler)
+	app.Get(ReadyzPath, handler)
+	app.Get(StartupzPath, handler)
+}
+
+func registerUserRoutes(app *fiber.App, controller *usercontroller.Controller) {
+	group := app.Group(UserBasePath)
+	group.Post("/", controller.Create)
+	group.Get("/", controller.List)
+	group.Get("/:id", controller.Get)
+	group.Put("/:id", controller.Update)
+	group.Delete("/:id", controller.Delete)
+}
+
+func registerSwaggerRoutes(app *fiber.App, cfg config.Config) {
+	if !cfg.Swagger.Enabled {
+		return
+	}
+
+	prefix := strings.TrimRight(cfg.Swagger.RoutePrefix, "/")
+	if prefix == "" {
+		prefix = "/docs"
+	}
+	openAPIPath := filepath.Join("docs", "openapi.yaml")
+	if _, err := os.Stat(openAPIPath); err != nil {
+		return
+	}
+
+	app.Get(prefix, func(c fiber.Ctx) error {
+		return c.Type("html").SendString(`<html><body><h1>API Docs</h1><p>OpenAPI: <a href="` + prefix + `/openapi.yaml">openapi.yaml</a></p></body></html>`)
+	})
+	app.Get(prefix+"/openapi.yaml", func(c fiber.Ctx) error {
+		return c.SendFile(openAPIPath)
+	})
+}
+
+func registerEmbeddedUIRoutes(app *fiber.App, cfg config.Config) {
+	if !cfg.EmbeddedUI.Enabled {
+		return
+	}
+
+	prefix := strings.TrimRight(cfg.EmbeddedUI.RoutePrefix, "/")
+	if prefix == "" {
+		prefix = "/ui"
+	}
+
+	indexPath := filepath.Join("internal", "transport", "http", "webui", "dist", "index.html")
+	if _, err := os.Stat(indexPath); err != nil {
+		return
+	}
+
+	handler := func(c fiber.Ctx) error {
+		return c.SendFile(indexPath)
+	}
+
+	app.Get(prefix, handler)
+	app.Get(prefix+"/", handler)
+	app.Get(prefix+"/*", handler)
+}

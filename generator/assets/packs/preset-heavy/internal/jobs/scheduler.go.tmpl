@@ -1,0 +1,70 @@
+package jobs
+
+import (
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"{{module_path}}/config"
+	"{{module_path}}/internal/infra/logging"
+	appmetrics "{{module_path}}/internal/infra/metrics"
+)
+
+func Start(cfg config.SchedulerConfig, logger *logging.Logger, collector *appmetrics.Collector) (func(), error) {
+	if !cfg.Enabled {
+		return func() {}, nil
+	}
+
+	interval := strings.TrimSpace(cfg.Interval)
+	if interval == "" {
+		interval = "1s"
+	}
+
+	parsed, err := time.ParseDuration(interval)
+	if err != nil {
+		return nil, fmt.Errorf("parse scheduler interval: %w", err)
+	}
+
+	if parsed <= 0 {
+		return nil, fmt.Errorf("scheduler interval must be greater than zero")
+	}
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	var once sync.Once
+
+	runDemoJob := func() {
+		if collector != nil {
+			collector.MarkJobRun()
+		}
+		if logger != nil {
+			logger.Info("fiberx heavy demo job ran", logging.String("interval", parsed.String()))
+		}
+	}
+
+	go func() {
+		defer close(done)
+
+		runDemoJob()
+
+		ticker := time.NewTicker(parsed)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				runDemoJob()
+			case <-stop:
+				return
+			}
+		}
+	}()
+
+	return func() {
+		once.Do(func() {
+			close(stop)
+			<-done
+		})
+	}, nil
+}

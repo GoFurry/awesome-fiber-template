@@ -1,0 +1,24 @@
+package cache
+
+import "{{module_path}}/config"
+
+type Store interface {
+	Get(key string) ([]byte, bool)
+	Set(key string, value []byte)
+}
+
+type noopStore struct{}
+
+var newStoreFn = func(cfg config.RedisConfig) Store {
+	return noopStore{}
+}
+
+func New(cfg config.RedisConfig) Store {
+	return newStoreFn(cfg)
+}
+
+func (noopStore) Get(key string) ([]byte, bool) {
+	return nil, false
+}
+
+func (noopStore) Set(key string, value []byte) {}

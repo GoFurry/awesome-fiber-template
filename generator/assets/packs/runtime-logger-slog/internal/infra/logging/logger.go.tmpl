@@ -1,0 +1,153 @@
+package logging
+
+import (
+	"context"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+
+	"{{module_path}}/config"
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+type Field struct {
+	Key   string
+	Value any
+}
+
+type Logger struct {
+	base *slog.Logger
+}
+
+func New(cfg config.LogConfig) (*Logger, func(), error) {
+	if cfg.LogLevel == "" {
+		cfg.LogLevel = "info"
+	}
+	if cfg.LogMode == "" {
+		cfg.LogMode = "dev"
+	}
+	if cfg.LogPath == "" {
+		cfg.LogPath = "./logs/app.log"
+	}
+	if cfg.LogMaxSize == 0 {
+		cfg.LogMaxSize = 100
+	}
+	if cfg.LogMaxBackups == 0 {
+		cfg.LogMaxBackups = 7
+	}
+	if cfg.LogMaxAge == 0 {
+		cfg.LogMaxAge = 30
+	}
+	if !cfg.LogCompress {
+		cfg.LogCompress = true
+	}
+	if !cfg.LogShowLine {
+		cfg.LogShowLine = true
+	}
+
+	writer, closer, err := writerFromConfig(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	handlerOptions := &slog.HandlerOptions{
+		Level:     parseLevel(cfg.LogLevel),
+		AddSource: cfg.LogShowLine,
+	}
+	var handler slog.Handler
+	if cfg.LogJSON || cfg.LogMode == "prod" || cfg.LogMode == "json" {
+		handler = slog.NewJSONHandler(writer, handlerOptions)
+	} else {
+		handler = slog.NewTextHandler(writer, handlerOptions)
+	}
+
+	logger := slog.New(handler)
+	return &Logger{base: logger}, func() {
+		if closer != nil {
+			_ = closer.Close()
+		}
+	}, nil
+}
+
+func Default() *Logger {
+	return &Logger{base: slog.Default()}
+}
+
+func (l *Logger) Info(message string, fields ...Field) {
+	l.withDefault().LogAttrs(context.Background(), slog.LevelInfo, message, toAttrs(fields)...)
+}
+
+func (l *Logger) Error(message string, fields ...Field) {
+	l.withDefault().LogAttrs(context.Background(), slog.LevelError, message, toAttrs(fields)...)
+}
+
+func (l *Logger) Warn(message string, fields ...Field) {
+	l.withDefault().LogAttrs(context.Background(), slog.LevelWarn, message, toAttrs(fields)...)
+}
+
+func (l *Logger) Debug(message string, fields ...Field) {
+	l.withDefault().LogAttrs(context.Background(), slog.LevelDebug, message, toAttrs(fields)...)
+}
+
+func String(key, value string) Field {
+	return Field{Key: key, Value: value}
+}
+
+func Int(key string, value int) Field {
+	return Field{Key: key, Value: value}
+}
+
+func Bool(key string, value bool) Field {
+	return Field{Key: key, Value: value}
+}
+
+func Any(key string, value any) Field {
+	return Field{Key: key, Value: value}
+}
+
+func (l *Logger) withDefault() *slog.Logger {
+	if l == nil || l.base == nil {
+		return slog.Default()
+	}
+	return l.base
+}
+
+func toAttrs(fields []Field) []slog.Attr {
+	converted := make([]slog.Attr, 0, len(fields))
+	for _, field := range fields {
+		converted = append(converted, slog.Any(field.Key, field.Value))
+	}
+	return converted
+}
+
+func parseLevel(raw string) slog.Level {
+	switch raw {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+func writerFromConfig(cfg config.LogConfig) (io.Writer, io.Closer, error) {
+	if cfg.LogMode == "prod" || cfg.LogMode == "json" {
+		if err := os.MkdirAll(filepath.Dir(cfg.LogPath), 0o755); err != nil {
+			return nil, nil, err
+		}
+		roller := &lumberjack.Logger{
+			Filename:   cfg.LogPath,
+			MaxSize:    cfg.LogMaxSize,
+			MaxBackups: cfg.LogMaxBackups,
+			MaxAge:     cfg.LogMaxAge,
+			Compress:   cfg.LogCompress,
+			LocalTime:  true,
+		}
+		return roller, roller, nil
+	}
+	return os.Stdout, nil, nil
+}

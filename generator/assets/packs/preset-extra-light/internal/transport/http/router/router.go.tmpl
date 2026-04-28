@@ -1,0 +1,65 @@
+package router
+
+import (
+	"database/sql"
+	"errors"
+	"log/slog"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+
+	"{{module_path}}/config"
+	"{{module_path}}/pkg/common"
+)
+
+type Dependencies struct {
+	Config   config.Config
+	Logger   *slog.Logger
+	Database *sql.DB
+	Services []string
+}
+
+func NewApp(deps Dependencies) *fiber.App {
+	logger := deps.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	app := fiber.New(fiber.Config{
+		DisableStartupMessage: true,
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			logger.Error("request failed", slog.String("path", c.Path()), slog.String("error", err.Error()))
+			status := fiber.StatusInternalServerError
+			message := err.Error()
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				status = fiberErr.Code
+				message = fiberErr.Message
+			}
+			return common.Error(c, status, message)
+		},
+	})
+
+	app.Use(recover.New())
+
+	registerHealthRoutes(app, deps)
+
+	return app
+}
+
+func registerHealthRoutes(app *fiber.App, deps Dependencies) {
+	payload := fiber.Map{
+		"app_name":    deps.Config.Server.AppName,
+		"services":    deps.Services,
+		"database":    fiber.Map{"ready": deps.Database != nil},
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return common.Success(c, payload)
+	}
+
+	app.Get(HealthzPath, handler)
+	app.Get(LivezPath, handler)
+	app.Get(ReadyzPath, handler)
+	app.Get(StartupzPath, handler)
+}

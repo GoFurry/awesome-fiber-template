@@ -1,0 +1,79 @@
+package metrics
+
+import (
+	"fmt"
+	"runtime"
+	"strings"
+	"sync/atomic"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+)
+
+type Snapshot struct {
+	UptimeSeconds  int64
+	RequestsTotal  uint64
+	JobRunsTotal   uint64
+	LastJobRunUnix int64
+	GoGoroutines   int
+	HeapAllocBytes uint64
+}
+
+type Collector struct {
+	startedAt      time.Time
+	requestsTotal  atomic.Uint64
+	jobRunsTotal   atomic.Uint64
+	lastJobRunUnix atomic.Int64
+}
+
+func New() *Collector {
+	return &Collector{
+		startedAt: time.Now(),
+	}
+}
+
+func (c *Collector) Middleware() fiber.Handler {
+	return func(ctx *fiber.Ctx) error {
+		c.requestsTotal.Add(1)
+		return ctx.Next()
+	}
+}
+
+func (c *Collector) MarkJobRun() {
+	c.jobRunsTotal.Add(1)
+	c.lastJobRunUnix.Store(time.Now().Unix())
+}
+
+func (c *Collector) Snapshot() Snapshot {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+
+	return Snapshot{
+		UptimeSeconds:  int64(time.Since(c.startedAt).Seconds()),
+		RequestsTotal:  c.requestsTotal.Load(),
+		JobRunsTotal:   c.jobRunsTotal.Load(),
+		LastJobRunUnix: c.lastJobRunUnix.Load(),
+		GoGoroutines:   runtime.NumGoroutine(),
+		HeapAllocBytes: mem.Alloc,
+	}
+}
+
+func (c *Collector) Render() string {
+	snapshot := c.Snapshot()
+	lines := []string{
+		"# TYPE fiberx_requests_total counter",
+		fmt.Sprintf("fiberx_requests_total %d", snapshot.RequestsTotal),
+		"# TYPE fiberx_job_runs_total counter",
+		fmt.Sprintf("fiberx_job_runs_total %d", snapshot.JobRunsTotal),
+		"# TYPE fiberx_last_job_run_unix gauge",
+		fmt.Sprintf("fiberx_last_job_run_unix %d", snapshot.LastJobRunUnix),
+		"# TYPE fiberx_uptime_seconds gauge",
+		fmt.Sprintf("fiberx_uptime_seconds %d", snapshot.UptimeSeconds),
+		"# TYPE fiberx_go_goroutines gauge",
+		fmt.Sprintf("fiberx_go_goroutines %d", snapshot.GoGoroutines),
+		"# TYPE fiberx_heap_alloc_bytes gauge",
+		fmt.Sprintf("fiberx_heap_alloc_bytes %d", snapshot.HeapAllocBytes),
+	}
+
+	return strings.Join(lines, "\n") + "\n"
+}

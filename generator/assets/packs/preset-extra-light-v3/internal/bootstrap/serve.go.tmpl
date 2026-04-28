@@ -1,0 +1,47 @@
+package bootstrap
+
+import (
+	"log/slog"
+
+	"{{module_path}}/config"
+	"{{module_path}}/internal/infra/db"
+	"{{module_path}}/internal/infra/logging"
+	httprouter "{{module_path}}/internal/transport/http/router"
+)
+
+func init() {
+	serveFn = serve
+	serviceNamesFn = func() []string {
+		return []string{"http:extra-light"}
+	}
+}
+
+func serve(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger, cleanup, err := logging.New(cfg.Log)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	database, err := db.OpenSQLite(cfg.Database)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	logger.Info("fiberx extra-light service starting", slog.String("addr", cfg.Address()))
+
+	app := httprouter.NewApp(httprouter.Dependencies{
+		Config:   cfg,
+		Logger:   logger,
+		Database: database,
+		Services: Services(),
+	})
+
+	return app.Listen(cfg.Address())
+}

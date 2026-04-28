@@ -1,0 +1,100 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"{{module_path}}/internal/app/user/dao"
+	"{{module_path}}/internal/app/user/models"
+	"{{module_path}}/internal/infra/cache"
+)
+
+var ErrInvalidUserInput = errors.New("invalid user input")
+
+type Service struct {
+	store *dao.Store
+	cache cache.Store
+}
+
+func New(store *dao.Store, cacheStore cache.Store) *Service {
+	return &Service{
+		store: store,
+		cache: cacheStore,
+	}
+}
+
+func (s *Service) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {
+	if err := validateCreate(input); err != nil {
+		return models.User{}, err
+	}
+	return s.store.Create(ctx, input)
+}
+
+func (s *Service) List(ctx context.Context, pageNum, pageSize int) (models.UserList, error) {
+	if pageNum <= 0 {
+		pageNum = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	cacheKey := fmt.Sprintf("users:%d:%d", pageNum, pageSize)
+	if raw, ok := s.cache.Get(cacheKey); ok {
+		var cached models.UserList
+		if err := json.Unmarshal(raw, &cached); err == nil {
+			return cached, nil
+		}
+	}
+
+	result, err := s.store.List(ctx, (pageNum-1)*pageSize, pageSize)
+	if err != nil {
+		return models.UserList{}, err
+	}
+
+	if raw, err := json.Marshal(result); err == nil {
+		s.cache.Set(cacheKey, raw)
+	}
+
+	return result, nil
+}
+
+func (s *Service) Get(ctx context.Context, id int64) (models.User, error) {
+	return s.store.Get(ctx, id)
+}
+
+func (s *Service) Update(ctx context.Context, id int64, input models.UpdateUserInput) (models.User, error) {
+	if err := validateUpdate(input); err != nil {
+		return models.User{}, err
+	}
+	return s.store.Update(ctx, id, input)
+}
+
+func (s *Service) Delete(ctx context.Context, id int64) error {
+	return s.store.Delete(ctx, id)
+}
+
+func validateCreate(input models.CreateUserInput) error {
+	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.Email) == "" || input.Age <= 0 {
+		return ErrInvalidUserInput
+	}
+	if strings.TrimSpace(input.Status) == "" {
+		return ErrInvalidUserInput
+	}
+	return nil
+}
+
+func validateUpdate(input models.UpdateUserInput) error {
+	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.Email) == "" || input.Age <= 0 {
+		return ErrInvalidUserInput
+	}
+	if strings.TrimSpace(input.Status) == "" {
+		return ErrInvalidUserInput
+	}
+	return nil
+}

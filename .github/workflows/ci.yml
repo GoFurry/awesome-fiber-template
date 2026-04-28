@@ -15,6 +15,25 @@ permissions:
   contents: read
 
 jobs:
+  generator:
+    name: Generator Root
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            go.mod
+
+      - name: Run root generator tests
+        run: go test ./...
+
   fiber-v3:
     name: Fiber v3 Templates
     runs-on: ubuntu-latest

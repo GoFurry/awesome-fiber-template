@@ -10,6 +10,7 @@ import (
 	"github.com/GoFurry/fiberx/internal/planner"
 	"github.com/GoFurry/fiberx/internal/renderer"
 	"github.com/GoFurry/fiberx/internal/report"
+	"github.com/GoFurry/fiberx/internal/stack"
 	"github.com/GoFurry/fiberx/internal/validator"
 	"github.com/GoFurry/fiberx/internal/writer"
 )
@@ -20,7 +21,12 @@ func Generate(req Request) error {
 }
 
 func Run(req Request) (report.Summary, error) {
-	catalogRoot := manifest.ResolveRoot(req.Options["manifest_root"])
+	options := stack.NormalizeOptions(req.Options)
+	if err := stack.ValidateOptions(options); err != nil {
+		return report.Summary{}, err
+	}
+
+	catalogRoot := manifest.ResolveRoot(options["manifest_root"])
 
 	catalog, err := manifest.LoadCatalog(catalogRoot)
 	if err != nil {
@@ -34,7 +40,7 @@ func Run(req Request) (report.Summary, error) {
 		return report.Summary{}, err
 	}
 
-	if err := validator.ValidateRequest(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, catalog); err != nil {
+	if err := validator.ValidateRequest(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, options, catalog); err != nil {
 		return report.Summary{}, err
 	}
 
@@ -63,12 +69,12 @@ func Run(req Request) (report.Summary, error) {
 		return report.Summary{}, err
 	}
 
-	plan := planner.BuildPlan(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, req.Options, catalogRoot, catalog)
+	plan := planner.BuildPlan(req.ProjectName, req.ModulePath, req.Preset, req.Capabilities, options, catalogRoot, catalog)
 	rendered, err := renderer.Render(plan)
 	if err != nil {
 		return report.Summary{}, err
 	}
-	writeResult, err := writer.New(req.Options["target_dir"]).Write(rendered)
+	writeResult, err := writer.New(options["target_dir"]).Write(rendered)
 	if err != nil {
 		return report.Summary{}, err
 	}

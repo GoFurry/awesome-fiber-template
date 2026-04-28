@@ -1,0 +1,28 @@
+# {{project_name}} Configuration
+
+Generated projects now ship three config entry points:
+
+- `config/server.yaml`: baseline sample used by quick starts
+- `config/server.dev.yaml`: development-oriented sample
+- `config/server.prod.yaml`: production-oriented sample
+
+## Recommended Usage
+
+Use the profile that is closest to your target environment, then keep local changes inside that file instead of editing every example at once.
+
+Examples:
+
+```bash
+go run . serve --config config/server.dev.yaml
+go run . serve --config config/server.prod.yaml
+```
+
+## Profile Intent
+
+- `server.yaml`: repository-friendly default for first run and smoke tests
+- `server.dev.yaml`: debug logging, localhost binding, and developer-safe defaults
+- `server.prod.yaml`: release mode, `0.0.0.0` binding, quieter logging, and safer public defaults
+
+## Practical Rule
+
+Keep structural keys aligned across profiles so runtime diffs stay easy to review. Add preset-specific sections to every profile you actually use.

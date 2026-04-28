@@ -1,0 +1,25 @@
+package common
+
+import "github.com/gofiber/fiber/v3"
+
+type Envelope struct {
+	Code    int `json:"code"`
+	Message string `json:"message"`
+	Data    any `json:"data"`
+}
+
+func Success(c fiber.Ctx, data any) error {
+	return c.Status(fiber.StatusOK).JSON(Envelope{
+		Code:    1,
+		Message: "success",
+		Data:    data,
+	})
+}
+
+func Error(c fiber.Ctx, status int, message string) error {
+	return c.Status(status).JSON(Envelope{
+		Code:    0,
+		Message: message,
+		Data:    fiber.Map{},
+	})
+}

@@ -33,7 +33,7 @@ func Render(plan planner.Plan) (Result, error) {
 		}
 
 		for _, file := range files {
-			if _, exists := rendered[file.OutputPath]; exists {
+			if _, exists := rendered[file.OutputPath]; exists && !asset.AllowOverride {
 				return Result{}, fmt.Errorf("duplicate rendered file %q from asset %q", file.OutputPath, asset.Name)
 			}
 
@@ -114,9 +114,51 @@ func replacementValue(name string, plan planner.Plan) string {
 		return plan.Preset.Summary
 	case "preset_description":
 		return plan.Preset.Description
+	case "fiber_version":
+		return plan.FiberVersion
+	case "cli_style":
+		return plan.CLIStyle
+	case "fiber_module":
+		return plan.Options["fiber_module"]
+	case "default_stack":
+		return plan.Options["default_stack"]
+	case "default_logger":
+		return plan.Options["default_logger"]
+	case "default_database":
+		return plan.Options["default_database"]
+	case "default_data_access":
+		return plan.Options["default_data_access"]
+	case "logger_backend":
+		return plan.Options["logger_backend"]
+	case "db_kind":
+		return plan.Options["db_kind"]
+	case "db_type_default":
+		return plan.Options["db_type_default"]
+	case "data_access_kind":
+		return plan.Options["data_access_kind"]
+	case "swagger_enabled":
+		return boolString(planHasCapability(plan, "swagger"))
+	case "embedded_ui_enabled":
+		return boolString(planHasCapability(plan, "embedded-ui"))
 	default:
 		return ""
 	}
+}
+
+func planHasCapability(plan planner.Plan, name string) bool {
+	for _, capability := range plan.Capabilities {
+		if capability.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 func loadSnippet(plan planner.Plan, rule manifest.InjectionRule) (string, error) {

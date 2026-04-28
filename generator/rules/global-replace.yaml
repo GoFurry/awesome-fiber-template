@@ -12,3 +12,31 @@ replacements:
     value_from: preset_summary
   - placeholder: "{{preset_description}}"
     value_from: preset_description
+  - placeholder: "{{fiber_version}}"
+    value_from: fiber_version
+  - placeholder: "{{cli_style}}"
+    value_from: cli_style
+  - placeholder: "{{fiber_module}}"
+    value_from: fiber_module
+  - placeholder: "{{fiber_dependency}}"
+    value_from: fiber_dependency
+  - placeholder: "{{default_stack}}"
+    value_from: default_stack
+  - placeholder: "{{default_logger}}"
+    value_from: default_logger
+  - placeholder: "{{default_database}}"
+    value_from: default_database
+  - placeholder: "{{default_data_access}}"
+    value_from: default_data_access
+  - placeholder: "{{logger_backend}}"
+    value_from: logger_backend
+  - placeholder: "{{db_kind}}"
+    value_from: db_kind
+  - placeholder: "{{db_type_default}}"
+    value_from: db_type_default
+  - placeholder: "{{data_access_kind}}"
+    value_from: data_access_kind
+  - placeholder: "{{swagger_enabled}}"
+    value_from: swagger_enabled
+  - placeholder: "{{embedded_ui_enabled}}"
+    value_from: embedded_ui_enabled

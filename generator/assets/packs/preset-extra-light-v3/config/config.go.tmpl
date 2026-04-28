@@ -1,0 +1,73 @@
+package config
+
+import (
+	"net"
+	"os"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Server   ServerConfig   `yaml:"server"`
+	Database DatabaseConfig `yaml:"database"`
+	Log      LogConfig      `yaml:"log"`
+}
+
+type ServerConfig struct {
+	AppName   string `yaml:"app_name"`
+	Mode      string `yaml:"mode"`
+	IPAddress string `yaml:"ip_address"`
+	Port      string `yaml:"port"`
+}
+
+type DatabaseConfig struct {
+	Path string `yaml:"path"`
+}
+
+type LogConfig struct {
+	LogLevel string `yaml:"log_level"`
+	LogPath  string `yaml:"log_path"`
+}
+
+func Load(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, err
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return Config{}, err
+	}
+
+	cfg.applyDefaults()
+	return cfg, nil
+}
+
+func (c Config) Address() string {
+	return net.JoinHostPort(c.Server.IPAddress, c.Server.Port)
+}
+
+func (c *Config) applyDefaults() {
+	if c.Server.AppName == "" {
+		c.Server.AppName = "{{project_name}}"
+	}
+	if c.Server.Mode == "" {
+		c.Server.Mode = "debug"
+	}
+	if c.Server.IPAddress == "" {
+		c.Server.IPAddress = "127.0.0.1"
+	}
+	if c.Server.Port == "" {
+		c.Server.Port = "3000"
+	}
+	if c.Database.Path == "" {
+		c.Database.Path = "./data/app.db"
+	}
+	if c.Log.LogLevel == "" {
+		c.Log.LogLevel = "info"
+	}
+	if c.Log.LogPath == "" {
+		c.Log.LogPath = "./logs/app.log"
+	}
+}

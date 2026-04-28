@@ -5,6 +5,8 @@ implemented: true
 packs:
   - swagger
 allowed_presets:
+  - heavy
   - medium
+  - light
 depends_on: []
 conflicts_with: []

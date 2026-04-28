@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/GoFurry/fiberx/internal/manifest"
+	"github.com/GoFurry/fiberx/internal/stack"
 )
 
 func ValidateCatalog(catalog manifest.Catalog) error {
@@ -62,6 +63,10 @@ func ValidateCatalog(catalog manifest.Catalog) error {
 			if !catalog.HasCapability(capabilityName) {
 				return fmt.Errorf("preset %q references unknown allowed capability %q", preset.Name, capabilityName)
 			}
+			capability, _ := catalog.FindCapability(capabilityName)
+			if !contains(capability.AllowedPresets, preset.Name) {
+				return fmt.Errorf("preset %q allowed capability %q must also reference preset %q", preset.Name, capabilityName, preset.Name)
+			}
 		}
 	}
 
@@ -69,6 +74,10 @@ func ValidateCatalog(catalog manifest.Catalog) error {
 		for _, presetName := range capability.AllowedPresets {
 			if _, ok := catalog.FindPreset(presetName); !ok {
 				return fmt.Errorf("capability %q references unknown preset %q", capability.Name, presetName)
+			}
+			preset, _ := catalog.FindPreset(presetName)
+			if !contains(preset.AllowedCapabilities, capability.Name) {
+				return fmt.Errorf("capability %q allowed preset %q must also reference capability %q", capability.Name, presetName, capability.Name)
 			}
 		}
 		for _, name := range capability.DependsOn {
@@ -143,11 +152,29 @@ func ValidateAssets(root string, catalog manifest.Catalog) error {
 		if _, err := os.Stat(manifest.BaseAssetDir(root, preset.Base)); err != nil {
 			return fmt.Errorf("preset %q base asset %q is missing", preset.Name, preset.Base)
 		}
+		if _, err := os.Stat(manifest.BaseAssetDir(root, preset.Base+"-cobra")); err != nil {
+			return fmt.Errorf("preset %q cobra base asset %q is missing", preset.Name, preset.Base+"-cobra")
+		}
 
 		for _, pack := range preset.Packs {
 			if _, err := os.Stat(manifest.PackAssetDir(root, pack)); err != nil {
 				return fmt.Errorf("preset %q pack asset %q is missing", preset.Name, pack)
 			}
+			if _, err := os.Stat(manifest.PackAssetDir(root, pack+"-v3")); err != nil {
+				return fmt.Errorf("preset %q fiber v3 pack asset %q is missing", preset.Name, pack+"-v3")
+			}
+		}
+	}
+
+	for _, pack := range []string{
+		"runtime-logger-zap",
+		"runtime-logger-slog",
+		"runtime-data-stdlib",
+		"runtime-data-sqlx",
+		"runtime-data-sqlc",
+	} {
+		if _, err := os.Stat(manifest.PackAssetDir(root, pack)); err != nil {
+			return fmt.Errorf("runtime overlay asset %q is missing", pack)
 		}
 	}
 
@@ -172,7 +199,7 @@ func ValidateAssets(root string, catalog manifest.Catalog) error {
 	return nil
 }
 
-func ValidateRequest(projectName string, modulePath string, preset string, capabilities []string, catalog manifest.Catalog) error {
+func ValidateRequest(projectName string, modulePath string, preset string, capabilities []string, options map[string]string, catalog manifest.Catalog) error {
 	if strings.TrimSpace(projectName) == "" {
 		return fmt.Errorf("project name cannot be empty")
 	}
@@ -185,9 +212,25 @@ func ValidateRequest(projectName string, modulePath string, preset string, capab
 		return fmt.Errorf("module path %q must look like a Go module path", modulePath)
 	}
 
+	options = stack.NormalizeOptions(options)
+	if err := stack.ValidateOptions(options); err != nil {
+		return err
+	}
+
 	presetManifest, ok := catalog.FindPreset(preset)
 	if !ok {
 		return fmt.Errorf("unknown preset %q", preset)
+	}
+	if presetManifest.Name == "extra-light" {
+		if explicitlySet(options, stack.OptionLogger) {
+			return fmt.Errorf("preset %q does not support logger option", presetManifest.Name)
+		}
+		if explicitlySet(options, stack.OptionDB) {
+			return fmt.Errorf("preset %q does not support db option", presetManifest.Name)
+		}
+		if explicitlySet(options, stack.OptionDataAccess) {
+			return fmt.Errorf("preset %q does not support data access option", presetManifest.Name)
+		}
 	}
 
 	seenCapabilities := make(map[string]struct{}, len(capabilities))
@@ -363,4 +406,8 @@ func contains(items []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func explicitlySet(options map[string]string, key string) bool {
+	return strings.EqualFold(strings.TrimSpace(options["_explicit_"+key]), "true")
 }

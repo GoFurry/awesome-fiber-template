@@ -1,0 +1,23 @@
+package bootstrap
+
+import "fmt"
+
+var serveFn = func(configPath string) error {
+	return fmt.Errorf("serve command is not implemented for preset {{preset_name}}")
+}
+
+var serviceNamesFn = func() []string {
+	return []string{"preset:{{preset_name}}"}
+}
+
+func Serve(configPath string) error {
+	return serveFn(configPath)
+}
+
+func Services() []string {
+	services := append([]string{}, serviceNamesFn()...)
+	// fiberx:capability:swagger
+	// fiberx:capability:embedded-ui
+	// fiberx:capability:redis
+	return services
+}

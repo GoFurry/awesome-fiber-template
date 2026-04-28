@@ -20,6 +20,7 @@ It currently preserves `v3/*` reference templates for the existing engineering b
 ## Docs
 
 - [Docs index](./docs/README.md)
+- [Usage guide](./docs/guides/usage.md)
 - [Template boundaries](./docs/architecture/template-boundaries.md)
 - [Addon design rules](./docs/architecture/addon-design-rules.md)
 - [Template selection guide](./docs/guides/template-selection.md)
@@ -33,16 +34,48 @@ It currently preserves `v3/*` reference templates for the existing engineering b
 - [`v3/light`](./v3/light): plain Go-style service edition that keeps the common API middleware baseline and optional embedded UI, while removing Redis, service manager support, and extra helper packages
 - [`v3/extra-light`](./v3/extra-light): minimal edition with native CLI, SQLite-only setup, no built-in business demo, and only `recover + healthcheck`
 
+## Current Generator Tracks
+
+- `medium`: stable production baseline with Swagger and embedded UI by default
+- `heavy`: completed second production track with Swagger, embedded UI, metrics, scheduler jobs, and optional Redis
+- `light`: mature lightweight HTTP service with SQLite-first CRUD, common middleware, and opt-in Swagger or embedded UI
+- `extra-light`: minimal startable base with SQLite startup, health endpoints, and recover-only middleware
+- default stack: `Fiber v3 + Cobra + Viper`
+- default runtime on `medium / heavy / light`: `zap + sqlite + stdlib`
+- compatibility stack: `Fiber v2 + native-cli`
+- Phase 11 runtime options on `medium / heavy / light`: `--logger zap|slog`, `--db sqlite|pgsql|mysql`, `--data-access stdlib|sqlx|sqlc`
+- generated projects now include `server.yaml`, `server.dev.yaml`, `server.prod.yaml`, plus runbook and verification docs
+
 ## How To Choose
 
-- Choose `heavy` if you want the most complete engineering baseline and do not mind extra infrastructure.
-- Choose `medium` if you want a practical production-oriented HTTP template without scheduler and Prometheus overhead.
-- Choose `light` if you want something closer to a normal Go project structure.
-- Choose `extra-light` if you want the smallest clean starting point and prefer adding capabilities yourself.
+- Choose `heavy` if you want the stronger ops-oriented production track with metrics and scheduler defaults.
+- Choose `medium` if you want the stable production-oriented HTTP baseline without scheduler and metrics defaults.
+- Choose `light` if you want a smaller but still directly usable HTTP service with CRUD and common middleware.
+- Choose `extra-light` if you want the smallest clean starting point with only startup and health basics.
 
 ## Quick Start
 
-Today you can still enter one reference preset and run it directly. For example:
+You can generate a runnable service directly from the repository root. For example:
+
+```bash
+go run ./cmd/fiberx new demo --preset medium
+cd demo
+go run . serve
+```
+
+Compatibility example:
+
+```bash
+go run ./cmd/fiberx new demo-legacy --preset medium --fiber-version v2 --cli-style native
+```
+
+Phase 11 runtime example:
+
+```bash
+go run ./cmd/fiberx new demo-data --preset medium --logger slog --db pgsql --data-access sqlx
+```
+
+The historical `v3/*` reference presets are still available and runnable directly. For example:
 
 ```bash
 cd v3/light

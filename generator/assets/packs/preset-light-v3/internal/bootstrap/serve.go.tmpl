@@ -1,0 +1,52 @@
+package bootstrap
+
+import (
+	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
+	userdao "{{module_path}}/internal/app/user/dao"
+	userservice "{{module_path}}/internal/app/user/service"
+	"{{module_path}}/internal/infra/db"
+	"{{module_path}}/internal/infra/logging"
+	httprouter "{{module_path}}/internal/transport/http/router"
+)
+
+func init() {
+	serveFn = serve
+	serviceNamesFn = func() []string {
+		return []string{"http:light"}
+	}
+}
+
+func serve(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger, cleanup, err := logging.New(cfg.Log)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	database, err := db.Open(cfg.Database)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	userStore := userdao.NewStore(database)
+	userService := userservice.New(userStore)
+	userController := usercontroller.New(userService)
+
+	logger.Info("fiberx light service starting", logging.String("addr", cfg.Address()))
+
+	app := httprouter.NewApp(httprouter.Dependencies{
+		Config:         cfg,
+		Logger:         logger,
+		UserController: userController,
+		Services:       Services(),
+	})
+
+	return app.Listen(cfg.Address())
+}

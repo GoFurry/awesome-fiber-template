@@ -1,0 +1,60 @@
+package db
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	_ "modernc.org/sqlite"
+
+	"{{module_path}}/config"
+)
+
+func OpenSQLite(cfg config.DatabaseConfig) (*sql.DB, error) {
+	if !cfg.Enabled {
+		return nil, fmt.Errorf("sqlite database is disabled")
+	}
+	if cfg.DBType != "" && cfg.DBType != "sqlite" {
+		return nil, fmt.Errorf("unsupported database type %q", cfg.DBType)
+	}
+
+	path := cfg.SQLite.Path
+	if path == "" {
+		path = "./data/app.db"
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+
+	database, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+	if err := database.Ping(); err != nil {
+		database.Close()
+		return nil, err
+	}
+
+	if cfg.AutoMigrate {
+		if err := migrate(database); err != nil {
+			database.Close()
+			return nil, err
+		}
+	}
+
+	return database, nil
+}
+
+func migrate(database *sql.DB) error {
+	_, err := database.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			email TEXT NOT NULL,
+			age INTEGER NOT NULL,
+			status TEXT NOT NULL
+		)
+	`)
+	return err
+}

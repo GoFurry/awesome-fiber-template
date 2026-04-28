@@ -1,0 +1,65 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"{{module_path}}/internal/bootstrap"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+func Execute(args []string) error {
+	rootCmd := newRootCmd()
+	rootCmd.SetArgs(args)
+	return rootCmd.Execute()
+}
+
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:           "{{project_name}}",
+		Short:         "{{preset_summary}}",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+
+	rootCmd.PersistentFlags().String("config", "config/server.yaml", "config file path")
+	_ = viper.BindPFlag("config", rootCmd.PersistentFlags().Lookup("config"))
+
+	rootCmd.AddCommand(
+		newServeCmd(),
+		newServicesCmd(),
+	)
+	return rootCmd
+}
+
+func newServeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "serve",
+		Short: "Start the generated service",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("serve does not accept positional arguments")
+			}
+			return bootstrap.Serve(viper.GetString("config"))
+		},
+	}
+}
+
+func newServicesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "services",
+		Short: "Print generated service names",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("services does not accept positional arguments")
+			}
+			_, err := fmt.Fprintln(os.Stdout, strings.Join(bootstrap.Services(), ","))
+			return err
+		},
+	}
+}

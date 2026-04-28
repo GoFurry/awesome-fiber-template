@@ -1,0 +1,36 @@
+# {{project_name}} Verification Checklist
+
+Use this checklist after generation and after major local edits.
+
+## Baseline
+
+```bash
+go test ./...
+go run . services
+go run . serve --config config/server.dev.yaml
+```
+
+## Required HTTP Checks
+
+- `GET /healthz`
+- `GET /livez`
+- `GET /readyz`
+- `GET /startupz`
+
+## Optional Route Checks
+
+- `GET /docs/openapi.yaml` when Swagger is enabled
+- `GET /ui` when embedded UI is enabled
+- `GET /metrics` on `heavy`
+
+## Business Checks
+
+- Exercise the generated `user` CRUD flow on `medium`, `heavy`, and `light`
+- Confirm deleted records return a JSON `404` envelope
+- Confirm gzip and ETag behavior on presets that include those middleware defaults
+
+## Environment Checks
+
+- Start once with `config/server.dev.yaml`
+- Start once with `config/server.prod.yaml`
+- Confirm SQLite and log paths are writable in each target environment
