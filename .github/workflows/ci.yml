@@ -18,6 +18,37 @@ jobs:
   generator:
     name: Generator Root
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fiberx
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fiberx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: fiberx
+          MYSQL_USER: fiberx
+          MYSQL_PASSWORD: fiberx
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -ufiberx -pfiberx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      FIBERX_TEST_PGSQL_DSN: host=127.0.0.1 port=5432 dbname=fiberx user=postgres password=postgres sslmode=disable
+      FIBERX_TEST_MYSQL_DSN: fiberx:fiberx@tcp(127.0.0.1:3306)/fiberx?parseTime=true&multiStatements=true
     steps:
       - name: Checkout
         uses: actions/checkout@v5

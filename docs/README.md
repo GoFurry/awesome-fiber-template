@@ -31,7 +31,7 @@ Use the root README for a quick repository overview, then start from the generat
 - Stable production baseline: `medium`
 - Completed production track: `heavy`
 - Current stage: `Phase 11` runtime options and data access stacks
-- Next stage: `Phase 12` capability-level verification
+- Next stage: `Phase 11` validation closure, then `Phase 12` capability-level verification
 - Default medium experience: `swagger`, `embedded-ui`
 - Default heavy experience: `swagger`, `embedded-ui`
 - Light optional experience: `swagger`, `embedded-ui`
@@ -54,6 +54,7 @@ Use the root README for a quick repository overview, then start from the generat
 
 - Completed state: `State 1`
 - Current stage: `State 3 / Phase 11`
-- Current progress: Phase 10 completed
-- Next stage: `State 3 / Phase 12`
+- Current progress: Phase 11 partially completed
+- External-db runtime progress: the full default-stack runtime matrix is now wired into root tests and CI
+- Next stage: finish Phase 11 validation closure, then `State 3 / Phase 12`
 - `fiberx build` is tracked later under `State 4 / Phase 15`

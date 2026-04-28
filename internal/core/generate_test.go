@@ -224,6 +224,8 @@ func TestGenerateRejectsUnsupportedCombinations(t *testing.T) {
 		{name: "invalid db", preset: "medium", capabilities: []string{}, want: `database "oracle" is not supported`},
 		{name: "invalid data access", preset: "medium", capabilities: []string{}, want: `data access "gorm" is not supported`},
 		{name: "extra-light logger unsupported", preset: "extra-light", capabilities: []string{}, want: `does not support logger option`},
+		{name: "extra-light db unsupported", preset: "extra-light", capabilities: []string{}, want: `does not support db option`},
+		{name: "extra-light data access unsupported", preset: "extra-light", capabilities: []string{}, want: `does not support data access option`},
 	}
 
 	for _, tc := range testCases {
@@ -249,6 +251,12 @@ func TestGenerateRejectsUnsupportedCombinations(t *testing.T) {
 			}
 			if tc.name == "extra-light logger unsupported" {
 				options[stack.OptionLogger] = "zap"
+			}
+			if tc.name == "extra-light db unsupported" {
+				options[stack.OptionDB] = stack.DBPgSQL
+			}
+			if tc.name == "extra-light data access unsupported" {
+				options[stack.OptionDataAccess] = stack.DataAccessSQLX
 			}
 			req := Request{
 				ProjectName:  "demo",
@@ -315,6 +323,92 @@ func TestRunSupportsPhase11RuntimeSelections(t *testing.T) {
 			runGeneratedProjectTests(t, targetDir)
 		})
 	}
+}
+
+func TestPhase11RuntimeMatrixDefaultStack(t *testing.T) {
+	presets := []string{"medium", "heavy", "light"}
+	databases := []string{stack.DBSQLite, stack.DBPgSQL, stack.DBMySQL}
+	dataAccessStacks := []string{stack.DataAccessStdlib, stack.DataAccessSQLX, stack.DataAccessSQLC}
+
+	for _, preset := range presets {
+		for _, dbKind := range databases {
+			for _, dataAccess := range dataAccessStacks {
+				name := preset + " " + dbKind + " " + dataAccess
+				t.Run(name, func(t *testing.T) {
+					database, ok := lookupRuntimeDatabaseForMatrix(t, dbKind)
+					if !ok {
+						t.Skipf("runtime database for %s is not configured", dbKind)
+					}
+
+					targetDir := t.TempDir()
+					options := requestOptionsForTest(targetDir, stack.FiberV3, stack.CLICobra)
+					options[stack.OptionDB] = dbKind
+					options[stack.OptionDataAccess] = dataAccess
+
+					summary, err := Run(Request{
+						ProjectName: "demo",
+						ModulePath:  "github.com/example/demo",
+						Preset:      preset,
+						Options:     options,
+					})
+					if err != nil {
+						t.Fatalf("Run() returned error: %v", err)
+					}
+					if summary.Logger != stack.DefaultLogger() {
+						t.Fatalf("expected default logger %q, got %q", stack.DefaultLogger(), summary.Logger)
+					}
+					if summary.Database != dbKind {
+						t.Fatalf("expected database %q, got %q", dbKind, summary.Database)
+					}
+					if summary.DataAccess != dataAccess {
+						t.Fatalf("expected data access %q, got %q", dataAccess, summary.DataAccess)
+					}
+					assertPhase11RuntimeArtifacts(t, targetDir, dbKind, dataAccess)
+
+					runGeneratedProjectTests(t, targetDir)
+
+					switch preset {
+					case "medium":
+						runMediumBlackBoxScenarioWithDatabase(t, targetDir, false, database)
+					case "heavy":
+						runHeavyBlackBoxScenarioWithDatabase(t, targetDir, false, database)
+					case "light":
+						runLightBlackBoxScenarioWithDatabase(t, targetDir, false, false, database)
+					default:
+						t.Fatalf("unsupported preset %q", preset)
+					}
+				})
+			}
+		}
+	}
+}
+
+func assertPhase11RuntimeArtifacts(t *testing.T, targetDir, dbKind, dataAccess string) {
+	t.Helper()
+
+	switch dbKind {
+	case stack.DBSQLite:
+		assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `db_type: "sqlite"`)
+	case stack.DBPgSQL:
+		assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `db_type: "postgres"`)
+	case stack.DBMySQL:
+		assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `db_type: "mysql"`)
+	}
+
+	if dataAccess == stack.DataAccessSQLC {
+		switch dbKind {
+		case stack.DBSQLite:
+			assertGeneratedFileContains(t, targetDir, "sqlc.yaml", `engine: "sqlite"`)
+		case stack.DBPgSQL:
+			assertGeneratedFileContains(t, targetDir, "sqlc.yaml", `engine: "postgres"`)
+		case stack.DBMySQL:
+			assertGeneratedFileContains(t, targetDir, "sqlc.yaml", `engine: "mysql"`)
+		}
+		assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "dao", "query.sql"), `-- name: CreateUser :one`)
+		return
+	}
+
+	assertGeneratedFileMissing(t, targetDir, "sqlc.yaml")
 }
 
 func assertGeneratedFileContains(t *testing.T, targetDir string, relativePath string, want string) {
@@ -531,16 +625,102 @@ log:
 	}
 }
 
+type runtimeDatabaseConfig struct {
+	Kind       string
+	SQLitePath string
+	DSN        string
+}
+
+func newSQLiteRuntimeDatabaseConfig(t *testing.T) runtimeDatabaseConfig {
+	t.Helper()
+
+	tempDir := t.TempDir()
+	databasePath := filepath.Join(tempDir, "data", "app.db")
+	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
+		t.Fatalf("create database dir failed: %v", err)
+	}
+
+	return runtimeDatabaseConfig{
+		Kind:       "sqlite",
+		SQLitePath: databasePath,
+	}
+}
+
+func lookupExternalRuntimeDatabase(dbKind string) (runtimeDatabaseConfig, bool) {
+	switch dbKind {
+	case stack.DBPgSQL:
+		dsn := strings.TrimSpace(os.Getenv("FIBERX_TEST_PGSQL_DSN"))
+		if dsn == "" {
+			return runtimeDatabaseConfig{}, false
+		}
+		return runtimeDatabaseConfig{Kind: "postgres", DSN: dsn}, true
+	case stack.DBMySQL:
+		dsn := strings.TrimSpace(os.Getenv("FIBERX_TEST_MYSQL_DSN"))
+		if dsn == "" {
+			return runtimeDatabaseConfig{}, false
+		}
+		return runtimeDatabaseConfig{Kind: "mysql", DSN: dsn}, true
+	default:
+		return runtimeDatabaseConfig{}, false
+	}
+}
+
+func lookupRuntimeDatabaseForMatrix(t *testing.T, dbKind string) (runtimeDatabaseConfig, bool) {
+	t.Helper()
+
+	if dbKind == stack.DBSQLite {
+		return newSQLiteRuntimeDatabaseConfig(t), true
+	}
+	return lookupExternalRuntimeDatabase(dbKind)
+}
+
+func renderDatabaseConfigBlock(cfg runtimeDatabaseConfig) string {
+	switch cfg.Kind {
+	case "sqlite":
+		return `database:
+  enabled: true
+  auto_migrate: true
+  db_type: "sqlite"
+  sqlite:
+    path: ` + yamlSingleQuoted(filepath.ToSlash(cfg.SQLitePath)) + `
+`
+	case "postgres":
+		return `database:
+  enabled: true
+  auto_migrate: true
+  db_type: "postgres"
+  postgres:
+    dsn: ` + yamlSingleQuoted(cfg.DSN) + `
+`
+	case "mysql":
+		return `database:
+  enabled: true
+  auto_migrate: true
+  db_type: "mysql"
+  mysql:
+    dsn: ` + yamlSingleQuoted(cfg.DSN) + `
+`
+	default:
+		panic("unsupported runtime database kind: " + cfg.Kind)
+	}
+}
+
+func yamlSingleQuoted(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
 func runLightBlackBoxScenario(t *testing.T, targetDir string, enableSwagger bool, enableEmbeddedUI bool) {
+	t.Helper()
+
+	runLightBlackBoxScenarioWithDatabase(t, targetDir, enableSwagger, enableEmbeddedUI, newSQLiteRuntimeDatabaseConfig(t))
+}
+
+func runLightBlackBoxScenarioWithDatabase(t *testing.T, targetDir string, enableSwagger bool, enableEmbeddedUI bool, database runtimeDatabaseConfig) {
 	t.Helper()
 
 	port := randomPort(t)
 	tempDir := t.TempDir()
-	databasePath := filepath.Join(tempDir, "data", "app.db")
 	logPath := filepath.Join(tempDir, "logs", "app.log")
-	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
-		t.Fatalf("create database dir failed: %v", err)
-	}
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
 		t.Fatalf("create log dir failed: %v", err)
 	}
@@ -552,16 +732,10 @@ func runLightBlackBoxScenario(t *testing.T, targetDir string, enableSwagger bool
   mode: "debug"
   ip_address: "127.0.0.1"
   port: "` + port + `"
-database:
-  enabled: true
-  auto_migrate: true
-  db_type: "sqlite"
-  sqlite:
-    path: "` + filepath.ToSlash(databasePath) + `"
-log:
+` + renderDatabaseConfigBlock(database) + `log:
   log_level: "debug"
   log_mode: "text"
-  log_path: "` + filepath.ToSlash(logPath) + `"
+  log_path: ` + yamlSingleQuoted(filepath.ToSlash(logPath)) + `
 middleware:
   cors:
     allow_origins:
@@ -575,27 +749,7 @@ embedded_ui:
   enabled: ` + strconv.FormatBool(enableEmbeddedUI) + `
   route_prefix: "/ui"
 `
-	configPath := filepath.Join(tempDir, "server.yaml")
-	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
-		t.Fatalf("write config failed: %v", err)
-	}
-
-	binaryPath := buildBinary(t, targetDir)
-	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
-	cmd.Dir = targetDir
-	var output strings.Builder
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start light service failed: %v", err)
-	}
-	defer func() {
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-	}()
-
-	baseURL := "http://127.0.0.1:" + port
-	waitForReady(t, baseURL+"/healthz", &output, cmd)
+	baseURL, _, _ := startGeneratedService(t, targetDir, configBody)
 
 	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
 	if health.StatusCode != 200 || health.Code != 1 {
@@ -639,7 +793,7 @@ embedded_ui:
 	}
 	assertRouteMissing(t, baseURL+"/metrics")
 
-	runUserCRUDScenario(t, baseURL, databasePath)
+	runUserCRUDScenario(t, baseURL, database)
 }
 
 func runExtraLightBlackBoxScenario(t *testing.T, targetDir string) {
@@ -721,13 +875,15 @@ log:
 func runMediumBlackBoxScenario(t *testing.T, targetDir string, enableRedis bool) {
 	t.Helper()
 
+	runMediumBlackBoxScenarioWithDatabase(t, targetDir, enableRedis, newSQLiteRuntimeDatabaseConfig(t))
+}
+
+func runMediumBlackBoxScenarioWithDatabase(t *testing.T, targetDir string, enableRedis bool, database runtimeDatabaseConfig) {
+	t.Helper()
+
 	port := randomPort(t)
 	tempDir := t.TempDir()
-	databasePath := filepath.Join(tempDir, "data", "app.db")
 	logPath := filepath.Join(tempDir, "logs", "app.log")
-	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
-		t.Fatalf("create database dir failed: %v", err)
-	}
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
 		t.Fatalf("create log dir failed: %v", err)
 	}
@@ -739,16 +895,10 @@ func runMediumBlackBoxScenario(t *testing.T, targetDir string, enableRedis bool)
   mode: "debug"
   ip_address: "127.0.0.1"
   port: "` + port + `"
-database:
-  enabled: true
-  auto_migrate: true
-  db_type: "sqlite"
-  sqlite:
-    path: "` + filepath.ToSlash(databasePath) + `"
-log:
+` + renderDatabaseConfigBlock(database) + `log:
   log_level: "debug"
   log_mode: "text"
-  log_path: "` + filepath.ToSlash(logPath) + `"
+  log_path: ` + yamlSingleQuoted(filepath.ToSlash(logPath)) + `
 middleware:
   cors:
     allow_origins:
@@ -767,27 +917,7 @@ redis:
   password: ""
   db: 0
 `
-	configPath := filepath.Join(tempDir, "server.yaml")
-	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
-		t.Fatalf("write config failed: %v", err)
-	}
-
-	binaryPath := buildBinary(t, targetDir)
-	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
-	cmd.Dir = targetDir
-	var output strings.Builder
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start medium service failed: %v", err)
-	}
-	defer func() {
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-	}()
-
-	baseURL := "http://127.0.0.1:" + port
-	waitForReady(t, baseURL+"/healthz", &output, cmd)
+	baseURL, _, _ := startGeneratedService(t, targetDir, configBody)
 
 	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
 	if health.StatusCode != 200 || health.Code != 1 {
@@ -809,19 +939,21 @@ redis:
 
 	assertDocsRoute(t, baseURL)
 	assertUIRoute(t, baseURL)
-	runUserCRUDScenario(t, baseURL, databasePath)
+	runUserCRUDScenario(t, baseURL, database)
 }
 
 func runHeavyBlackBoxScenario(t *testing.T, targetDir string, enableRedis bool) {
 	t.Helper()
 
+	runHeavyBlackBoxScenarioWithDatabase(t, targetDir, enableRedis, newSQLiteRuntimeDatabaseConfig(t))
+}
+
+func runHeavyBlackBoxScenarioWithDatabase(t *testing.T, targetDir string, enableRedis bool, database runtimeDatabaseConfig) {
+	t.Helper()
+
 	port := randomPort(t)
 	tempDir := t.TempDir()
-	databasePath := filepath.Join(tempDir, "data", "app.db")
 	logPath := filepath.Join(tempDir, "logs", "app.log")
-	if err := os.MkdirAll(filepath.Dir(databasePath), 0o755); err != nil {
-		t.Fatalf("create database dir failed: %v", err)
-	}
 	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
 		t.Fatalf("create log dir failed: %v", err)
 	}
@@ -833,16 +965,10 @@ func runHeavyBlackBoxScenario(t *testing.T, targetDir string, enableRedis bool) 
   mode: "debug"
   ip_address: "127.0.0.1"
   port: "` + port + `"
-database:
-  enabled: true
-  auto_migrate: true
-  db_type: "sqlite"
-  sqlite:
-    path: "` + filepath.ToSlash(databasePath) + `"
-log:
+` + renderDatabaseConfigBlock(database) + `log:
   log_level: "debug"
   log_mode: "text"
-  log_path: "` + filepath.ToSlash(logPath) + `"
+  log_path: ` + yamlSingleQuoted(filepath.ToSlash(logPath)) + `
 middleware:
   cors:
     allow_origins:
@@ -867,27 +993,7 @@ redis:
   password: ""
   db: 0
 `
-	configPath := filepath.Join(tempDir, "server.yaml")
-	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
-		t.Fatalf("write config failed: %v", err)
-	}
-
-	binaryPath := buildBinary(t, targetDir)
-	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
-	cmd.Dir = targetDir
-	var output strings.Builder
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start heavy service failed: %v", err)
-	}
-	defer func() {
-		_ = cmd.Process.Kill()
-		_, _ = cmd.Process.Wait()
-	}()
-
-	baseURL := "http://127.0.0.1:" + port
-	waitForReady(t, baseURL+"/healthz", &output, cmd)
+	baseURL, _, output := startGeneratedService(t, targetDir, configBody)
 
 	health := doJSONRequest(t, "GET", baseURL+"/healthz", nil, nil)
 	if health.StatusCode != 200 || health.Code != 1 {
@@ -919,7 +1025,10 @@ redis:
 	assertDocsRoute(t, baseURL)
 	assertUIRoute(t, baseURL)
 	assertMetricsRoute(t, baseURL)
-	runUserCRUDScenario(t, baseURL, databasePath)
+	runUserCRUDScenario(t, baseURL, database)
+	if database.Kind != "sqlite" && strings.TrimSpace(output.String()) == "" {
+		t.Log("heavy external-db scenario completed without startup stderr/stdout noise")
+	}
 }
 
 type heavyHealthData struct {
@@ -1040,12 +1149,13 @@ func assertRouteMissing(t *testing.T, url string) {
 	}
 }
 
-func runUserCRUDScenario(t *testing.T, baseURL, databasePath string) {
+func runUserCRUDScenario(t *testing.T, baseURL string, database runtimeDatabaseConfig) {
 	t.Helper()
 
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	createPayload := map[string]any{
 		"name":   "Alice",
-		"email":  "alice@example.com",
+		"email":  "alice-" + suffix + "@example.com",
 		"age":    28,
 		"status": "active",
 	}
@@ -1063,7 +1173,7 @@ func runUserCRUDScenario(t *testing.T, baseURL, databasePath string) {
 	for index := 0; index < 8; index++ {
 		payload := map[string]any{
 			"name":   "User " + strconv.Itoa(index),
-			"email":  "user" + strconv.Itoa(index) + "@example.com",
+			"email":  "user" + strconv.Itoa(index) + "-" + suffix + "@example.com",
 			"age":    20 + index,
 			"status": "active",
 		}
@@ -1095,7 +1205,7 @@ func runUserCRUDScenario(t *testing.T, baseURL, databasePath string) {
 
 	update := doJSONRequest(t, "PUT", baseURL+"/api/v1/user/"+strconv.FormatInt(created.ID, 10), map[string]any{
 		"name":   "Alice Updated",
-		"email":  "alice.updated@example.com",
+		"email":  "alice.updated-" + suffix + "@example.com",
 		"age":    29,
 		"status": "inactive",
 	}, nil)
@@ -1113,8 +1223,10 @@ func runUserCRUDScenario(t *testing.T, baseURL, databasePath string) {
 		t.Fatalf("expected deleted user to be missing, got %+v", notFound)
 	}
 
-	if _, err := os.Stat(databasePath); err != nil {
-		t.Fatalf("expected sqlite database at %s: %v", databasePath, err)
+	if database.Kind == "sqlite" {
+		if _, err := os.Stat(database.SQLitePath); err != nil {
+			t.Fatalf("expected sqlite database at %s: %v", database.SQLitePath, err)
+		}
 	}
 }
 
@@ -1165,6 +1277,52 @@ func rawRequest(method string, url string, body any, headers map[string]string) 
 		req.Header.Set(key, value)
 	}
 	return (&http.Client{Timeout: 10 * time.Second}).Do(req)
+}
+
+func startGeneratedService(t *testing.T, targetDir string, configBody string) (string, *exec.Cmd, *strings.Builder) {
+	t.Helper()
+
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "server.yaml")
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	binaryPath := buildBinary(t, targetDir)
+	cmd := exec.Command(binaryPath, "serve", "--config", configPath)
+	cmd.Dir = targetDir
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start generated service failed: %v", err)
+	}
+	t.Cleanup(func() {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_, _ = cmd.Process.Wait()
+	})
+	host := "127.0.0.1"
+	port := extractConfigPort(configBody)
+	baseURL := "http://" + net.JoinHostPort(host, port)
+	waitForReady(t, baseURL+"/healthz", &output, cmd)
+	return baseURL, cmd, &output
+}
+
+func extractConfigPort(configBody string) string {
+	for _, line := range strings.Split(configBody, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, `port:`) {
+			continue
+		}
+		value := strings.TrimSpace(strings.TrimPrefix(trimmed, "port:"))
+		value = strings.Trim(value, `"`)
+		if value != "" {
+			return value
+		}
+	}
+	return "3000"
 }
 
 func buildBinary(t *testing.T, targetDir string) string {
