@@ -49,7 +49,7 @@ Important boundary:
 - Phase 11 finished runtime-option expansion for `medium / heavy / light`.
 - Phase 13 completed generated metadata and diff detection.
 - Phase 14 completed readonly upgrade planning and compatibility policy.
-- Phase 15 is implementing the `fiberx build` P0 baseline.
+- Phase 15 completed the `fiberx build` P0 baseline and is now extending P2 packaging flows.
 
 ## Run From Source
 
@@ -238,13 +238,14 @@ Current upgrade scope:
 
 ## Build Generated Projects
 
-Phase 15 P0 adds a project-level build command:
+Phase 15 P0 and P2 add a project-level build command:
 
 ```bash
 go run ./cmd/fiberx build
 go run ./cmd/fiberx build server
 go run ./cmd/fiberx build --clean
 go run ./cmd/fiberx build --target linux/amd64
+go run ./cmd/fiberx build --dry-run
 ```
 
 Current build input:
@@ -252,12 +253,16 @@ Current build input:
 - project root `fiberx.yaml`
 - one or more named targets
 - `build.version.source=git`
+- optional target archive/checksum settings
 
 Current build output:
 
 - binaries under `dist/<target>/<goos>_<goarch>/`
+- optional `.zip` / `.tar.gz` archives beside each platform build
+- optional `dist/SHA256SUMS`
 - `-trimpath` and configured `ldflags`
-- no archive/checksum/dry-run/profile support yet
+- `--dry-run` for readonly build planning
+- no profile / hook / UPX / release-manifest support yet
 
 ## Stack Selection
 

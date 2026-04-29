@@ -286,8 +286,10 @@ func runValidate(args []string) error {
 	fmt.Println("phase 12 delivery: completed")
 	fmt.Println("phase 13 delivery: completed")
 	fmt.Println("phase 14 delivery: completed")
+	fmt.Println("phase 15 p0: completed")
+	fmt.Println("phase 15 p2: active")
 	fmt.Println("phase 15 focus: build and post-generation engineering")
-	fmt.Println("phase 15 delivery target: fiberx build and release-oriented output management")
+	fmt.Println("phase 15 delivery target: packaging, checksums, dry-run, and parallel build execution")
 	fmt.Println("default medium experience: swagger,embedded-ui")
 	fmt.Println("default heavy experience: swagger,embedded-ui")
 	fmt.Println("light optional experience: swagger,embedded-ui")
@@ -348,8 +350,10 @@ func runDoctor(args []string) error {
 	fmt.Printf("phase-13-version-upgrade-and-diff-detection: %s\n", "completed")
 	fmt.Printf("phase-14-upgrade-assistant-and-compatibility-policy: %s\n", "completed")
 	fmt.Printf("phase-15-build-and-post-generation-engineering: %s\n", "active")
+	fmt.Printf("phase-15-p0: %s\n", "completed")
+	fmt.Printf("phase-15-p2: %s\n", "active")
 	fmt.Printf("phase-15-focus: %s\n", "build-and-post-generation-engineering")
-	fmt.Printf("phase-15-delivery-target: %s\n", "fiberx-build-and-release-oriented-output-management")
+	fmt.Printf("phase-15-delivery-target: %s\n", "packaging-checksums-dry-run-and-parallel-build-execution")
 	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("default-heavy-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("light-optional-capabilities: %s\n", "swagger,embedded-ui")
@@ -551,6 +555,7 @@ func runBuild(args []string) error {
 	fs := newFlagSet("build")
 	clean := fs.Bool("clean", false, "clean the output directory before building")
 	platform := fs.String("target", "", "filter builds to a single goos/goarch platform")
+	dryRun := fs.Bool("dry-run", false, "print the build plan without writing outputs")
 	if err := fs.Parse(reorderArgs(args, map[string]bool{"--target": true})); err != nil {
 		return err
 	}
@@ -569,18 +574,34 @@ func runBuild(args []string) error {
 		TargetNames:    fs.Args(),
 		PlatformFilter: *platform,
 		Clean:          *clean,
+		DryRun:         *dryRun,
 	})
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("built project=%s out_dir=%s\n", cfg.Project.Name, filepath.ToSlash(result.OutDir))
+	if result.DryRun {
+		fmt.Printf("build plan project=%s out_dir=%s\n", cfg.Project.Name, filepath.ToSlash(result.OutDir))
+	} else {
+		fmt.Printf("built project=%s out_dir=%s\n", cfg.Project.Name, filepath.ToSlash(result.OutDir))
+	}
 	fmt.Printf("version: %s\n", result.Version.Version)
 	fmt.Printf("commit: %s\n", result.Version.Commit)
 	fmt.Printf("build time: %s\n", result.Version.BuildTime)
+	fmt.Printf("dry-run: %t\n", result.DryRun)
 	fmt.Printf("artifacts: %d\n", len(result.Artifacts))
 	for _, artifact := range result.Artifacts {
-		fmt.Printf("  - target=%s platform=%s output=%s\n", artifact.TargetName, artifact.Platform, filepath.ToSlash(artifact.OutputPath))
+		fmt.Printf("  - target=%s platform=%s output=%s", artifact.TargetName, artifact.Platform, filepath.ToSlash(artifact.OutputPath))
+		if artifact.ArchivePath != "" {
+			fmt.Printf(" archive=%s", filepath.ToSlash(artifact.ArchivePath))
+		}
+		if artifact.DistributablePath != "" && artifact.DistributablePath != artifact.OutputPath {
+			fmt.Printf(" distributable=%s", filepath.ToSlash(artifact.DistributablePath))
+		}
+		fmt.Println()
+	}
+	if result.ChecksumPath != "" {
+		fmt.Printf("checksum: %s\n", filepath.ToSlash(result.ChecksumPath))
 	}
 	return nil
 }
@@ -605,7 +626,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx diff [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade plan [path] [--json]")
-	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch]")
+	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch] [--dry-run]")
 	fmt.Fprintln(w, "  fiberx validate")
 	fmt.Fprintln(w, "  fiberx doctor")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
@@ -613,8 +634,9 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
 	fmt.Fprintln(w, "Phase 11 runtime policy: medium/heavy/light support logger/db/data-access selection; extra-light rejects these options.")
 	fmt.Fprintln(w, "Current roadmap stage: Phase 15 build and post-generation engineering.")
+	fmt.Fprintln(w, "Phase 15 status: P0 completed, P2 active.")
 	fmt.Fprintln(w, "Phase 15 focus: build and release-oriented post-generation engineering.")
-	fmt.Fprintln(w, "Phase 15 delivery target: fiberx build and release-oriented output management.")
+	fmt.Fprintln(w, "Phase 15 delivery target: packaging, checksums, dry-run, and parallel build execution.")
 }
 
 func loadCatalog() (manifest.Catalog, error) {

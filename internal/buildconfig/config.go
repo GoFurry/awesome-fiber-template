@@ -24,9 +24,11 @@ type Project struct {
 type Build struct {
 	OutDir   string   `yaml:"out_dir"`
 	Clean    bool     `yaml:"clean"`
+	Parallel bool     `yaml:"parallel"`
 	Version  Version  `yaml:"version"`
 	Defaults Defaults `yaml:"defaults"`
 	Targets  []Target `yaml:"targets"`
+	Checksum Checksum `yaml:"checksum"`
 }
 
 type Version struct {
@@ -45,6 +47,18 @@ type Target struct {
 	Package   string   `yaml:"package"`
 	Output    string   `yaml:"output"`
 	Platforms []string `yaml:"platforms"`
+	Archive   Archive  `yaml:"archive"`
+}
+
+type Archive struct {
+	Enabled bool     `yaml:"enabled"`
+	Format  string   `yaml:"format"`
+	Files   []string `yaml:"files"`
+}
+
+type Checksum struct {
+	Enabled   bool   `yaml:"enabled"`
+	Algorithm string `yaml:"algorithm"`
 }
 
 func Load(projectDir string) (File, error) {
@@ -71,7 +85,7 @@ func Load(projectDir string) (File, error) {
 	if err := validateUnsupported(raw); err != nil {
 		return File{}, err
 	}
-	if err := validateConfig(cfg); err != nil {
+	if err := validateConfig(projectDir, cfg); err != nil {
 		return File{}, err
 	}
 
@@ -83,23 +97,31 @@ func (f *File) normalize() {
 		f.Build.OutDir = "dist"
 	}
 	f.Build.Version.Source = strings.TrimSpace(strings.ToLower(f.Build.Version.Source))
+	f.Build.Checksum.Algorithm = strings.TrimSpace(strings.ToLower(f.Build.Checksum.Algorithm))
+	if f.Build.Checksum.Algorithm == "" {
+		f.Build.Checksum.Algorithm = "sha256"
+	}
 	for index := range f.Build.Targets {
 		f.Build.Targets[index].Name = strings.TrimSpace(f.Build.Targets[index].Name)
 		f.Build.Targets[index].Package = strings.TrimSpace(f.Build.Targets[index].Package)
 		f.Build.Targets[index].Output = strings.TrimSpace(f.Build.Targets[index].Output)
+		f.Build.Targets[index].Archive.Format = strings.TrimSpace(strings.ToLower(f.Build.Targets[index].Archive.Format))
+		if f.Build.Targets[index].Archive.Format == "" {
+			f.Build.Targets[index].Archive.Format = "auto"
+		}
 		for platformIndex := range f.Build.Targets[index].Platforms {
 			f.Build.Targets[index].Platforms[platformIndex] = strings.TrimSpace(strings.ToLower(f.Build.Targets[index].Platforms[platformIndex]))
+		}
+		for fileIndex := range f.Build.Targets[index].Archive.Files {
+			f.Build.Targets[index].Archive.Files[fileIndex] = strings.TrimSpace(f.Build.Targets[index].Archive.Files[fileIndex])
 		}
 	}
 }
 
 func validateUnsupported(root yaml.Node) error {
 	unsupportedPaths := []string{
-		"build.parallel",
-		"build.checksum",
 		"build.compress",
 		"build.profiles",
-		"build.targets[].archive",
 		"build.targets[].pre_hooks",
 		"build.targets[].post_hooks",
 	}
@@ -111,7 +133,7 @@ func validateUnsupported(root yaml.Node) error {
 	return nil
 }
 
-func validateConfig(cfg File) error {
+func validateConfig(projectDir string, cfg File) error {
 	if strings.TrimSpace(cfg.Project.Name) == "" {
 		return fmt.Errorf("build config field %q is required", "project.name")
 	}
@@ -123,6 +145,9 @@ func validateConfig(cfg File) error {
 	}
 	if strings.TrimSpace(cfg.Build.Version.Package) == "" {
 		return fmt.Errorf("build config field %q is required", "build.version.package")
+	}
+	if cfg.Build.Checksum.Algorithm != "sha256" {
+		return fmt.Errorf("build checksum algorithm %q is not supported in Phase 15 P2", cfg.Build.Checksum.Algorithm)
 	}
 	if len(cfg.Build.Targets) == 0 {
 		return fmt.Errorf("build config field %q must contain at least one target", "build.targets")
@@ -146,9 +171,44 @@ func validateConfig(cfg File) error {
 		if len(target.Platforms) == 0 {
 			return fmt.Errorf("build target %q field %q must contain at least one platform", target.Name, "platforms")
 		}
+		if target.Archive.Format != "auto" && target.Archive.Format != "zip" && target.Archive.Format != "tar.gz" {
+			return fmt.Errorf("build target %q archive format %q is not supported in Phase 15 P2", target.Name, target.Archive.Format)
+		}
 		for _, platform := range target.Platforms {
 			if _, _, ok := parsePlatform(platform); !ok {
 				return fmt.Errorf("build target %q platform %q must use goos/goarch format", target.Name, platform)
+			}
+		}
+		for _, archiveFile := range target.Archive.Files {
+			if archiveFile == "" {
+				return fmt.Errorf("build target %q archive file path must not be empty", target.Name)
+			}
+			if filepath.IsAbs(archiveFile) {
+				return fmt.Errorf("build target %q archive file %q must be relative to the project root", target.Name, archiveFile)
+			}
+			resolvedPath := filepath.Clean(filepath.Join(projectDir, filepath.FromSlash(archiveFile)))
+			projectRoot := filepath.Clean(projectDir)
+			relToProject, err := filepath.Rel(projectRoot, resolvedPath)
+			if err != nil || strings.HasPrefix(relToProject, "..") {
+				return fmt.Errorf("build target %q archive file %q must stay within the project root", target.Name, archiveFile)
+			}
+			info, err := os.Stat(resolvedPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return fmt.Errorf("build target %q archive file %q does not exist", target.Name, archiveFile)
+				}
+				return fmt.Errorf("inspect build target %q archive file %q: %w", target.Name, archiveFile, err)
+			}
+			if !(info.Mode().IsRegular() || info.IsDir()) {
+				return fmt.Errorf("build target %q archive file %q must be a regular file or directory", target.Name, archiveFile)
+			}
+			outDirPath := filepath.Clean(filepath.Join(projectDir, cfg.Build.OutDir))
+			relToOutDir, err := filepath.Rel(outDirPath, resolvedPath)
+			if err == nil && relToOutDir != "." && !strings.HasPrefix(relToOutDir, "..") {
+				return fmt.Errorf("build target %q archive file %q must not point inside out_dir %q", target.Name, archiveFile, cfg.Build.OutDir)
+			}
+			if resolvedPath == outDirPath {
+				return fmt.Errorf("build target %q archive file %q must not point to out_dir %q", target.Name, archiveFile, cfg.Build.OutDir)
 			}
 		}
 	}

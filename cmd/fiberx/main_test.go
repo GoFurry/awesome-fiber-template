@@ -61,7 +61,10 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "current stage: phase-15-build-and-post-generation-engineering") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 delivery: completed") || !strings.Contains(output, "phase 15 focus: build and post-generation engineering") {
 		t.Fatalf("expected phase 15 summary with completed phase 14 delivery, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase 15 delivery target: fiberx build and release-oriented output management") {
+	if !strings.Contains(output, "phase 15 p0: completed") || !strings.Contains(output, "phase 15 p2: active") {
+		t.Fatalf("expected phase 15 p0/p2 status output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "phase 15 delivery target: packaging, checksums, dry-run, and parallel build execution") {
 		t.Fatalf("expected phase 15 delivery target output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
@@ -88,7 +91,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: fiberx-build-and-release-oriented-output-management") {
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-p0: completed") || !strings.Contains(output, "phase-15-p2: active") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: packaging-checksums-dry-run-and-parallel-build-execution") {
 		t.Fatalf("expected phase 14 completed and phase 15 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
@@ -198,6 +201,14 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "fiberx.yaml")); err != nil {
 		t.Fatalf("expected generated fiberx build config: %v", err)
+	}
+	fiberxConfigData, err := os.ReadFile(filepath.Join(workdir, "demo", "fiberx.yaml"))
+	if err != nil {
+		t.Fatalf("read generated fiberx build config: %v", err)
+	}
+	fiberxConfig := string(fiberxConfigData)
+	if !strings.Contains(fiberxConfig, "parallel: false") || !strings.Contains(fiberxConfig, "checksum:") || !strings.Contains(fiberxConfig, "archive:") {
+		t.Fatalf("expected generated fiberx build config to include phase 15 p2 fields, got:\n%s", fiberxConfig)
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "internal", "version", "version.go")); err != nil {
 		t.Fatalf("expected generated version package: %v", err)
@@ -479,7 +490,7 @@ func TestCLIBuildP0(t *testing.T) {
 		output := captureStdout(t, func() error {
 			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH})
 		})
-		if !strings.Contains(output, "built project=demo") || !strings.Contains(output, "artifacts: 1") {
+		if !strings.Contains(output, "built project=demo") || !strings.Contains(output, "artifacts: 1") || !strings.Contains(output, "dry-run: false") {
 			t.Fatalf("expected build summary output, got:\n%s", output)
 		}
 	})
@@ -504,6 +515,71 @@ func TestCLIBuildP0(t *testing.T) {
 	})
 	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
 		t.Fatalf("expected stale artifact to be removed by clean build, got %v", err)
+	}
+}
+
+func TestCLIBuildP2(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+
+	projectDir := filepath.Join(workdir, "demo")
+	initGitRepoForCLI(t, projectDir)
+
+	configPath := filepath.Join(projectDir, "fiberx.yaml")
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read generated build config: %v", err)
+	}
+	configBody := string(configData)
+	configBody = strings.Replace(configBody, "parallel: false", "parallel: true", 1)
+	configBody = strings.Replace(configBody, "enabled: false\n    algorithm: sha256", "enabled: true\n    algorithm: sha256", 1)
+	configBody = strings.Replace(configBody, "enabled: false\n        format: auto", "enabled: true\n        format: auto", 1)
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write generated build config: %v", err)
+	}
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH, "--dry-run"})
+		})
+		if !strings.Contains(output, "build plan project=demo") || !strings.Contains(output, "dry-run: true") || !strings.Contains(output, "archive=") || !strings.Contains(output, "checksum:") {
+			t.Fatalf("expected dry-run build plan output, got:\n%s", output)
+		}
+	})
+
+	if _, err := os.Stat(filepath.Join(projectDir, "dist")); !os.IsNotExist(err) {
+		t.Fatalf("expected dry-run not to create dist dir, got %v", err)
+	}
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH})
+		})
+		if !strings.Contains(output, "built project=demo") || !strings.Contains(output, "dry-run: false") || !strings.Contains(output, "archive=") || !strings.Contains(output, "checksum:") {
+			t.Fatalf("expected p2 build output, got:\n%s", output)
+		}
+	})
+
+	distDir := filepath.Join(projectDir, "dist", "server", runtime.GOOS+"_"+runtime.GOARCH)
+	checksumPath := filepath.Join(projectDir, "dist", "SHA256SUMS")
+	if _, err := os.Stat(checksumPath); err != nil {
+		t.Fatalf("expected checksum output: %v", err)
+	}
+
+	var archivePath string
+	if runtime.GOOS == "windows" {
+		archivePath = filepath.Join(distDir, "demo_"+runtime.GOOS+"_"+runtime.GOARCH+".zip")
+	} else {
+		archivePath = filepath.Join(distDir, "demo_"+runtime.GOOS+"_"+runtime.GOARCH+".tar.gz")
+	}
+	if _, err := os.Stat(archivePath); err != nil {
+		t.Fatalf("expected archive output at %q: %v", archivePath, err)
 	}
 }
 

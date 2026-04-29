@@ -32,12 +32,13 @@ Use the root README for a quick repository overview, then start from the generat
 - Stable production baseline: `medium`
 - Completed production track: `heavy`
 - Current stage: `Phase 15` build and post-generation engineering
-- Phase 15 P0: `fiberx build` baseline is in progress
+- Phase 15 P0: completed
+- Phase 15 P2: archive, checksum, dry-run, and parallel build execution are in progress
 - Phase 12 delivery: capability matrix and validation closure completed
 - Phase 13 delivery: generated metadata and diff detection completed
 - Phase 14 delivery: readonly upgrade planning and compatibility classification completed
 - Phase 15 focus: build and post-generation engineering
-- Phase 15 delivery target: fiberx build and release-oriented output management
+- Phase 15 delivery target: packaging, checksums, dry-run, and parallel build execution
 - Default medium experience: `swagger`, `embedded-ui`
 - Default heavy experience: `swagger`, `embedded-ui`
 - Light optional experience: `swagger`, `embedded-ui`
@@ -58,7 +59,7 @@ Use the root README for a quick repository overview, then start from the generat
 - Generated project metadata: `.fiberx/manifest.json`
 - New inspection commands: `fiberx inspect`, `fiberx diff`
 - New upgrade commands: `fiberx upgrade inspect`, `fiberx upgrade plan`
-- Planned build command baseline: `fiberx build`
+- Build command baseline: `fiberx build`
 
 ## Current Roadmap Position
 
@@ -69,4 +70,4 @@ Use the root README for a quick repository overview, then start from the generat
 - Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
 - Metadata progress: generated-project metadata and diff detection are completed
 - Upgrade-planning progress: readonly upgrade assessment and compatibility policy are completed
-- Build-command progress: Phase 15 P0 is implementing the `fiberx build` baseline
+- Build-command progress: Phase 15 P0 is complete; Phase 15 P2 is extending packaging and release-oriented outputs

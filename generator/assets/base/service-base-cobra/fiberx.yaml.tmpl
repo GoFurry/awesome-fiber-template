@@ -5,6 +5,7 @@ project:
 build:
   out_dir: dist
   clean: true
+  parallel: false
   version:
     source: git
     package: {{module_path}}/internal/version
@@ -16,6 +17,9 @@ build:
       - "-X {{module_path}}/internal/version.Version={{.Version}}"
       - "-X {{module_path}}/internal/version.Commit={{.Commit}}"
       - "-X {{module_path}}/internal/version.BuildTime={{.BuildTime}}"
+  checksum:
+    enabled: false
+    algorithm: sha256
   targets:
     - name: server
       package: .
@@ -23,3 +27,9 @@ build:
       platforms:
         - linux/amd64
         - windows/amd64
+      archive:
+        enabled: false
+        format: auto
+        files:
+          - README.md
+          - config

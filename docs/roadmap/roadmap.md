@@ -6,7 +6,7 @@
 
 - 当前阶段：`State 4 / Phase 15`
 - 当前进度：`Phase 11` 已完成，`Phase 12` 已完成，`Phase 13` 已完成，`Phase 14` 已完成，`Phase 15` 进行中
-- 默认栈：`Fiber v3 + Cobra + Viper`
+- 当前默认栈：`Fiber v3 + Cobra + Viper`
 - 首轮服务 preset 默认运行时：`zap + sqlite + stdlib`
 - 当前公开模型：`preset + capability + 少量生成参数`
 - `Phase 11` 首轮覆盖：`medium`、`heavy`、`light`
@@ -19,8 +19,8 @@
 - `State 2 / Phase 8`：`light / extra-light` 完成产品化定位。详见 [phase-8-plan.md](./phase-8-plan.md)
 - `State 2 / Phase 9`：默认栈切换到 `Fiber v3 + Cobra + Viper`，并保留兼容回退。详见 [phase-9-plan.md](./phase-9-plan.md)
 - `State 3 / Phase 10`：`swagger / embedded-ui / redis` 的 capability contract、CLI 输出、文档和校验边界完成收口。
-- `State 3 / Phase 11`：`logger / db / data-access` 生成参数完成首轮接入；默认栈下的 `medium / heavy / light × sqlite / pgsql / mysql × stdlib / sqlx / sqlc` 运行矩阵已在提交 `1a46f0c` 的 CI 中通过。
-- `State 3 / Phase 12`：完整 capability matrix 已经被请求校验、生成级断言和黑盒回归锁住，可以正式视为完成。
+- `State 3 / Phase 11`：`logger / db / data-access` 生成参数完成首轮接入；默认栈下的运行矩阵已在 CI 闭环。
+- `State 3 / Phase 12`：完整 capability matrix 已被请求校验、生成级断言和黑盒回归锁住。
 
 ## State 4：生成后维护与工程化
 
@@ -28,66 +28,36 @@
 
 当前状态：`completed`
 
-目标：支持生成器演进后的差异识别，并明确生成产物与模板资产版本的关系。
+已交付：
 
-本阶段重点：
-
-- 为生成产物补充稳定元信息文件 `.fiberx/manifest.json`
-- 记录生成器版本、提交指纹、generation recipe、资产集合和受管文件哈希
-- 新增 `fiberx inspect` 用于查看产物元信息
-- 新增 `fiberx diff` 用于比较：
-  - manifest 记录的历史受管文件
-  - 当前工作目录里的受管文件
-  - 当前生成器重新生成的受管文件结果
-- 差异分类保持只读：
-  - `clean`
-  - `local_modified`
-  - `generator_drift`
-  - `local_and_generator_drift`
+- `.fiberx/manifest.json`
+- `fiberx inspect`
+- `fiberx diff`
+- `clean / local_modified / generator_drift / local_and_generator_drift` 四类只读差异判断
 
 边界：
 
-- 本阶段不做自动修复
-- 本阶段不做自动迁移
-- 本阶段不输出 patch
-- 本阶段不把升级建议策略引入主命令链路
+- 不自动修复
+- 不自动迁移
+- 不输出 patch
 
-### Phase 14：迁移助手与兼容策略
+### Phase 14：升级助手与兼容策略
 
 当前状态：`completed`
 
-目标：提供只读升级辅助，并明确向后兼容、人工复核与破坏性变更策略。
+已交付：
 
-本阶段重点：
-
-- 新增 `fiberx upgrade inspect` 用于输出升级评估摘要
-- 新增 `fiberx upgrade plan` 用于输出只读升级步骤建议
-- 基于 `.fiberx/manifest.json`、当前 generator 版本和 `fiberx diff` 结果给出兼容等级：
-  - `compatible`
-  - `manual_review`
-  - `breaking`
-- 首轮只覆盖“已有生成项目能否被当前 generator 升级”的问题
-
-当前完成情况：
-
-- 已完成 `upgrade inspect` / `upgrade plan` 的 text 与 `--json` 输出
-- 已完成三档兼容等级首轮判定：
-  - 开发态版本标识：`manual_review`
-  - 正常前向升级：`compatible`
-  - generator 降级：`breaking`
-- 已完成基于 `.fiberx/manifest.json`、recipe 可重放、版本方向和 managed-file drift 的只读升级评估
-- 已完成缺失 metadata 的稳定报错
-- 已完成 `local_modified` 场景下的升级建议输出
-- 自动化回归已覆盖 `generator_drift`、`local_and_generator_drift` 和 recipe 不再受支持时的 `breaking` 场景
-- 已接受现有自动测试与人工验证作为本阶段完成依据，不再要求额外的 `generator_drift` / `local_and_generator_drift` 人工冒烟作为结项前置条件
+- `fiberx upgrade inspect`
+- `fiberx upgrade plan`
+- `compatible / manual_review / breaking`
+- 基于 metadata + diff + 版本方向的只读升级评估
 
 边界：
 
-- 本阶段不自动修改项目文件
-- 本阶段不输出 patch
-- 本阶段不支持直接变更 preset / capability / runtime recipe
-- 本阶段不引入 `fiberx migrate`
-- 本阶段不做 addon 层迁移或数据库 schema 迁移编排
+- 不自动修改项目文件
+- 不输出 patch
+- 不支持直接变更 preset / capability / runtime recipe
+- 不引入 `fiberx migrate`
 
 ### Phase 15：`fiberx build` 与生成后工程化
 
@@ -95,17 +65,43 @@
 
 当前状态：`active`
 
-目标：提供 `fiberx build`、多 target、多平台和基础发布能力。
+当前阶段进度：
 
-当前阶段重点：`P0`
+- `P0`：`completed`
+- `P2`：`active`
 
-- 新增 `fiberx build`
-- 支持 `fiberx build <target...>`
-- 支持 `--clean`
-- 支持 `--target <goos/goarch>`
+已完成的 `P0` 能力：
+
+- `fiberx build`
+- `fiberx build <target...>`
+- `--clean`
+- `--target <goos/goarch>`
 - 读取项目根目录 `fiberx.yaml`
 - 支持多 target、`out_dir`、`ldflags` 和 `GOOS / GOARCH`
 - 默认生成项目补齐可直接使用的 `fiberx.yaml` 与最小 `internal/version`
+
+当前推进中的 `P2` 能力：
+
+- `zip / tar.gz` archive
+- `sha256` checksums
+- `--dry-run`
+- 并发构建
+
+当前 `P2` 已落地口径：
+
+- `build.parallel`
+- `build.targets[].archive.enabled`
+- `build.targets[].archive.format`
+- `build.targets[].archive.files`
+- `build.checksum.enabled`
+- `build.checksum.algorithm`
+- `fiberx build --dry-run`
+
+当前 `P2` 目标：
+
+- 在保留现有二进制输出结构的前提下，补齐可分发产物
+- 让 archive / checksum / dry-run / parallel 成为默认 CLI 与配置模型的一部分
+- 保持对当前 `package: .` 生成布局的兼容，不强制切换到 `cmd/server`
 
 ## 暂不进入
 
