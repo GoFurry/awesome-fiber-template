@@ -31,11 +31,12 @@ Use the root README for a quick repository overview, then start from the generat
 - Implemented capabilities: `redis`, `swagger`, `embedded-ui`
 - Stable production baseline: `medium`
 - Completed production track: `heavy`
-- Current stage: `Phase 14` upgrade planning and compatibility policy
+- Current stage: `Phase 15` build and post-generation engineering
 - Phase 12 delivery: capability matrix and validation closure completed
 - Phase 13 delivery: generated metadata and diff detection completed
-- Phase 14 focus: readonly upgrade planning and compatibility policy
-- Phase 14 delivery target: readonly upgrade planning and compatibility classification
+- Phase 14 delivery: readonly upgrade planning and compatibility classification completed
+- Phase 15 focus: build and post-generation engineering
+- Phase 15 delivery target: fiberx build and release-oriented output management
 - Default medium experience: `swagger`, `embedded-ui`
 - Default heavy experience: `swagger`, `embedded-ui`
 - Light optional experience: `swagger`, `embedded-ui`
@@ -60,10 +61,10 @@ Use the root README for a quick repository overview, then start from the generat
 ## Current Roadmap Position
 
 - Completed state: `State 1`
-- Current stage: `State 4 / Phase 14`
-- Current progress: Phase 11 completed; Phase 12 completed; Phase 13 completed; Phase 14 active
+- Current stage: `State 4 / Phase 15`
+- Current progress: Phase 11 completed; Phase 12 completed; Phase 13 completed; Phase 14 completed; Phase 15 active
 - External-db runtime progress: the full default-stack runtime matrix passed CI on commit `1a46f0c`
 - Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
 - Metadata progress: generated-project metadata and diff detection are completed
-- Upgrade-planning progress: readonly upgrade assessment and compatibility policy are now active implementation work
+- Upgrade-planning progress: readonly upgrade assessment and compatibility policy are completed
 - `fiberx build` is tracked later under `State 4 / Phase 15`

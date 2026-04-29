@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 当前阶段：`State 4 / Phase 14`
-- 当前进度：`Phase 11` 已完成，`Phase 12` 已完成，`Phase 13` 已完成，`Phase 14` 进行中
+- 当前阶段：`State 4 / Phase 15`
+- 当前进度：`Phase 11` 已完成，`Phase 12` 已完成，`Phase 13` 已完成，`Phase 14` 已完成，`Phase 15` 进行中
 - 默认栈：`Fiber v3 + Cobra + Viper`
 - 首轮服务 preset 默认运行时：`zap + sqlite + stdlib`
 - 当前公开模型：`preset + capability + 少量生成参数`
@@ -54,7 +54,7 @@
 
 ### Phase 14：迁移助手与兼容策略
 
-当前状态：`active`
+当前状态：`completed`
 
 目标：提供只读升级辅助，并明确向后兼容、人工复核与破坏性变更策略。
 
@@ -68,6 +68,19 @@
   - `breaking`
 - 首轮只覆盖“已有生成项目能否被当前 generator 升级”的问题
 
+当前完成情况：
+
+- 已完成 `upgrade inspect` / `upgrade plan` 的 text 与 `--json` 输出
+- 已完成三档兼容等级首轮判定：
+  - 开发态版本标识：`manual_review`
+  - 正常前向升级：`compatible`
+  - generator 降级：`breaking`
+- 已完成基于 `.fiberx/manifest.json`、recipe 可重放、版本方向和 managed-file drift 的只读升级评估
+- 已完成缺失 metadata 的稳定报错
+- 已完成 `local_modified` 场景下的升级建议输出
+- 自动化回归已覆盖 `generator_drift`、`local_and_generator_drift` 和 recipe 不再受支持时的 `breaking` 场景
+- 已接受现有自动测试与人工验证作为本阶段完成依据，不再要求额外的 `generator_drift` / `local_and_generator_drift` 人工冒烟作为结项前置条件
+
 边界：
 
 - 本阶段不自动修改项目文件
@@ -79,6 +92,8 @@
 ### Phase 15：`fiberx build` 与生成后工程化
 
 详见 [build-command-plan.md](./build-command-plan.md)
+
+当前状态：`active`
 
 目标：提供 `fiberx build`、多 target、多平台和基础发布能力。
 

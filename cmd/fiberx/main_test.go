@@ -56,11 +56,11 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "stable production baseline: medium") || !strings.Contains(output, "completed production track: heavy") {
 		t.Fatalf("expected production track summary, got:\n%s", output)
 	}
-	if !strings.Contains(output, "current stage: phase-14-upgrade-assistant-and-compatibility-policy") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 focus: upgrade assistant and compatibility policy") {
-		t.Fatalf("expected phase 14 summary with completed phase 13 delivery, got:\n%s", output)
+	if !strings.Contains(output, "current stage: phase-15-build-and-post-generation-engineering") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 delivery: completed") || !strings.Contains(output, "phase 15 focus: build and post-generation engineering") {
+		t.Fatalf("expected phase 15 summary with completed phase 14 delivery, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase 14 delivery target: readonly upgrade planning and compatibility classification") {
-		t.Fatalf("expected phase 14 delivery target output, got:\n%s", output)
+	if !strings.Contains(output, "phase 15 delivery target: fiberx build and release-oriented output management") {
+		t.Fatalf("expected phase 15 delivery target output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
 		t.Fatalf("expected heavy experience summary, got:\n%s", output)
@@ -80,14 +80,14 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"doctor"})
 	})
-	if !strings.Contains(output, "state: state-4") || !strings.Contains(output, "phase: phase-14-upgrade-assistant-and-compatibility-policy") {
-		t.Fatalf("expected State 4 / Phase 14 doctor output, got:\n%s", output)
+	if !strings.Contains(output, "state: state-4") || !strings.Contains(output, "phase: phase-15-build-and-post-generation-engineering") {
+		t.Fatalf("expected State 4 / Phase 15 doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: active") || !strings.Contains(output, "phase-14-focus: upgrade-assistant-and-compatibility-policy") || !strings.Contains(output, "phase-14-delivery-target: readonly-upgrade-planning-and-compatibility-classification") {
-		t.Fatalf("expected phase 13 completed and phase 14 active flags in doctor output, got:\n%s", output)
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: fiberx-build-and-release-oriented-output-management") {
+		t.Fatalf("expected phase 14 completed and phase 15 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
 		t.Fatalf("expected heavy defaults in doctor output, got:\n%s", output)
