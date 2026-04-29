@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -56,6 +57,9 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "current stage: phase-13-version-upgrade-and-diff-detection") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 focus: generator/template versioning and diff detection") {
 		t.Fatalf("expected phase 13 summary with completed phase 12 delivery, got:\n%s", output)
 	}
+	if !strings.Contains(output, "phase 13 delivery target: generated metadata and diff detection") {
+		t.Fatalf("expected phase 13 delivery target output, got:\n%s", output)
+	}
 	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
 		t.Fatalf("expected heavy experience summary, got:\n%s", output)
 	}
@@ -80,7 +84,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: active") || !strings.Contains(output, "phase-13-focus: generator-template-versioning-and-diff-detection") {
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: active") || !strings.Contains(output, "phase-13-focus: generator-template-versioning-and-diff-detection") || !strings.Contains(output, "phase-13-delivery-target: generated-metadata-and-diff-detection") {
 		t.Fatalf("expected phase 12 completed and phase 13 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
@@ -173,7 +177,7 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 			return run([]string{"new", "demo", "--preset", "heavy"})
 		})
 	})
-	if !strings.Contains(output, "generated preset=heavy") || !strings.Contains(output, "capabilities: swagger,embedded-ui") || !strings.Contains(output, "stack: fiber-v3 + cobra + viper") || !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib") {
+	if !strings.Contains(output, "generated preset=heavy") || !strings.Contains(output, "capabilities: swagger,embedded-ui") || !strings.Contains(output, "stack: fiber-v3 + cobra + viper") || !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib") || !strings.Contains(output, "metadata: .fiberx/manifest.json") {
 		t.Fatalf("expected heavy generation summary, got:\n%s", output)
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "main.go")); err != nil {
@@ -235,6 +239,146 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 	}
 }
 
+func TestCLIInspectAndDiff(t *testing.T) {
+	originalRoot := manifestRootForCLI(t)
+	t.Setenv("FIBERX_MANIFEST_ROOT", originalRoot)
+
+	workdir := t.TempDir()
+	var generationOutput string
+	withWorkingDir(t, workdir, func() {
+		generationOutput = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+	if !strings.Contains(generationOutput, "metadata: .fiberx/manifest.json") {
+		t.Fatalf("expected metadata path in generation summary, got:\n%s", generationOutput)
+	}
+
+	projectDir := filepath.Join(workdir, "demo")
+	if _, err := os.Stat(filepath.Join(projectDir, ".fiberx", "manifest.json")); err != nil {
+		t.Fatalf("expected generated metadata manifest: %v", err)
+	}
+
+	output := captureStdout(t, func() error {
+		return run([]string{"inspect", projectDir})
+	})
+	if !strings.Contains(output, "generator-version:") || !strings.Contains(output, "template fingerprint:") || !strings.Contains(output, "managed files:") {
+		t.Fatalf("expected inspect text output, got:\n%s", output)
+	}
+
+	output = captureStdout(t, func() error {
+		return run([]string{"inspect", projectDir, "--json"})
+	})
+	var inspectPayload map[string]any
+	if err := json.Unmarshal([]byte(output), &inspectPayload); err != nil {
+		t.Fatalf("unmarshal inspect json: %v\n%s", err, output)
+	}
+	if inspectPayload["schema_version"] != "v1" {
+		t.Fatalf("expected schema_version v1, got %#v", inspectPayload["schema_version"])
+	}
+	recipePayload, ok := inspectPayload["recipe"].(map[string]any)
+	if !ok || recipePayload["preset"] != "light" {
+		t.Fatalf("expected inspect recipe preset=light, got %#v", inspectPayload["recipe"])
+	}
+
+	output = captureStdout(t, func() error {
+		return run([]string{"diff", projectDir})
+	})
+	if !strings.Contains(output, "status: clean") {
+		t.Fatalf("expected clean diff output, got:\n%s", output)
+	}
+
+	output = captureStdout(t, func() error {
+		return run([]string{"diff", projectDir, "--json"})
+	})
+	var diffPayload map[string]any
+	if err := json.Unmarshal([]byte(output), &diffPayload); err != nil {
+		t.Fatalf("unmarshal diff json: %v\n%s", err, output)
+	}
+	if diffPayload["status"] != "clean" {
+		t.Fatalf("expected clean diff json status, got %#v", diffPayload["status"])
+	}
+
+	readmePath := filepath.Join(projectDir, "README.md")
+	readmeData, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("read generated README: %v", err)
+	}
+	if err := os.WriteFile(readmePath, append(readmeData, []byte("\nlocal drift\n")...), 0o644); err != nil {
+		t.Fatalf("write local drift README: %v", err)
+	}
+
+	output = captureStdout(t, func() error {
+		return run([]string{"diff", projectDir})
+	})
+	if !strings.Contains(output, "status: local_modified") || !strings.Contains(output, "changed files: README.md") {
+		t.Fatalf("expected local_modified diff output, got:\n%s", output)
+	}
+
+	generatorCopy := filepath.Join(t.TempDir(), "generator")
+	copyDir(t, originalRoot, generatorCopy)
+	baseReadmePath := filepath.Join(generatorCopy, "assets", "base", "service-base-cobra", "README.md.tmpl")
+	baseReadmeData, err := os.ReadFile(baseReadmePath)
+	if err != nil {
+		t.Fatalf("read copied generator README template: %v", err)
+	}
+	updatedReadme := strings.Replace(string(baseReadmeData), "Generated by `fiberx`.", "Generated by `fiberx` (phase13 drift).", 1)
+	if err := os.WriteFile(baseReadmePath, []byte(updatedReadme), 0o644); err != nil {
+		t.Fatalf("write copied generator README template: %v", err)
+	}
+
+	t.Setenv("FIBERX_MANIFEST_ROOT", generatorCopy)
+
+	driftWorkdir := t.TempDir()
+	withWorkingDir(t, driftWorkdir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+	driftProjectDir := filepath.Join(driftWorkdir, "demo")
+
+	t.Setenv("FIBERX_MANIFEST_ROOT", generatorCopy)
+	output = captureStdout(t, func() error {
+		return run([]string{"diff", driftProjectDir})
+	})
+	if !strings.Contains(output, "status: clean") {
+		t.Fatalf("expected clean diff against copied generator, got:\n%s", output)
+	}
+
+	t.Setenv("FIBERX_MANIFEST_ROOT", originalRoot)
+	output = captureStdout(t, func() error {
+		return run([]string{"diff", driftProjectDir})
+	})
+	if !strings.Contains(output, "status: generator_drift") || !strings.Contains(output, "generator drift files: README.md") {
+		t.Fatalf("expected generator_drift output, got:\n%s", output)
+	}
+
+	if err := os.WriteFile(filepath.Join(driftProjectDir, "README.md"), append([]byte(updatedReadme), []byte("\nlocal drift too\n")...), 0o644); err != nil {
+		t.Fatalf("write local+generator drift README: %v", err)
+	}
+	output = captureStdout(t, func() error {
+		return run([]string{"diff", driftProjectDir})
+	})
+	if !strings.Contains(output, "status: local_and_generator_drift") || !strings.Contains(output, "changed files: README.md") || !strings.Contains(output, "generator drift files: README.md") {
+		t.Fatalf("expected local_and_generator_drift output, got:\n%s", output)
+	}
+}
+
+func TestCLIInspectAndDiffRejectMissingMetadata(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+	workdir := t.TempDir()
+
+	err := run([]string{"inspect", workdir})
+	if err == nil || !strings.Contains(err.Error(), ".fiberx/manifest.json") {
+		t.Fatalf("expected inspect missing metadata error, got %v", err)
+	}
+
+	err = run([]string{"diff", workdir})
+	if err == nil || !strings.Contains(err.Error(), ".fiberx/manifest.json") {
+		t.Fatalf("expected diff missing metadata error, got %v", err)
+	}
+}
+
 func manifestRootForCLI(t *testing.T) string {
 	t.Helper()
 
@@ -258,13 +402,18 @@ func captureStdout(t *testing.T, fn func() error) string {
 		os.Stdout = original
 	}()
 
+	var buffer bytes.Buffer
+	copyDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(&buffer, reader)
+		copyDone <- copyErr
+	}()
+
 	runErr := fn()
 	if err := writer.Close(); err != nil {
 		t.Fatalf("close stdout writer: %v", err)
 	}
-
-	var buffer bytes.Buffer
-	if _, err := io.Copy(&buffer, reader); err != nil {
+	if err := <-copyDone; err != nil {
 		t.Fatalf("read stdout buffer: %v", err)
 	}
 
@@ -292,4 +441,32 @@ func withWorkingDir(t *testing.T, dir string, fn func()) {
 	}()
 
 	fn()
+}
+
+func copyDir(t *testing.T, sourceDir, targetDir string) {
+	t.Helper()
+
+	if err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(sourceDir, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(targetDir, rel)
+		if info.IsDir() {
+			return os.MkdirAll(targetPath, 0o755)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(targetPath, data, 0o644)
+	}); err != nil {
+		t.Fatalf("copy directory %q to %q: %v", sourceDir, targetDir, err)
+	}
 }

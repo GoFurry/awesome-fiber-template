@@ -46,7 +46,8 @@ Important boundary:
 - `heavy` is the completed Phase 7 production track with built-in Swagger, embedded UI, metrics, and jobs defaults.
 - `light` and `extra-light` remain the completed lightweight product lines introduced in Phase 8.
 - Phase 10 finished the capability contract consolidation.
-- Phase 11 is expanding logger, database, and data-access selection for `medium / heavy / light`.
+- Phase 11 finished runtime-option expansion for `medium / heavy / light`.
+- Phase 13 is adding generated metadata and diff detection.
 
 ## Run From Source
 
@@ -64,6 +65,8 @@ Available commands:
 - `fiberx list capabilities`
 - `fiberx explain preset <name>`
 - `fiberx explain capability <name>`
+- `fiberx inspect [path]`
+- `fiberx diff [path]`
 - `fiberx validate`
 - `fiberx doctor`
 
@@ -159,6 +162,51 @@ go run ./cmd/fiberx doctor
 ```
 
 Use these before cutting releases or after changing manifests, packs, capabilities, or rules.
+
+## Inspect Generated Metadata
+
+Every generated project now includes:
+
+```text
+.fiberx/manifest.json
+```
+
+Read the recorded metadata:
+
+```bash
+go run ./cmd/fiberx inspect ./demo
+go run ./cmd/fiberx inspect ./demo --json
+```
+
+This reports:
+
+- generator version and commit
+- preset and capability recipe
+- selected asset sets
+- template and rendered-output fingerprints
+- managed file count
+
+## Diff A Generated Project
+
+Compare a generated project against the current generator:
+
+```bash
+go run ./cmd/fiberx diff ./demo
+go run ./cmd/fiberx diff ./demo --json
+```
+
+Current diff statuses:
+
+- `clean`
+- `local_modified`
+- `generator_drift`
+- `local_and_generator_drift`
+
+Current diff scope:
+
+- only generator-managed files are compared
+- user-added files are ignored
+- no patch or write-back is performed
 
 ## Stack Selection
 

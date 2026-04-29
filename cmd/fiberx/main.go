@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,9 +14,11 @@ import (
 
 	"github.com/GoFurry/fiberx/internal/core"
 	"github.com/GoFurry/fiberx/internal/manifest"
+	"github.com/GoFurry/fiberx/internal/metadata"
 	"github.com/GoFurry/fiberx/internal/report"
 	"github.com/GoFurry/fiberx/internal/stack"
 	"github.com/GoFurry/fiberx/internal/validator"
+	"github.com/GoFurry/fiberx/internal/version"
 )
 
 func main() {
@@ -40,6 +43,10 @@ func run(args []string) error {
 		return runList(args[1:])
 	case "explain":
 		return runExplain(args[1:])
+	case "inspect":
+		return runInspect(args[1:])
+	case "diff":
+		return runDiff(args[1:])
 	case "validate":
 		return runValidate(args[1:])
 	case "doctor":
@@ -271,6 +278,7 @@ func runValidate(args []string) error {
 	fmt.Println("phase 11 delivery: completed")
 	fmt.Println("phase 12 delivery: completed")
 	fmt.Println("phase 13 focus: generator/template versioning and diff detection")
+	fmt.Println("phase 13 delivery target: generated metadata and diff detection")
 	fmt.Println("default medium experience: swagger,embedded-ui")
 	fmt.Println("default heavy experience: swagger,embedded-ui")
 	fmt.Println("light optional experience: swagger,embedded-ui")
@@ -330,6 +338,7 @@ func runDoctor(args []string) error {
 	fmt.Printf("phase-12-capability-level-verification: %s\n", "completed")
 	fmt.Printf("phase-13-version-upgrade-and-diff-detection: %s\n", "active")
 	fmt.Printf("phase-13-focus: %s\n", "generator-template-versioning-and-diff-detection")
+	fmt.Printf("phase-13-delivery-target: %s\n", "generated-metadata-and-diff-detection")
 	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("default-heavy-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("light-optional-capabilities: %s\n", "swagger,embedded-ui")
@@ -346,7 +355,86 @@ func runDoctor(args []string) error {
 	fmt.Printf("supported-data-access: %s\n", stack.SupportedDataAccess())
 	fmt.Printf("phase-11-first-round-presets: %s\n", "medium,heavy,light")
 	fmt.Printf("phase-11-deferred-presets: %s\n", "extra-light")
+	fmt.Printf("generator-version: %s\n", version.Version)
+	fmt.Printf("generator-commit: %s\n", version.Commit)
 	fmt.Println("writer-mode: real-write")
+	return nil
+}
+
+func runInspect(args []string) error {
+	fs := newFlagSet("inspect")
+	asJSON := fs.Bool("json", false, "render inspect output as JSON")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--json": true})); err != nil {
+		return err
+	}
+
+	projectDir, err := resolveProjectDir(fs.Args())
+	if err != nil {
+		return err
+	}
+	projectManifest, err := metadata.LoadManifest(projectDir)
+	if err != nil {
+		return err
+	}
+
+	if *asJSON {
+		return writeJSON(os.Stdout, projectManifest)
+	}
+
+	fmt.Printf("project: %s\n", projectDir)
+	fmt.Printf("metadata: %s\n", filepath.ToSlash(filepath.Join(metadata.ManifestDir, metadata.ManifestFilename)))
+	fmt.Printf("generated-at: %s\n", projectManifest.GeneratedAt)
+	fmt.Printf("generator-version: %s\n", projectManifest.Generator.Version)
+	fmt.Printf("generator-commit: %s\n", projectManifest.Generator.Commit)
+	fmt.Printf("preset: %s\n", projectManifest.Recipe.Preset)
+	fmt.Printf("capabilities: %s\n", joinOrNone(projectManifest.Recipe.Capabilities))
+	fmt.Printf("stack: fiber-%s + %s\n", projectManifest.Recipe.FiberVersion, projectManifest.Recipe.CLIStyle)
+	if projectManifest.Recipe.Logger != "" || projectManifest.Recipe.DB != "" || projectManifest.Recipe.DataAccess != "" {
+		fmt.Printf("runtime: logger=%s db=%s data-access=%s\n", valueOrNone(projectManifest.Recipe.Logger), valueOrNone(projectManifest.Recipe.DB), valueOrNone(projectManifest.Recipe.DataAccess))
+	}
+	fmt.Printf("base: %s\n", projectManifest.Assets.Base)
+	fmt.Printf("preset packs: %s\n", joinOrNone(projectManifest.Assets.PresetPacks))
+	fmt.Printf("capability packs: %s\n", joinOrNone(projectManifest.Assets.CapabilityPacks))
+	fmt.Printf("runtime overlays: %s\n", joinOrNone(projectManifest.Assets.RuntimeOverlays))
+	fmt.Printf("replace rules: %s\n", joinOrNone(projectManifest.Assets.ReplaceRules))
+	fmt.Printf("injection rules: %s\n", joinOrNone(projectManifest.Assets.InjectionRules))
+	fmt.Printf("template fingerprint: %s\n", projectManifest.Fingerprints.TemplateSet)
+	fmt.Printf("rendered fingerprint: %s\n", projectManifest.Fingerprints.RenderedOutput)
+	fmt.Printf("managed files: %d\n", len(projectManifest.ManagedFiles))
+	return nil
+}
+
+func runDiff(args []string) error {
+	fs := newFlagSet("diff")
+	asJSON := fs.Bool("json", false, "render diff output as JSON")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--json": true})); err != nil {
+		return err
+	}
+
+	projectDir, err := resolveProjectDir(fs.Args())
+	if err != nil {
+		return err
+	}
+
+	diffReport, err := metadata.BuildDiff(projectDir, manifest.ResolveRoot(""))
+	if err != nil {
+		return err
+	}
+
+	if *asJSON {
+		return writeJSON(os.Stdout, diffReport)
+	}
+
+	fmt.Printf("project: %s\n", projectDir)
+	fmt.Printf("status: %s\n", diffReport.Status)
+	fmt.Printf("generated-by: %s (%s)\n", diffReport.Generator.Generated.Version, diffReport.Generator.Generated.Commit)
+	fmt.Printf("current-generator: %s (%s)\n", diffReport.Generator.Current.Version, diffReport.Generator.Current.Commit)
+	fmt.Printf("preset: %s\n", diffReport.Recipe.Preset)
+	fmt.Printf("capabilities: %s\n", joinOrNone(diffReport.Recipe.Capabilities))
+	fmt.Printf("missing files: %s\n", joinOrNone(diffReport.MissingFiles))
+	fmt.Printf("changed files: %s\n", joinOrNone(diffReport.ChangedFiles))
+	fmt.Printf("new managed files: %s\n", joinOrNone(diffReport.NewManagedFiles))
+	fmt.Printf("generator drift files: %s\n", joinOrNone(diffReport.GeneratorDriftFiles))
 	return nil
 }
 
@@ -366,6 +454,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx list capabilities")
 	fmt.Fprintln(w, "  fiberx explain preset <name>")
 	fmt.Fprintln(w, "  fiberx explain capability <name>")
+	fmt.Fprintln(w, "  fiberx inspect [path] [--json]")
+	fmt.Fprintln(w, "  fiberx diff [path] [--json]")
 	fmt.Fprintln(w, "  fiberx validate")
 	fmt.Fprintln(w, "  fiberx doctor")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
@@ -374,6 +464,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Phase 11 runtime policy: medium/heavy/light support logger/db/data-access selection; extra-light rejects these options.")
 	fmt.Fprintln(w, "Current roadmap stage: Phase 13 version-upgrade and diff detection.")
 	fmt.Fprintln(w, "Phase 13 focus: generator/template versioning, upgrade visibility, and diff detection.")
+	fmt.Fprintln(w, "Phase 13 delivery target: generated metadata and diff detection.")
 }
 
 func loadCatalog() (manifest.Catalog, error) {
@@ -511,6 +602,10 @@ func printSummary(w io.Writer, summary report.Summary) {
 	fmt.Fprintf(w, "runtime overlays: %s\n", joinOrNone(summary.RuntimeOverlays))
 	fmt.Fprintf(w, "replace rules: %s\n", joinOrNone(summary.ReplaceRules))
 	fmt.Fprintf(w, "injection rules: %s\n", joinOrNone(summary.InjectionRules))
+	fmt.Fprintf(w, "generator: %s (%s)\n", summary.GeneratorVersion, summary.GeneratorCommit)
+	fmt.Fprintf(w, "template fingerprint: %s\n", summary.TemplateSetFingerprint)
+	fmt.Fprintf(w, "rendered fingerprint: %s\n", summary.RenderedOutputFingerprint)
+	fmt.Fprintf(w, "metadata: %s\n", summary.MetadataPath)
 	fmt.Fprintf(w, "written files: %d\n", summary.WrittenFiles)
 	for _, path := range summary.WrittenPaths {
 		fmt.Fprintf(w, "  - %s\n", path)
@@ -536,6 +631,33 @@ func defaultDataAccessForPreset(presetName string) string {
 		return "builtin"
 	}
 	return stack.DefaultDataAccess()
+}
+
+func resolveProjectDir(args []string) (string, error) {
+	if len(args) > 1 {
+		return "", errors.New("command accepts at most one project path")
+	}
+	if len(args) == 0 {
+		return os.Getwd()
+	}
+	return filepath.Abs(args[0])
+}
+
+func writeJSON(w io.Writer, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	_, err = w.Write(data)
+	return err
+}
+
+func valueOrNone(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "(none)"
+	}
+	return value
 }
 
 func parseCapabilities(raw string) []string {

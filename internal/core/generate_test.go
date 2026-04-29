@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GoFurry/fiberx/internal/metadata"
 	"github.com/GoFurry/fiberx/internal/stack"
 )
 
@@ -416,6 +417,57 @@ func TestPhase12CapabilityMatrixBlackBox(t *testing.T) {
 
 			tc.runScenario(t, targetDir)
 		})
+	}
+}
+
+func TestRunWritesPhase13MetadataManifest(t *testing.T) {
+	targetDir := t.TempDir()
+	summary, err := Run(Request{
+		ProjectName: "demo",
+		ModulePath:  "github.com/example/demo",
+		Preset:      "medium",
+		Options:     requestOptionsForTest(targetDir, stack.FiberV3, stack.CLICobra),
+	})
+	if err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	projectManifest, err := metadata.LoadManifest(targetDir)
+	if err != nil {
+		t.Fatalf("LoadManifest() returned error: %v", err)
+	}
+
+	if projectManifest.SchemaVersion != metadata.SchemaVersionV1 {
+		t.Fatalf("expected schema version %q, got %q", metadata.SchemaVersionV1, projectManifest.SchemaVersion)
+	}
+	if projectManifest.Recipe.Preset != "medium" || projectManifest.Recipe.ModulePath != "github.com/example/demo" {
+		t.Fatalf("unexpected manifest recipe: %+v", projectManifest.Recipe)
+	}
+	if strings.Join(projectManifest.Recipe.Capabilities, ",") != "swagger,embedded-ui" {
+		t.Fatalf("unexpected manifest capabilities: %+v", projectManifest.Recipe.Capabilities)
+	}
+	if projectManifest.Recipe.Logger != stack.DefaultLogger() || projectManifest.Recipe.DB != stack.DefaultDB() || projectManifest.Recipe.DataAccess != stack.DefaultDataAccess() {
+		t.Fatalf("unexpected manifest runtime recipe: %+v", projectManifest.Recipe)
+	}
+	if projectManifest.Assets.Base != "service-base-cobra" {
+		t.Fatalf("unexpected manifest base asset: %+v", projectManifest.Assets)
+	}
+	if len(projectManifest.ManagedFiles) == 0 {
+		t.Fatalf("expected managed files to be recorded")
+	}
+	if projectManifest.Fingerprints.TemplateSet == "" || projectManifest.Fingerprints.RenderedOutput == "" {
+		t.Fatalf("expected manifest fingerprints to be populated: %+v", projectManifest.Fingerprints)
+	}
+	if summary.MetadataPath != ".fiberx/manifest.json" {
+		t.Fatalf("expected metadata path summary, got %+v", summary)
+	}
+	if summary.TemplateSetFingerprint != projectManifest.Fingerprints.TemplateSet || summary.RenderedOutputFingerprint != projectManifest.Fingerprints.RenderedOutput {
+		t.Fatalf("expected summary fingerprints to match manifest: summary=%+v manifest=%+v", summary, projectManifest.Fingerprints)
+	}
+
+	firstManaged := projectManifest.ManagedFiles[0]
+	if strings.TrimSpace(firstManaged.Path) == "" || strings.TrimSpace(firstManaged.SHA256) == "" {
+		t.Fatalf("expected managed file entry to include path and hash: %+v", firstManaged)
 	}
 }
 

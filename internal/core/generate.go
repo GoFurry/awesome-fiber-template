@@ -1,17 +1,18 @@
 package core
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/GoFurry/fiberx/internal/manifest"
+	"github.com/GoFurry/fiberx/internal/metadata"
 	"github.com/GoFurry/fiberx/internal/planner"
+	"github.com/GoFurry/fiberx/internal/postprocess"
 	"github.com/GoFurry/fiberx/internal/renderer"
 	"github.com/GoFurry/fiberx/internal/report"
 	"github.com/GoFurry/fiberx/internal/stack"
 	"github.com/GoFurry/fiberx/internal/validator"
+	"github.com/GoFurry/fiberx/internal/version"
 	"github.com/GoFurry/fiberx/internal/writer"
 )
 
@@ -78,30 +79,26 @@ func Run(req Request) (report.Summary, error) {
 	if err != nil {
 		return report.Summary{}, err
 	}
-	if err := finalizeGeneratedModule(writeResult.TargetDir); err != nil {
+	if err := postprocess.FinalizeGeneratedModule(writeResult.TargetDir); err != nil {
 		return report.Summary{}, err
 	}
 
-	return report.Build(plan, rendered, writeResult), nil
-}
-
-func finalizeGeneratedModule(targetDir string) error {
-	if targetDir == "" {
-		return nil
+	projectManifest, err := metadata.BuildManifest(plan, rendered, writeResult.TargetDir, time.Now())
+	if err != nil {
+		return report.Summary{}, err
+	}
+	if err := metadata.WriteManifest(writeResult.TargetDir, projectManifest); err != nil {
+		return report.Summary{}, err
 	}
 
-	goModPath := filepath.Join(targetDir, "go.mod")
-	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("stat generated go.mod: %w", err)
-	}
-
-	cmd := exec.Command("go", "mod", "tidy")
-	cmd.Dir = targetDir
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("finalize generated module with go mod tidy: %w\n%s", err, string(output))
-	}
-
-	return nil
+	return report.Build(
+		plan,
+		rendered,
+		writeResult,
+		version.Version,
+		version.Commit,
+		projectManifest.Fingerprints.TemplateSet,
+		projectManifest.Fingerprints.RenderedOutput,
+		filepath.ToSlash(filepath.Join(metadata.ManifestDir, metadata.ManifestFilename)),
+	), nil
 }

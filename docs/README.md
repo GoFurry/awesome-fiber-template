@@ -16,6 +16,7 @@ This directory contains the long-term rules, architecture notes, and implementat
 - [`guides/config-profiles.md`](./guides/config-profiles.md)
 - [`guides/response-contract.md`](./guides/response-contract.md)
 - [`guides/verification-matrix.md`](./guides/verification-matrix.md)
+- [`guides/generated-project-metadata.md`](./guides/generated-project-metadata.md)
 - [`roadmap/roadmap.md`](./roadmap/roadmap.md)
 - [`roadmap/phase-7-plan.md`](./roadmap/phase-7-plan.md)
 - [`roadmap/phase-8-plan.md`](./roadmap/phase-8-plan.md)
@@ -33,6 +34,7 @@ Use the root README for a quick repository overview, then start from the generat
 - Current stage: `Phase 13` version-upgrade and diff detection
 - Phase 12 delivery: capability matrix and validation closure completed
 - Phase 13 focus: generator/template versioning, upgrade visibility, and diff detection
+- Phase 13 delivery target: generated metadata and diff detection
 - Next stage: finish `Phase 13`, then `State 4 / Phase 14`
 - Default medium experience: `swagger`, `embedded-ui`
 - Default heavy experience: `swagger`, `embedded-ui`
@@ -51,6 +53,8 @@ Use the root README for a quick repository overview, then start from the generat
 - Supported loggers: `zap`, `slog`
 - Supported databases: `sqlite`, `pgsql`, `mysql`
 - Supported data access stacks: `stdlib`, `sqlx`, `sqlc`
+- Generated project metadata: `.fiberx/manifest.json`
+- New inspection commands: `fiberx inspect`, `fiberx diff`
 
 ## Current Roadmap Position
 
@@ -59,5 +63,6 @@ Use the root README for a quick repository overview, then start from the generat
 - Current progress: Phase 11 completed; Phase 12 completed; Phase 13 active
 - External-db runtime progress: the full default-stack runtime matrix passed CI on commit `1a46f0c`
 - Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
+- Metadata progress: generated-project metadata and diff detection are now active implementation work
 - Next stage: finish `Phase 13`, then `State 4 / Phase 14`
 - `fiberx build` is tracked later under `State 4 / Phase 15`
