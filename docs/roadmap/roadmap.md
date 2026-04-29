@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- 当前阶段：`State 4 / Phase 13`
-- 当前进度：`Phase 11` 已完成，`Phase 12` 已完成，`Phase 13` 进行中
+- 当前阶段：`State 4 / Phase 14`
+- 当前进度：`Phase 11` 已完成，`Phase 12` 已完成，`Phase 13` 已完成，`Phase 14` 进行中
 - 默认栈：`Fiber v3 + Cobra + Viper`
 - 首轮服务 preset 默认运行时：`zap + sqlite + stdlib`
 - 当前公开模型：`preset + capability + 少量生成参数`
@@ -26,7 +26,7 @@
 
 ### Phase 13：版本升级与差异检测
 
-当前状态：`active`
+当前状态：`completed`
 
 目标：支持生成器演进后的差异识别，并明确生成产物与模板资产版本的关系。
 
@@ -54,7 +54,27 @@
 
 ### Phase 14：迁移助手与兼容策略
 
-目标：提供基础迁移辅助，并明确向后兼容与破坏性变更策略。
+当前状态：`active`
+
+目标：提供只读升级辅助，并明确向后兼容、人工复核与破坏性变更策略。
+
+本阶段重点：
+
+- 新增 `fiberx upgrade inspect` 用于输出升级评估摘要
+- 新增 `fiberx upgrade plan` 用于输出只读升级步骤建议
+- 基于 `.fiberx/manifest.json`、当前 generator 版本和 `fiberx diff` 结果给出兼容等级：
+  - `compatible`
+  - `manual_review`
+  - `breaking`
+- 首轮只覆盖“已有生成项目能否被当前 generator 升级”的问题
+
+边界：
+
+- 本阶段不自动修改项目文件
+- 本阶段不输出 patch
+- 本阶段不支持直接变更 preset / capability / runtime recipe
+- 本阶段不引入 `fiberx migrate`
+- 本阶段不做 addon 层迁移或数据库 schema 迁移编排
 
 ### Phase 15：`fiberx build` 与生成后工程化
 

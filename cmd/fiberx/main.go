@@ -17,6 +17,7 @@ import (
 	"github.com/GoFurry/fiberx/internal/metadata"
 	"github.com/GoFurry/fiberx/internal/report"
 	"github.com/GoFurry/fiberx/internal/stack"
+	"github.com/GoFurry/fiberx/internal/upgrade"
 	"github.com/GoFurry/fiberx/internal/validator"
 	"github.com/GoFurry/fiberx/internal/version"
 )
@@ -47,6 +48,8 @@ func run(args []string) error {
 		return runInspect(args[1:])
 	case "diff":
 		return runDiff(args[1:])
+	case "upgrade":
+		return runUpgrade(args[1:])
 	case "validate":
 		return runValidate(args[1:])
 	case "doctor":
@@ -272,13 +275,14 @@ func runValidate(args []string) error {
 	fmt.Printf("deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
 	fmt.Println("stable production baseline: medium")
 	fmt.Println("completed production track: heavy")
-	fmt.Println("current stage: phase-13-version-upgrade-and-diff-detection")
+	fmt.Println("current stage: phase-14-upgrade-assistant-and-compatibility-policy")
 	fmt.Println("phase 9 delivery: completed")
 	fmt.Println("phase 10 delivery: completed")
 	fmt.Println("phase 11 delivery: completed")
 	fmt.Println("phase 12 delivery: completed")
-	fmt.Println("phase 13 focus: generator/template versioning and diff detection")
-	fmt.Println("phase 13 delivery target: generated metadata and diff detection")
+	fmt.Println("phase 13 delivery: completed")
+	fmt.Println("phase 14 focus: upgrade assistant and compatibility policy")
+	fmt.Println("phase 14 delivery target: readonly upgrade planning and compatibility classification")
 	fmt.Println("default medium experience: swagger,embedded-ui")
 	fmt.Println("default heavy experience: swagger,embedded-ui")
 	fmt.Println("light optional experience: swagger,embedded-ui")
@@ -321,7 +325,7 @@ func runDoctor(args []string) error {
 	fmt.Printf("cwd: %s\n", cwd)
 	fmt.Printf("go: %s\n", runtime.Version())
 	fmt.Printf("state: %s\n", "state-4")
-	fmt.Printf("phase: %s\n", "phase-13-version-upgrade-and-diff-detection")
+	fmt.Printf("phase: %s\n", "phase-14-upgrade-assistant-and-compatibility-policy")
 	fmt.Printf("manifest-root: %s\n", rootAbs)
 	fmt.Printf("presets: %d\n", len(catalog.Presets))
 	fmt.Printf("capabilities: %d\n", len(catalog.Capabilities))
@@ -336,9 +340,10 @@ func runDoctor(args []string) error {
 	fmt.Printf("phase-10-capability-consolidation: %s\n", "completed")
 	fmt.Printf("phase-11-runtime-options-and-data-access: %s\n", "completed")
 	fmt.Printf("phase-12-capability-level-verification: %s\n", "completed")
-	fmt.Printf("phase-13-version-upgrade-and-diff-detection: %s\n", "active")
-	fmt.Printf("phase-13-focus: %s\n", "generator-template-versioning-and-diff-detection")
-	fmt.Printf("phase-13-delivery-target: %s\n", "generated-metadata-and-diff-detection")
+	fmt.Printf("phase-13-version-upgrade-and-diff-detection: %s\n", "completed")
+	fmt.Printf("phase-14-upgrade-assistant-and-compatibility-policy: %s\n", "active")
+	fmt.Printf("phase-14-focus: %s\n", "upgrade-assistant-and-compatibility-policy")
+	fmt.Printf("phase-14-delivery-target: %s\n", "readonly-upgrade-planning-and-compatibility-classification")
 	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("default-heavy-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("light-optional-capabilities: %s\n", "swagger,embedded-ui")
@@ -438,6 +443,104 @@ func runDiff(args []string) error {
 	return nil
 }
 
+func runUpgrade(args []string) error {
+	if len(args) == 0 {
+		return errors.New("upgrade requires a subcommand: inspect or plan")
+	}
+
+	switch args[0] {
+	case "inspect":
+		return runUpgradeInspect(args[1:])
+	case "plan":
+		return runUpgradePlan(args[1:])
+	default:
+		return fmt.Errorf("unknown upgrade subcommand %q", args[0])
+	}
+}
+
+func runUpgradeInspect(args []string) error {
+	fs := newFlagSet("upgrade inspect")
+	asJSON := fs.Bool("json", false, "render upgrade inspect output as JSON")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--json": true})); err != nil {
+		return err
+	}
+
+	projectDir, err := resolveProjectDir(fs.Args())
+	if err != nil {
+		return err
+	}
+
+	assessment, err := upgrade.Inspect(projectDir, manifest.ResolveRoot(""))
+	if err != nil {
+		return err
+	}
+
+	if *asJSON {
+		return writeJSON(os.Stdout, assessment)
+	}
+
+	fmt.Printf("project: %s\n", assessment.ProjectDir)
+	fmt.Printf("generated-by: %s (%s)\n", assessment.GeneratedGenerator.Version, assessment.GeneratedGenerator.Commit)
+	fmt.Printf("current-generator: %s (%s)\n", assessment.CurrentGenerator.Version, assessment.CurrentGenerator.Commit)
+	fmt.Printf("preset: %s\n", assessment.Recipe.Preset)
+	fmt.Printf("capabilities: %s\n", joinOrNone(assessment.Recipe.Capabilities))
+	fmt.Printf("stack: fiber-%s + %s\n", assessment.Recipe.FiberVersion, assessment.Recipe.CLIStyle)
+	if assessment.Recipe.Logger != "" || assessment.Recipe.DB != "" || assessment.Recipe.DataAccess != "" {
+		fmt.Printf("runtime: logger=%s db=%s data-access=%s\n", valueOrNone(assessment.Recipe.Logger), valueOrNone(assessment.Recipe.DB), valueOrNone(assessment.Recipe.DataAccess))
+	}
+	fmt.Printf("diff status: %s\n", assessment.DiffStatus)
+	fmt.Printf("compatibility level: %s\n", assessment.CompatibilityLevel)
+	fmt.Printf("reasons: %s\n", joinOrNone(assessment.Reasons))
+	fmt.Printf("blocking issues: %s\n", joinOrNone(assessment.BlockingIssues))
+	fmt.Printf("local modified files: %s\n", joinOrNone(assessment.LocalModifiedFiles))
+	fmt.Printf("generator drift files: %s\n", joinOrNone(assessment.GeneratorDriftFiles))
+	fmt.Printf("missing files: %s\n", joinOrNone(assessment.MissingFiles))
+	fmt.Printf("new managed files: %s\n", joinOrNone(assessment.NewManagedFiles))
+	return nil
+}
+
+func runUpgradePlan(args []string) error {
+	fs := newFlagSet("upgrade plan")
+	asJSON := fs.Bool("json", false, "render upgrade plan output as JSON")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--json": true})); err != nil {
+		return err
+	}
+
+	projectDir, err := resolveProjectDir(fs.Args())
+	if err != nil {
+		return err
+	}
+
+	upgradePlan, err := upgrade.Plan(projectDir, manifest.ResolveRoot(""))
+	if err != nil {
+		return err
+	}
+
+	if *asJSON {
+		return writeJSON(os.Stdout, upgradePlan)
+	}
+
+	fmt.Printf("project: %s\n", upgradePlan.Assessment.ProjectDir)
+	fmt.Printf("compatibility level: %s\n", upgradePlan.Assessment.CompatibilityLevel)
+	fmt.Printf("diff status: %s\n", upgradePlan.Assessment.DiffStatus)
+	fmt.Printf("upgrade summary: %s\n", joinOrNone(upgradePlan.Assessment.Reasons))
+	fmt.Printf("blocking issues: %s\n", joinOrNone(upgradePlan.Assessment.BlockingIssues))
+	fmt.Printf("local modified files: %s\n", joinOrNone(upgradePlan.Assessment.LocalModifiedFiles))
+	fmt.Printf("generator drift files: %s\n", joinOrNone(upgradePlan.Assessment.GeneratorDriftFiles))
+	fmt.Printf("missing files: %s\n", joinOrNone(upgradePlan.Assessment.MissingFiles))
+	fmt.Printf("new managed files: %s\n", joinOrNone(upgradePlan.Assessment.NewManagedFiles))
+	fmt.Printf("managed files to review: %s\n", joinOrNone(upgradePlan.ManagedFilesToReview))
+	if len(upgradePlan.RecommendedSteps) == 0 {
+		fmt.Println("recommended steps: (none)")
+		return nil
+	}
+	fmt.Println("recommended steps:")
+	for index, step := range upgradePlan.RecommendedSteps {
+		fmt.Printf("  %d. %s\n", index+1, step)
+	}
+	return nil
+}
+
 func newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -445,7 +548,7 @@ func newFlagSet(name string) *flag.FlagSet {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "fiberx is the State 4 generator CLI with a stable medium baseline, a completed heavy production track, and active version-upgrade planning on top of fiber-v3 + cobra + viper defaults.")
+	fmt.Fprintln(w, "fiberx is the State 4 generator CLI with a stable medium baseline, a completed heavy production track, and active upgrade-planning and compatibility-policy work on top of fiber-v3 + cobra + viper defaults.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc]")
@@ -456,15 +559,17 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx explain capability <name>")
 	fmt.Fprintln(w, "  fiberx inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx diff [path] [--json]")
+	fmt.Fprintln(w, "  fiberx upgrade inspect [path] [--json]")
+	fmt.Fprintln(w, "  fiberx upgrade plan [path] [--json]")
 	fmt.Fprintln(w, "  fiberx validate")
 	fmt.Fprintln(w, "  fiberx doctor")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
 	fmt.Fprintf(w, "Default logger/database/data access: %s / %s / %s\n", stack.DefaultLogger(), stack.DefaultDB(), stack.DefaultDataAccess())
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
 	fmt.Fprintln(w, "Phase 11 runtime policy: medium/heavy/light support logger/db/data-access selection; extra-light rejects these options.")
-	fmt.Fprintln(w, "Current roadmap stage: Phase 13 version-upgrade and diff detection.")
-	fmt.Fprintln(w, "Phase 13 focus: generator/template versioning, upgrade visibility, and diff detection.")
-	fmt.Fprintln(w, "Phase 13 delivery target: generated metadata and diff detection.")
+	fmt.Fprintln(w, "Current roadmap stage: Phase 14 upgrade assistant and compatibility policy.")
+	fmt.Fprintln(w, "Phase 14 focus: readonly upgrade planning and compatibility assessment.")
+	fmt.Fprintln(w, "Phase 14 delivery target: readonly upgrade planning and compatibility classification.")
 }
 
 func loadCatalog() (manifest.Catalog, error) {

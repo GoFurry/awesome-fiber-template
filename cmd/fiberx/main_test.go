@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/GoFurry/fiberx/internal/version"
 )
 
 func TestCLIOutputsV1SupportMatrix(t *testing.T) {
@@ -54,11 +56,11 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "stable production baseline: medium") || !strings.Contains(output, "completed production track: heavy") {
 		t.Fatalf("expected production track summary, got:\n%s", output)
 	}
-	if !strings.Contains(output, "current stage: phase-13-version-upgrade-and-diff-detection") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 focus: generator/template versioning and diff detection") {
-		t.Fatalf("expected phase 13 summary with completed phase 12 delivery, got:\n%s", output)
+	if !strings.Contains(output, "current stage: phase-14-upgrade-assistant-and-compatibility-policy") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 focus: upgrade assistant and compatibility policy") {
+		t.Fatalf("expected phase 14 summary with completed phase 13 delivery, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase 13 delivery target: generated metadata and diff detection") {
-		t.Fatalf("expected phase 13 delivery target output, got:\n%s", output)
+	if !strings.Contains(output, "phase 14 delivery target: readonly upgrade planning and compatibility classification") {
+		t.Fatalf("expected phase 14 delivery target output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
 		t.Fatalf("expected heavy experience summary, got:\n%s", output)
@@ -78,14 +80,14 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"doctor"})
 	})
-	if !strings.Contains(output, "state: state-4") || !strings.Contains(output, "phase: phase-13-version-upgrade-and-diff-detection") {
-		t.Fatalf("expected State 4 / Phase 13 doctor output, got:\n%s", output)
+	if !strings.Contains(output, "state: state-4") || !strings.Contains(output, "phase: phase-14-upgrade-assistant-and-compatibility-policy") {
+		t.Fatalf("expected State 4 / Phase 14 doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: active") || !strings.Contains(output, "phase-13-focus: generator-template-versioning-and-diff-detection") || !strings.Contains(output, "phase-13-delivery-target: generated-metadata-and-diff-detection") {
-		t.Fatalf("expected phase 12 completed and phase 13 active flags in doctor output, got:\n%s", output)
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: active") || !strings.Contains(output, "phase-14-focus: upgrade-assistant-and-compatibility-policy") || !strings.Contains(output, "phase-14-delivery-target: readonly-upgrade-planning-and-compatibility-classification") {
+		t.Fatalf("expected phase 13 completed and phase 14 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
 		t.Fatalf("expected heavy defaults in doctor output, got:\n%s", output)
@@ -379,6 +381,79 @@ func TestCLIInspectAndDiffRejectMissingMetadata(t *testing.T) {
 	}
 }
 
+func TestCLIUpgradeInspectAndPlan(t *testing.T) {
+	originalRoot := manifestRootForCLI(t)
+	t.Setenv("FIBERX_MANIFEST_ROOT", originalRoot)
+
+	withGeneratorIdentityForCLI(t, "v0.13.0", "phase13-generated", func() {
+		workdir := t.TempDir()
+		withWorkingDir(t, workdir, func() {
+			_ = captureStdout(t, func() error {
+				return run([]string{"new", "demo", "--preset", "light"})
+			})
+		})
+		projectDir := filepath.Join(workdir, "demo")
+
+		withGeneratorIdentityForCLI(t, "v0.14.0", "phase14-current", func() {
+			output := captureStdout(t, func() error {
+				return run([]string{"upgrade", "inspect", projectDir})
+			})
+			if !strings.Contains(output, "compatibility level: compatible") || !strings.Contains(output, "diff status: clean") {
+				t.Fatalf("expected compatible clean upgrade inspect output, got:\n%s", output)
+			}
+
+			output = captureStdout(t, func() error {
+				return run([]string{"upgrade", "inspect", projectDir, "--json"})
+			})
+			var inspectPayload map[string]any
+			if err := json.Unmarshal([]byte(output), &inspectPayload); err != nil {
+				t.Fatalf("unmarshal upgrade inspect json: %v\n%s", err, output)
+			}
+			if inspectPayload["compatibility_level"] != "compatible" {
+				t.Fatalf("expected compatible level in inspect json, got %#v", inspectPayload["compatibility_level"])
+			}
+
+			output = captureStdout(t, func() error {
+				return run([]string{"upgrade", "plan", projectDir})
+			})
+			if !strings.Contains(output, "recommended steps:") || !strings.Contains(output, "无需升级动作") {
+				t.Fatalf("expected no-op upgrade plan output, got:\n%s", output)
+			}
+
+			readmePath := filepath.Join(projectDir, "README.md")
+			readmeData, err := os.ReadFile(readmePath)
+			if err != nil {
+				t.Fatalf("read generated README: %v", err)
+			}
+			if err := os.WriteFile(readmePath, append(readmeData, []byte("\nlocal drift\n")...), 0o644); err != nil {
+				t.Fatalf("write local drift README: %v", err)
+			}
+
+			output = captureStdout(t, func() error {
+				return run([]string{"upgrade", "inspect", projectDir})
+			})
+			if !strings.Contains(output, "compatibility level: manual_review") || !strings.Contains(output, "local modified files: README.md") {
+				t.Fatalf("expected manual_review upgrade inspect output, got:\n%s", output)
+			}
+		})
+	})
+}
+
+func TestCLIUpgradeInspectAndPlanRejectMissingMetadata(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+	workdir := t.TempDir()
+
+	err := run([]string{"upgrade", "inspect", workdir})
+	if err == nil || !strings.Contains(err.Error(), ".fiberx/manifest.json") {
+		t.Fatalf("expected upgrade inspect missing metadata error, got %v", err)
+	}
+
+	err = run([]string{"upgrade", "plan", workdir})
+	if err == nil || !strings.Contains(err.Error(), ".fiberx/manifest.json") {
+		t.Fatalf("expected upgrade plan missing metadata error, got %v", err)
+	}
+}
+
 func manifestRootForCLI(t *testing.T) string {
 	t.Helper()
 
@@ -469,4 +544,19 @@ func copyDir(t *testing.T, sourceDir, targetDir string) {
 	}); err != nil {
 		t.Fatalf("copy directory %q to %q: %v", sourceDir, targetDir, err)
 	}
+}
+
+func withGeneratorIdentityForCLI(t *testing.T, generatorVersion, generatorCommit string, fn func()) {
+	t.Helper()
+
+	previousVersion := version.Version
+	previousCommit := version.Commit
+	version.Version = generatorVersion
+	version.Commit = generatorCommit
+	defer func() {
+		version.Version = previousVersion
+		version.Commit = previousCommit
+	}()
+
+	fn()
 }

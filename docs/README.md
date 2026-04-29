@@ -31,11 +31,11 @@ Use the root README for a quick repository overview, then start from the generat
 - Implemented capabilities: `redis`, `swagger`, `embedded-ui`
 - Stable production baseline: `medium`
 - Completed production track: `heavy`
-- Current stage: `Phase 13` version-upgrade and diff detection
+- Current stage: `Phase 14` upgrade planning and compatibility policy
 - Phase 12 delivery: capability matrix and validation closure completed
-- Phase 13 focus: generator/template versioning, upgrade visibility, and diff detection
-- Phase 13 delivery target: generated metadata and diff detection
-- Next stage: finish `Phase 13`, then `State 4 / Phase 14`
+- Phase 13 delivery: generated metadata and diff detection completed
+- Phase 14 focus: readonly upgrade planning and compatibility policy
+- Phase 14 delivery target: readonly upgrade planning and compatibility classification
 - Default medium experience: `swagger`, `embedded-ui`
 - Default heavy experience: `swagger`, `embedded-ui`
 - Light optional experience: `swagger`, `embedded-ui`
@@ -55,14 +55,15 @@ Use the root README for a quick repository overview, then start from the generat
 - Supported data access stacks: `stdlib`, `sqlx`, `sqlc`
 - Generated project metadata: `.fiberx/manifest.json`
 - New inspection commands: `fiberx inspect`, `fiberx diff`
+- New upgrade commands: `fiberx upgrade inspect`, `fiberx upgrade plan`
 
 ## Current Roadmap Position
 
 - Completed state: `State 1`
-- Current stage: `State 4 / Phase 13`
-- Current progress: Phase 11 completed; Phase 12 completed; Phase 13 active
+- Current stage: `State 4 / Phase 14`
+- Current progress: Phase 11 completed; Phase 12 completed; Phase 13 completed; Phase 14 active
 - External-db runtime progress: the full default-stack runtime matrix passed CI on commit `1a46f0c`
 - Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
-- Metadata progress: generated-project metadata and diff detection are now active implementation work
-- Next stage: finish `Phase 13`, then `State 4 / Phase 14`
+- Metadata progress: generated-project metadata and diff detection are completed
+- Upgrade-planning progress: readonly upgrade assessment and compatibility policy are now active implementation work
 - `fiberx build` is tracked later under `State 4 / Phase 15`

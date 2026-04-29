@@ -47,7 +47,8 @@ Important boundary:
 - `light` and `extra-light` remain the completed lightweight product lines introduced in Phase 8.
 - Phase 10 finished the capability contract consolidation.
 - Phase 11 finished runtime-option expansion for `medium / heavy / light`.
-- Phase 13 is adding generated metadata and diff detection.
+- Phase 13 completed generated metadata and diff detection.
+- Phase 14 is adding readonly upgrade planning and compatibility policy.
 
 ## Run From Source
 
@@ -67,6 +68,8 @@ Available commands:
 - `fiberx explain capability <name>`
 - `fiberx inspect [path]`
 - `fiberx diff [path]`
+- `fiberx upgrade inspect [path]`
+- `fiberx upgrade plan [path]`
 - `fiberx validate`
 - `fiberx doctor`
 
@@ -207,6 +210,29 @@ Current diff scope:
 - only generator-managed files are compared
 - user-added files are ignored
 - no patch or write-back is performed
+
+## Plan A Generator Upgrade
+
+Phase 14 adds readonly upgrade-planning commands on top of metadata and diff:
+
+```bash
+go run ./cmd/fiberx upgrade inspect ./demo
+go run ./cmd/fiberx upgrade inspect ./demo --json
+go run ./cmd/fiberx upgrade plan ./demo
+go run ./cmd/fiberx upgrade plan ./demo --json
+```
+
+Current upgrade compatibility levels:
+
+- `compatible`
+- `manual_review`
+- `breaking`
+
+Current upgrade scope:
+
+- evaluates whether the current generator can still work with the recorded project recipe
+- classifies compatibility based on metadata, version direction, and managed-file drift
+- remains readonly; it does not rewrite project files
 
 ## Stack Selection
 
