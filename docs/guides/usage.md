@@ -49,7 +49,8 @@ Important boundary:
 - Phase 11 finished runtime-option expansion for `medium / heavy / light`.
 - Phase 13 completed generated metadata and diff detection.
 - Phase 14 completed readonly upgrade planning and compatibility policy.
-- Phase 15 completed the `fiberx build` P0 baseline and is now extending P2 packaging flows.
+- Phase 15 completed the `fiberx build` P0 baseline and the P2 packaging layer.
+- Phase 15 P3 is currently defined but not started.
 
 ## Run From Source
 
@@ -238,7 +239,7 @@ Current upgrade scope:
 
 ## Build Generated Projects
 
-Phase 15 P0 and P2 add a project-level build command:
+Phase 15 P0 and P2 add the current project-level build command set:
 
 ```bash
 go run ./cmd/fiberx build
@@ -262,7 +263,7 @@ Current build output:
 - optional `dist/SHA256SUMS`
 - `-trimpath` and configured `ldflags`
 - `--dry-run` for readonly build planning
-- no profile / hook / UPX / release-manifest support yet
+- no profile / hook / UPX / build-metadata / release-manifest support yet
 
 ## Stack Selection
 

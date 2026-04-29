@@ -68,7 +68,8 @@
 当前阶段进度：
 
 - `P0`：`completed`
-- `P2`：`active`
+- `P2`：`completed`
+- `P3`：`defined / not started`
 
 已完成的 `P0` 能力：
 
@@ -80,14 +81,14 @@
 - 支持多 target、`out_dir`、`ldflags` 和 `GOOS / GOARCH`
 - 默认生成项目补齐可直接使用的 `fiberx.yaml` 与最小 `internal/version`
 
-当前推进中的 `P2` 能力：
+已完成的 `P2` 能力：
 
 - `zip / tar.gz` archive
 - `sha256` checksums
 - `--dry-run`
 - 并发构建
 
-当前 `P2` 已落地口径：
+`P2` 已落地口径：
 
 - `build.parallel`
 - `build.targets[].archive.enabled`
@@ -97,11 +98,47 @@
 - `build.checksum.algorithm`
 - `fiberx build --dry-run`
 
-当前 `P2` 目标：
+`P2` 完成依据：
 
-- 在保留现有二进制输出结构的前提下，补齐可分发产物
-- 让 archive / checksum / dry-run / parallel 成为默认 CLI 与配置模型的一部分
-- 保持对当前 `package: .` 生成布局的兼容，不强制切换到 `cmd/server`
+- 自动测试通过：
+  - `go test ./...`
+  - `buildconfig / build / cmd` 相关回归
+- CLI 状态正常：
+  - `validate`
+  - `doctor`
+- 手动冒烟已覆盖：
+  - `--dry-run`
+  - `archive`
+  - `SHA256SUMS`
+  - `parallel` 下输出顺序稳定
+- archive 验证通过：
+  - Linux => `.tar.gz`
+  - Windows => `.zip`
+  - archive 内包含二进制和附加文件
+- checksum 验证通过：
+  - `dist/SHA256SUMS`
+  - 指向最终 distributable artifacts
+
+当前已定义但暂不推进的 `P3` 范围：
+
+- `profiles`
+  - 在 `fiberx.yaml` 中支持按环境或场景切换构建参数
+- `pre/post hooks`
+  - 在 build target 前后执行显式配置的脚本
+- `UPX`
+  - 保持 opt-in，不默认启用
+- `build metadata`
+  - 输出独立构建元信息文件
+- `release manifest`
+  - 输出 release 级别的制品清单
+
+当前对 `P3` 的固定边界：
+
+- 不新增 CLI flag
+- 不扩展 `fiberx.yaml` 解析
+- 不改 `internal/build` 执行逻辑
+- 不引入 hooks、UPX、profile、manifest 的任何实际代码
+- 不在本次状态切换里改现有 `build` 命令输出结构
 
 ## 暂不进入
 

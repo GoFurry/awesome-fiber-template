@@ -28,7 +28,8 @@ fiberx build --all
 
 - 当前阶段：`Phase 15`
 - 当前进度：`P0 completed`
-- 当前推进：`P2 active`
+- 当前推进：`P2 completed`
+- 下一阶段：`P3 defined, not started`
 
 ## 已完成：P0
 
@@ -52,16 +53,16 @@ fiberx build --all
 - `<out_dir>/<target-name>/<goos>_<goarch>/<binary>`
 - Windows 自动追加 `.exe`
 
-## 进行中：P2
+## 已完成：P2
 
-当前目标：
+已交付：
 
 - archive：`zip / tar.gz`
 - checksums：`sha256`
 - `--dry-run`
 - 并发构建
 
-当前实现口径：
+已实现口径：
 
 - `build.parallel`
 - `build.targets[].archive.enabled`
@@ -89,15 +90,56 @@ fiberx build --all
   - 按 `target × platform` 并发执行
   - 最终输出顺序保持稳定
 
-## 后续：P3
+完成依据：
 
-后续再进入：
+- 自动测试通过：
+  - `go test ./...`
+  - `buildconfig / build / cmd` 相关回归
+- CLI 状态正常：
+  - `validate`
+  - `doctor`
+- 手动冒烟已覆盖：
+  - `--dry-run`
+  - `archive`
+  - `SHA256SUMS`
+  - `parallel` 下输出顺序稳定
+- archive 验证通过：
+  - Linux => `.tar.gz`
+  - Windows => `.zip`
+  - archive 内包含二进制和附加文件
+- checksum 验证通过：
+  - `dist/SHA256SUMS`
+  - 指向最终 distributable artifacts
+
+## 已定义、暂不推进：P3
+
+后续范围固定为：
 
 - `profiles`
 - `pre/post hooks`
 - `UPX`
 - `build metadata`
 - `release manifest`
+
+P3 定位：
+
+- `profiles`
+  - 在 `fiberx.yaml` 中支持按环境或场景切换构建参数
+- `pre/post hooks`
+  - 在 build target 前后执行显式配置的脚本
+- `UPX`
+  - 保持显式 opt-in，不默认启用
+- `build metadata`
+  - 输出独立构建元信息文件
+- `release manifest`
+  - 输出 release 级别的制品清单
+
+当前明确不推进：
+
+- 不新增 CLI flag
+- 不扩展 `fiberx.yaml` 解析
+- 不改 `internal/build` 执行逻辑
+- 不引入 hooks、UPX、profile、manifest 的任何实际代码
 
 ## 边界说明
 

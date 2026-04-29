@@ -61,10 +61,10 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "current stage: phase-15-build-and-post-generation-engineering") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 delivery: completed") || !strings.Contains(output, "phase 15 focus: build and post-generation engineering") {
 		t.Fatalf("expected phase 15 summary with completed phase 14 delivery, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase 15 p0: completed") || !strings.Contains(output, "phase 15 p2: active") {
-		t.Fatalf("expected phase 15 p0/p2 status output, got:\n%s", output)
+	if !strings.Contains(output, "phase 15 p0: completed") || !strings.Contains(output, "phase 15 p2: completed") || !strings.Contains(output, "phase 15 p3: defined") || !strings.Contains(output, "phase 15 p3 status: not-started") {
+		t.Fatalf("expected phase 15 p0/p2/p3 status output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase 15 delivery target: packaging, checksums, dry-run, and parallel build execution") {
+	if !strings.Contains(output, "phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests") {
 		t.Fatalf("expected phase 15 delivery target output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
@@ -91,7 +91,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-p0: completed") || !strings.Contains(output, "phase-15-p2: active") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: packaging-checksums-dry-run-and-parallel-build-execution") {
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-p0: completed") || !strings.Contains(output, "phase-15-p2: completed") || !strings.Contains(output, "phase-15-p3: defined") || !strings.Contains(output, "phase-15-p3-status: not-started") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: profiles-hooks-compression-build-metadata-and-release-manifests") {
 		t.Fatalf("expected phase 14 completed and phase 15 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
