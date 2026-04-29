@@ -48,7 +48,8 @@ Important boundary:
 - Phase 10 finished the capability contract consolidation.
 - Phase 11 finished runtime-option expansion for `medium / heavy / light`.
 - Phase 13 completed generated metadata and diff detection.
-- Phase 14 is adding readonly upgrade planning and compatibility policy.
+- Phase 14 completed readonly upgrade planning and compatibility policy.
+- Phase 15 is implementing the `fiberx build` P0 baseline.
 
 ## Run From Source
 
@@ -70,6 +71,7 @@ Available commands:
 - `fiberx diff [path]`
 - `fiberx upgrade inspect [path]`
 - `fiberx upgrade plan [path]`
+- `fiberx build [target...]`
 - `fiberx validate`
 - `fiberx doctor`
 
@@ -233,6 +235,29 @@ Current upgrade scope:
 - evaluates whether the current generator can still work with the recorded project recipe
 - classifies compatibility based on metadata, version direction, and managed-file drift
 - remains readonly; it does not rewrite project files
+
+## Build Generated Projects
+
+Phase 15 P0 adds a project-level build command:
+
+```bash
+go run ./cmd/fiberx build
+go run ./cmd/fiberx build server
+go run ./cmd/fiberx build --clean
+go run ./cmd/fiberx build --target linux/amd64
+```
+
+Current build input:
+
+- project root `fiberx.yaml`
+- one or more named targets
+- `build.version.source=git`
+
+Current build output:
+
+- binaries under `dist/<target>/<goos>_<goarch>/`
+- `-trimpath` and configured `ldflags`
+- no archive/checksum/dry-run/profile support yet
 
 ## Stack Selection
 

@@ -1,0 +1,25 @@
+project:
+  name: {{project_name}}
+  module: {{module_path}}
+
+build:
+  out_dir: dist
+  clean: true
+  version:
+    source: git
+    package: {{module_path}}/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+    ldflags:
+      - "-s -w"
+      - "-X {{module_path}}/internal/version.Version={{.Version}}"
+      - "-X {{module_path}}/internal/version.Commit={{.Commit}}"
+      - "-X {{module_path}}/internal/version.BuildTime={{.BuildTime}}"
+  targets:
+    - name: server
+      package: .
+      output: {{project_name}}
+      platforms:
+        - linux/amd64
+        - windows/amd64

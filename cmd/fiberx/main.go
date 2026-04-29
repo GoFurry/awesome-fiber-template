@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/GoFurry/fiberx/internal/build"
+	"github.com/GoFurry/fiberx/internal/buildconfig"
 	"github.com/GoFurry/fiberx/internal/core"
 	"github.com/GoFurry/fiberx/internal/manifest"
 	"github.com/GoFurry/fiberx/internal/metadata"
@@ -50,6 +52,8 @@ func run(args []string) error {
 		return runDiff(args[1:])
 	case "upgrade":
 		return runUpgrade(args[1:])
+	case "build":
+		return runBuild(args[1:])
 	case "validate":
 		return runValidate(args[1:])
 	case "doctor":
@@ -543,6 +547,44 @@ func runUpgradePlan(args []string) error {
 	return nil
 }
 
+func runBuild(args []string) error {
+	fs := newFlagSet("build")
+	clean := fs.Bool("clean", false, "clean the output directory before building")
+	platform := fs.String("target", "", "filter builds to a single goos/goarch platform")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--target": true})); err != nil {
+		return err
+	}
+
+	projectDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := buildconfig.Load(projectDir)
+	if err != nil {
+		return err
+	}
+
+	result, err := build.Execute(projectDir, cfg, build.Options{
+		TargetNames:    fs.Args(),
+		PlatformFilter: *platform,
+		Clean:          *clean,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("built project=%s out_dir=%s\n", cfg.Project.Name, filepath.ToSlash(result.OutDir))
+	fmt.Printf("version: %s\n", result.Version.Version)
+	fmt.Printf("commit: %s\n", result.Version.Commit)
+	fmt.Printf("build time: %s\n", result.Version.BuildTime)
+	fmt.Printf("artifacts: %d\n", len(result.Artifacts))
+	for _, artifact := range result.Artifacts {
+		fmt.Printf("  - target=%s platform=%s output=%s\n", artifact.TargetName, artifact.Platform, filepath.ToSlash(artifact.OutputPath))
+	}
+	return nil
+}
+
 func newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -563,6 +605,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx diff [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade plan [path] [--json]")
+	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch]")
 	fmt.Fprintln(w, "  fiberx validate")
 	fmt.Fprintln(w, "  fiberx doctor")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())

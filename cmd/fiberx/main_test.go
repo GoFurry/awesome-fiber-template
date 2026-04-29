@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -193,6 +195,12 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "config", "server.prod.yaml")); err != nil {
 		t.Fatalf("expected generated prod config profile to be generated: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workdir, "demo", "fiberx.yaml")); err != nil {
+		t.Fatalf("expected generated fiberx build config: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workdir, "demo", "internal", "version", "version.go")); err != nil {
+		t.Fatalf("expected generated version package: %v", err)
 	}
 
 	workdir = t.TempDir()
@@ -454,6 +462,61 @@ func TestCLIUpgradeInspectAndPlanRejectMissingMetadata(t *testing.T) {
 	}
 }
 
+func TestCLIBuildP0(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+
+	projectDir := filepath.Join(workdir, "demo")
+	initGitRepoForCLI(t, projectDir)
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH})
+		})
+		if !strings.Contains(output, "built project=demo") || !strings.Contains(output, "artifacts: 1") {
+			t.Fatalf("expected build summary output, got:\n%s", output)
+		}
+	})
+
+	binaryPath := filepath.Join(projectDir, "dist", "server", runtime.GOOS+"_"+runtime.GOARCH, "demo")
+	if runtime.GOOS == "windows" {
+		binaryPath += ".exe"
+	}
+	if _, err := os.Stat(binaryPath); err != nil {
+		t.Fatalf("expected built artifact at %q: %v", binaryPath, err)
+	}
+
+	stalePath := filepath.Join(projectDir, "dist", "stale.txt")
+	if err := os.WriteFile(stalePath, []byte("stale"), 0o644); err != nil {
+		t.Fatalf("write stale artifact: %v", err)
+	}
+
+	withWorkingDir(t, projectDir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"build", "--clean", "--target", runtime.GOOS + "/" + runtime.GOARCH})
+		})
+	})
+	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
+		t.Fatalf("expected stale artifact to be removed by clean build, got %v", err)
+	}
+}
+
+func TestCLIBuildRejectsMissingConfig(t *testing.T) {
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		err := run([]string{"build"})
+		if err == nil || !strings.Contains(err.Error(), "fiberx.yaml") {
+			t.Fatalf("expected missing build config error, got %v", err)
+		}
+	})
+}
+
 func manifestRootForCLI(t *testing.T) string {
 	t.Helper()
 
@@ -543,6 +606,28 @@ func copyDir(t *testing.T, sourceDir, targetDir string) {
 		return os.WriteFile(targetPath, data, 0o644)
 	}); err != nil {
 		t.Fatalf("copy directory %q to %q: %v", sourceDir, targetDir, err)
+	}
+}
+
+func initGitRepoForCLI(t *testing.T, dir string) {
+	t.Helper()
+
+	runCommandForCLI(t, dir, "git", "init")
+	runCommandForCLI(t, dir, "git", "config", "user.name", "fiberx-test")
+	runCommandForCLI(t, dir, "git", "config", "user.email", "fiberx@example.com")
+	runCommandForCLI(t, dir, "git", "add", ".")
+	runCommandForCLI(t, dir, "git", "commit", "-m", "init")
+	runCommandForCLI(t, dir, "git", "tag", "v0.1.0")
+}
+
+func runCommandForCLI(t *testing.T, dir string, name string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s %s failed: %v\n%s", name, strings.Join(args, " "), err, string(output))
 	}
 }
 

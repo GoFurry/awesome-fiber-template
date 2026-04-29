@@ -97,6 +97,16 @@
 
 目标：提供 `fiberx build`、多 target、多平台和基础发布能力。
 
+当前阶段重点：`P0`
+
+- 新增 `fiberx build`
+- 支持 `fiberx build <target...>`
+- 支持 `--clean`
+- 支持 `--target <goos/goarch>`
+- 读取项目根目录 `fiberx.yaml`
+- 支持多 target、`out_dir`、`ldflags` 和 `GOOS / GOARCH`
+- 默认生成项目补齐可直接使用的 `fiberx.yaml` 与最小 `internal/version`
+
 ## 暂不进入
 
 - GUI

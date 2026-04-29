@@ -32,6 +32,7 @@ Use the root README for a quick repository overview, then start from the generat
 - Stable production baseline: `medium`
 - Completed production track: `heavy`
 - Current stage: `Phase 15` build and post-generation engineering
+- Phase 15 P0: `fiberx build` baseline is in progress
 - Phase 12 delivery: capability matrix and validation closure completed
 - Phase 13 delivery: generated metadata and diff detection completed
 - Phase 14 delivery: readonly upgrade planning and compatibility classification completed
@@ -57,6 +58,7 @@ Use the root README for a quick repository overview, then start from the generat
 - Generated project metadata: `.fiberx/manifest.json`
 - New inspection commands: `fiberx inspect`, `fiberx diff`
 - New upgrade commands: `fiberx upgrade inspect`, `fiberx upgrade plan`
+- Planned build command baseline: `fiberx build`
 
 ## Current Roadmap Position
 
@@ -67,4 +69,4 @@ Use the root README for a quick repository overview, then start from the generat
 - Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
 - Metadata progress: generated-project metadata and diff detection are completed
 - Upgrade-planning progress: readonly upgrade assessment and compatibility policy are completed
-- `fiberx build` is tracked later under `State 4 / Phase 15`
+- Build-command progress: Phase 15 P0 is implementing the `fiberx build` baseline
