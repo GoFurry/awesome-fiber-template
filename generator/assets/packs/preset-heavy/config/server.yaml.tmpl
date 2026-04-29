@@ -59,7 +59,7 @@ scheduler:
   enabled: true
   interval: "1s"
 redis:
-  enabled: false
+  enabled: {{redis_enabled}}
   addr: "127.0.0.1:6379"
   password: ""
   db: 0

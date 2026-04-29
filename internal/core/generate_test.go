@@ -215,9 +215,16 @@ func TestGenerateRejectsUnsupportedCombinations(t *testing.T) {
 		want         string
 	}{
 		{name: "light with redis", preset: "light", capabilities: []string{"redis"}, want: `not allowed for preset "light"`},
+		{name: "light with swagger redis", preset: "light", capabilities: []string{"swagger", "redis"}, want: `not allowed for preset "light"`},
+		{name: "light with embedded-ui redis", preset: "light", capabilities: []string{"embedded-ui", "redis"}, want: `not allowed for preset "light"`},
+		{name: "light with full capability set", preset: "light", capabilities: []string{"swagger", "embedded-ui", "redis"}, want: `not allowed for preset "light"`},
 		{name: "extra-light with redis", preset: "extra-light", capabilities: []string{"redis"}, want: `not allowed for preset "extra-light"`},
 		{name: "extra-light with embedded-ui", preset: "extra-light", capabilities: []string{"embedded-ui"}, want: `not allowed for preset "extra-light"`},
 		{name: "extra-light with swagger", preset: "extra-light", capabilities: []string{"swagger"}, want: `not allowed for preset "extra-light"`},
+		{name: "extra-light with swagger embedded-ui", preset: "extra-light", capabilities: []string{"swagger", "embedded-ui"}, want: `not allowed for preset "extra-light"`},
+		{name: "extra-light with swagger redis", preset: "extra-light", capabilities: []string{"swagger", "redis"}, want: `not allowed for preset "extra-light"`},
+		{name: "extra-light with embedded-ui redis", preset: "extra-light", capabilities: []string{"embedded-ui", "redis"}, want: `not allowed for preset "extra-light"`},
+		{name: "extra-light with full capability set", preset: "extra-light", capabilities: []string{"swagger", "embedded-ui", "redis"}, want: `not allowed for preset "extra-light"`},
 		{name: "invalid fiber version", preset: "medium", capabilities: []string{}, want: `fiber version "v9" is not supported`},
 		{name: "invalid cli style", preset: "medium", capabilities: []string{}, want: `cli style "bash" is not supported`},
 		{name: "invalid logger", preset: "medium", capabilities: []string{}, want: `logger "printf" is not supported`},
@@ -270,6 +277,144 @@ func TestGenerateRejectsUnsupportedCombinations(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected error containing %q, got %v", tc.want, err)
 			}
+		})
+	}
+}
+
+func TestRunSupportsPhase12CapabilityGenerationMatrix(t *testing.T) {
+	testCases := []struct {
+		name         string
+		preset       string
+		capabilities []string
+	}{
+		{name: "heavy default", preset: "heavy"},
+		{name: "heavy redis", preset: "heavy", capabilities: []string{"redis"}},
+		{name: "heavy swagger", preset: "heavy", capabilities: []string{"swagger"}},
+		{name: "heavy embedded-ui", preset: "heavy", capabilities: []string{"embedded-ui"}},
+		{name: "heavy swagger embedded-ui", preset: "heavy", capabilities: []string{"swagger", "embedded-ui"}},
+		{name: "heavy swagger redis", preset: "heavy", capabilities: []string{"swagger", "redis"}},
+		{name: "heavy embedded-ui redis", preset: "heavy", capabilities: []string{"embedded-ui", "redis"}},
+		{name: "heavy full", preset: "heavy", capabilities: []string{"swagger", "embedded-ui", "redis"}},
+		{name: "medium default", preset: "medium"},
+		{name: "medium redis", preset: "medium", capabilities: []string{"redis"}},
+		{name: "medium swagger", preset: "medium", capabilities: []string{"swagger"}},
+		{name: "medium embedded-ui", preset: "medium", capabilities: []string{"embedded-ui"}},
+		{name: "medium swagger embedded-ui", preset: "medium", capabilities: []string{"swagger", "embedded-ui"}},
+		{name: "medium swagger redis", preset: "medium", capabilities: []string{"swagger", "redis"}},
+		{name: "medium embedded-ui redis", preset: "medium", capabilities: []string{"embedded-ui", "redis"}},
+		{name: "medium full", preset: "medium", capabilities: []string{"swagger", "embedded-ui", "redis"}},
+		{name: "light default", preset: "light"},
+		{name: "light swagger", preset: "light", capabilities: []string{"swagger"}},
+		{name: "light embedded-ui", preset: "light", capabilities: []string{"embedded-ui"}},
+		{name: "light swagger embedded-ui", preset: "light", capabilities: []string{"swagger", "embedded-ui"}},
+		{name: "extra-light default", preset: "extra-light"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetDir := t.TempDir()
+			summary, err := Run(Request{
+				ProjectName:  "demo",
+				ModulePath:   "github.com/example/demo",
+				Preset:       tc.preset,
+				Capabilities: tc.capabilities,
+				Options:      requestOptionsForTest(targetDir, stack.FiberV3, stack.CLICobra),
+			})
+			if err != nil {
+				t.Fatalf("Run() returned error: %v", err)
+			}
+
+			if summary.Preset != tc.preset {
+				t.Fatalf("expected preset %q, got %q", tc.preset, summary.Preset)
+			}
+
+			assertPhase12CapabilityArtifacts(t, targetDir, tc.preset, tc.capabilities)
+			runGeneratedProjectTests(t, targetDir)
+		})
+	}
+}
+
+func TestPhase12CapabilityMatrixBlackBox(t *testing.T) {
+	testCases := []struct {
+		name         string
+		preset       string
+		capabilities []string
+		runScenario  func(t *testing.T, targetDir string)
+	}{
+		{
+			name:        "light default",
+			preset:      "light",
+			runScenario: func(t *testing.T, targetDir string) { runLightBlackBoxScenario(t, targetDir, false, false) },
+		},
+		{
+			name:         "light swagger",
+			preset:       "light",
+			capabilities: []string{"swagger"},
+			runScenario:  func(t *testing.T, targetDir string) { runLightBlackBoxScenario(t, targetDir, true, false) },
+		},
+		{
+			name:         "light embedded-ui",
+			preset:       "light",
+			capabilities: []string{"embedded-ui"},
+			runScenario:  func(t *testing.T, targetDir string) { runLightBlackBoxScenario(t, targetDir, false, true) },
+		},
+		{
+			name:         "light full",
+			preset:       "light",
+			capabilities: []string{"swagger", "embedded-ui"},
+			runScenario:  func(t *testing.T, targetDir string) { runLightBlackBoxScenario(t, targetDir, true, true) },
+		},
+		{
+			name:        "medium default",
+			preset:      "medium",
+			runScenario: func(t *testing.T, targetDir string) { runMediumBlackBoxScenario(t, targetDir, false) },
+		},
+		{
+			name:         "medium redis",
+			preset:       "medium",
+			capabilities: []string{"redis"},
+			runScenario:  func(t *testing.T, targetDir string) { runMediumBlackBoxScenario(t, targetDir, true) },
+		},
+		{
+			name:         "medium full",
+			preset:       "medium",
+			capabilities: []string{"swagger", "embedded-ui", "redis"},
+			runScenario:  func(t *testing.T, targetDir string) { runMediumBlackBoxScenario(t, targetDir, true) },
+		},
+		{
+			name:        "heavy default",
+			preset:      "heavy",
+			runScenario: func(t *testing.T, targetDir string) { runHeavyBlackBoxScenario(t, targetDir, false) },
+		},
+		{
+			name:         "heavy redis",
+			preset:       "heavy",
+			capabilities: []string{"redis"},
+			runScenario:  func(t *testing.T, targetDir string) { runHeavyBlackBoxScenario(t, targetDir, true) },
+		},
+		{
+			name:         "heavy full",
+			preset:       "heavy",
+			capabilities: []string{"swagger", "embedded-ui", "redis"},
+			runScenario:  func(t *testing.T, targetDir string) { runHeavyBlackBoxScenario(t, targetDir, true) },
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetDir := t.TempDir()
+			_, err := Run(Request{
+				ProjectName:  "demo",
+				ModulePath:   "github.com/example/demo",
+				Preset:       tc.preset,
+				Capabilities: tc.capabilities,
+				Options:      requestOptionsForTest(targetDir, stack.FiberV3, stack.CLICobra),
+			})
+			if err != nil {
+				t.Fatalf("Run() returned error: %v", err)
+			}
+
+			tc.runScenario(t, targetDir)
 		})
 	}
 }
@@ -411,6 +556,87 @@ func assertPhase11RuntimeArtifacts(t *testing.T, targetDir, dbKind, dataAccess s
 	assertGeneratedFileMissing(t, targetDir, "sqlc.yaml")
 }
 
+func assertPhase12CapabilityArtifacts(t *testing.T, targetDir, preset string, capabilities []string) {
+	t.Helper()
+
+	expectSwagger, expectEmbeddedUI, expectRedis := expectedCapabilityMaterialization(preset, capabilities)
+	bootstrap := readGeneratedFile(t, targetDir, filepath.Join("internal", "bootstrap", "bootstrap.go"))
+	config := normalizeGeneratedText(readGeneratedFile(t, targetDir, filepath.Join("config", "server.yaml")))
+
+	if expectSwagger {
+		assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "openapi.yaml"), "openapi: 3.0.3")
+		if !strings.Contains(bootstrap, `"docs:swagger"`) {
+			t.Fatalf("expected swagger service registration in bootstrap, got:\n%s", bootstrap)
+		}
+	} else {
+		assertGeneratedFileMissing(t, targetDir, filepath.Join("docs", "openapi.yaml"))
+		if strings.Contains(bootstrap, `"docs:swagger"`) {
+			t.Fatalf("did not expect swagger service registration in bootstrap, got:\n%s", bootstrap)
+		}
+	}
+
+	if expectEmbeddedUI {
+		assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "webui", "dist", "index.html"), "embedded UI ships")
+		if !strings.Contains(bootstrap, `"ui:embedded"`) {
+			t.Fatalf("expected embedded-ui service registration in bootstrap, got:\n%s", bootstrap)
+		}
+	} else {
+		assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "transport", "http", "webui", "dist", "index.html"))
+		if strings.Contains(bootstrap, `"ui:embedded"`) {
+			t.Fatalf("did not expect embedded-ui service registration in bootstrap, got:\n%s", bootstrap)
+		}
+	}
+
+	if expectRedis {
+		assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "infra", "cache", "redis.go"), "github.com/redis/go-redis/v9")
+		if !strings.Contains(bootstrap, `"cache:redis"`) {
+			t.Fatalf("expected redis service registration in bootstrap, got:\n%s", bootstrap)
+		}
+	} else {
+		assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "infra", "cache", "redis.go"))
+		if strings.Contains(bootstrap, `"cache:redis"`) {
+			t.Fatalf("did not expect redis service registration in bootstrap, got:\n%s", bootstrap)
+		}
+	}
+
+	switch preset {
+	case "heavy", "medium", "light":
+		if !strings.Contains(config, "swagger:\n  enabled: "+strconv.FormatBool(expectSwagger)) {
+			t.Fatalf("expected swagger enabled=%t in config, got:\n%s", expectSwagger, config)
+		}
+		if !strings.Contains(config, "embedded_ui:\n  enabled: "+strconv.FormatBool(expectEmbeddedUI)) {
+			t.Fatalf("expected embedded_ui enabled=%t in config, got:\n%s", expectEmbeddedUI, config)
+		}
+	case "extra-light":
+		assertGeneratedFileMissing(t, targetDir, filepath.Join("docs", "openapi.yaml"))
+		assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "transport", "http", "webui", "dist", "index.html"))
+	}
+
+	switch preset {
+	case "heavy", "medium":
+		if !strings.Contains(config, "redis:\n  enabled: "+strconv.FormatBool(expectRedis)) {
+			t.Fatalf("expected redis enabled=%t in config, got:\n%s", expectRedis, config)
+		}
+	case "light", "extra-light":
+		if strings.Contains(config, "redis:\n  enabled: true") {
+			t.Fatalf("did not expect redis to be enabled in %s config", preset)
+		}
+	}
+}
+
+func expectedCapabilityMaterialization(preset string, capabilities []string) (bool, bool, bool) {
+	switch preset {
+	case "heavy", "medium":
+		return true, true, hasCapability(capabilities, "redis")
+	case "light":
+		return hasCapability(capabilities, "swagger"), hasCapability(capabilities, "embedded-ui"), false
+	case "extra-light":
+		return false, false, false
+	default:
+		return false, false, false
+	}
+}
+
 func assertGeneratedFileContains(t *testing.T, targetDir string, relativePath string, want string) {
 	t.Helper()
 
@@ -429,6 +655,10 @@ func readGeneratedFile(t *testing.T, targetDir string, relativePath string) stri
 		t.Fatalf("read generated file %q: %v", path, err)
 	}
 	return string(data)
+}
+
+func normalizeGeneratedText(content string) string {
+	return strings.ReplaceAll(content, "\r\n", "\n")
 }
 
 func assertGeneratedFileMissing(t *testing.T, targetDir string, relativePath string) {

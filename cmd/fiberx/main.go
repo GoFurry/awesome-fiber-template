@@ -259,15 +259,18 @@ func runValidate(args []string) error {
 		return err
 	}
 
-	fmt.Printf("state 3 generator validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
+	fmt.Printf("state 4 generator validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
 	fmt.Printf("implemented presets: %s\n", joinOrNone(implementedPresets(catalog)))
 	fmt.Printf("implemented capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
 	fmt.Printf("deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
 	fmt.Println("stable production baseline: medium")
 	fmt.Println("completed production track: heavy")
-	fmt.Println("current stage: phase-11-runtime-options-and-data-access")
+	fmt.Println("current stage: phase-13-version-upgrade-and-diff-detection")
 	fmt.Println("phase 9 delivery: completed")
 	fmt.Println("phase 10 delivery: completed")
+	fmt.Println("phase 11 delivery: completed")
+	fmt.Println("phase 12 delivery: completed")
+	fmt.Println("phase 13 focus: generator/template versioning and diff detection")
 	fmt.Println("default medium experience: swagger,embedded-ui")
 	fmt.Println("default heavy experience: swagger,embedded-ui")
 	fmt.Println("light optional experience: swagger,embedded-ui")
@@ -309,8 +312,8 @@ func runDoctor(args []string) error {
 
 	fmt.Printf("cwd: %s\n", cwd)
 	fmt.Printf("go: %s\n", runtime.Version())
-	fmt.Printf("state: %s\n", "state-3")
-	fmt.Printf("phase: %s\n", "phase-11-runtime-options-and-data-access")
+	fmt.Printf("state: %s\n", "state-4")
+	fmt.Printf("phase: %s\n", "phase-13-version-upgrade-and-diff-detection")
 	fmt.Printf("manifest-root: %s\n", rootAbs)
 	fmt.Printf("presets: %d\n", len(catalog.Presets))
 	fmt.Printf("capabilities: %d\n", len(catalog.Capabilities))
@@ -323,7 +326,10 @@ func runDoctor(args []string) error {
 	fmt.Printf("heavy-production-track: %s\n", "completed")
 	fmt.Printf("phase-9-stack-normalization: %s\n", "completed")
 	fmt.Printf("phase-10-capability-consolidation: %s\n", "completed")
-	fmt.Printf("phase-11-runtime-options-and-data-access: %s\n", "active")
+	fmt.Printf("phase-11-runtime-options-and-data-access: %s\n", "completed")
+	fmt.Printf("phase-12-capability-level-verification: %s\n", "completed")
+	fmt.Printf("phase-13-version-upgrade-and-diff-detection: %s\n", "active")
+	fmt.Printf("phase-13-focus: %s\n", "generator-template-versioning-and-diff-detection")
 	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("default-heavy-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Printf("light-optional-capabilities: %s\n", "swagger,embedded-ui")
@@ -351,7 +357,7 @@ func newFlagSet(name string) *flag.FlagSet {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "fiberx is the State 3 generator CLI with a stable medium baseline, a completed heavy production track, and active runtime-option expansion on top of fiber-v3 + cobra + viper defaults.")
+	fmt.Fprintln(w, "fiberx is the State 4 generator CLI with a stable medium baseline, a completed heavy production track, and active version-upgrade planning on top of fiber-v3 + cobra + viper defaults.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc]")
@@ -366,6 +372,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintf(w, "Default logger/database/data access: %s / %s / %s\n", stack.DefaultLogger(), stack.DefaultDB(), stack.DefaultDataAccess())
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
 	fmt.Fprintln(w, "Phase 11 runtime policy: medium/heavy/light support logger/db/data-access selection; extra-light rejects these options.")
+	fmt.Fprintln(w, "Current roadmap stage: Phase 13 version-upgrade and diff detection.")
+	fmt.Fprintln(w, "Phase 13 focus: generator/template versioning, upgrade visibility, and diff detection.")
 }
 
 func loadCatalog() (manifest.Catalog, error) {

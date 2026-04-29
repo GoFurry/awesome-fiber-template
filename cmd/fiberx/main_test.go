@@ -38,8 +38,8 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"validate"})
 	})
-	if !strings.Contains(output, "state 3 generator validated successfully") {
-		t.Fatalf("expected State 3 validate output, got:\n%s", output)
+	if !strings.Contains(output, "state 4 generator validated successfully") {
+		t.Fatalf("expected State 4 validate output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "implemented presets: heavy,medium,light,extra-light") {
 		t.Fatalf("expected implemented preset matrix, got:\n%s", output)
@@ -53,8 +53,8 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "stable production baseline: medium") || !strings.Contains(output, "completed production track: heavy") {
 		t.Fatalf("expected production track summary, got:\n%s", output)
 	}
-	if !strings.Contains(output, "current stage: phase-11-runtime-options-and-data-access") || !strings.Contains(output, "phase 10 delivery: completed") {
-		t.Fatalf("expected phase 11 summary with completed phase 10 delivery, got:\n%s", output)
+	if !strings.Contains(output, "current stage: phase-13-version-upgrade-and-diff-detection") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 focus: generator/template versioning and diff detection") {
+		t.Fatalf("expected phase 13 summary with completed phase 12 delivery, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
 		t.Fatalf("expected heavy experience summary, got:\n%s", output)
@@ -74,14 +74,14 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"doctor"})
 	})
-	if !strings.Contains(output, "state: state-3") || !strings.Contains(output, "phase: phase-11-runtime-options-and-data-access") {
-		t.Fatalf("expected State 3 / Phase 11 doctor output, got:\n%s", output)
+	if !strings.Contains(output, "state: state-4") || !strings.Contains(output, "phase: phase-13-version-upgrade-and-diff-detection") {
+		t.Fatalf("expected State 4 / Phase 13 doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: active") {
-		t.Fatalf("expected phase 10 completed and phase 11 active flags in doctor output, got:\n%s", output)
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: active") || !strings.Contains(output, "phase-13-focus: generator-template-versioning-and-diff-detection") {
+		t.Fatalf("expected phase 12 completed and phase 13 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
 		t.Fatalf("expected heavy defaults in doctor output, got:\n%s", output)

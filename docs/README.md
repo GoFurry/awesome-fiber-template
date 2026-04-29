@@ -30,8 +30,10 @@ Use the root README for a quick repository overview, then start from the generat
 - Implemented capabilities: `redis`, `swagger`, `embedded-ui`
 - Stable production baseline: `medium`
 - Completed production track: `heavy`
-- Current stage: `Phase 11` runtime options and data access stacks
-- Next stage: `Phase 11` validation closure, then `Phase 12` capability-level verification
+- Current stage: `Phase 13` version-upgrade and diff detection
+- Phase 12 delivery: capability matrix and validation closure completed
+- Phase 13 focus: generator/template versioning, upgrade visibility, and diff detection
+- Next stage: finish `Phase 13`, then `State 4 / Phase 14`
 - Default medium experience: `swagger`, `embedded-ui`
 - Default heavy experience: `swagger`, `embedded-ui`
 - Light optional experience: `swagger`, `embedded-ui`
@@ -53,8 +55,9 @@ Use the root README for a quick repository overview, then start from the generat
 ## Current Roadmap Position
 
 - Completed state: `State 1`
-- Current stage: `State 3 / Phase 11`
-- Current progress: Phase 11 partially completed
-- External-db runtime progress: the full default-stack runtime matrix is now wired into root tests and CI
-- Next stage: finish Phase 11 validation closure, then `State 3 / Phase 12`
+- Current stage: `State 4 / Phase 13`
+- Current progress: Phase 11 completed; Phase 12 completed; Phase 13 active
+- External-db runtime progress: the full default-stack runtime matrix passed CI on commit `1a46f0c`
+- Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
+- Next stage: finish `Phase 13`, then `State 4 / Phase 14`
 - `fiberx build` is tracked later under `State 4 / Phase 15`

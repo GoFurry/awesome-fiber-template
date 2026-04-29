@@ -40,3 +40,5 @@ replacements:
     value_from: swagger_enabled
   - placeholder: "{{embedded_ui_enabled}}"
     value_from: embedded_ui_enabled
+  - placeholder: "{{redis_enabled}}"
+    value_from: redis_enabled

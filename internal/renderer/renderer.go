@@ -140,6 +140,8 @@ func replacementValue(name string, plan planner.Plan) string {
 		return boolString(planHasCapability(plan, "swagger"))
 	case "embedded_ui_enabled":
 		return boolString(planHasCapability(plan, "embedded-ui"))
+	case "redis_enabled":
+		return boolString(planHasCapability(plan, "redis"))
 	default:
 		return ""
 	}

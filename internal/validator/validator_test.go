@@ -115,6 +115,71 @@ func TestValidateRequestRejectsInvalidPresetCapabilityCombination(t *testing.T) 
 	}
 }
 
+func TestValidateRequestSupportsPhase12CapabilityMatrix(t *testing.T) {
+	catalog, err := manifest.LoadCatalog(filepathJoinGenerator())
+	if err != nil {
+		t.Fatalf("LoadCatalog() returned error: %v", err)
+	}
+	if err := ValidateCatalog(catalog); err != nil {
+		t.Fatalf("ValidateCatalog() returned error: %v", err)
+	}
+
+	testCases := []struct {
+		name         string
+		preset       string
+		capabilities []string
+		wantErr      string
+	}{
+		{name: "heavy default", preset: "heavy"},
+		{name: "heavy redis", preset: "heavy", capabilities: []string{"redis"}},
+		{name: "heavy swagger", preset: "heavy", capabilities: []string{"swagger"}},
+		{name: "heavy embedded-ui", preset: "heavy", capabilities: []string{"embedded-ui"}},
+		{name: "heavy swagger embedded-ui", preset: "heavy", capabilities: []string{"swagger", "embedded-ui"}},
+		{name: "heavy swagger redis", preset: "heavy", capabilities: []string{"swagger", "redis"}},
+		{name: "heavy embedded-ui redis", preset: "heavy", capabilities: []string{"embedded-ui", "redis"}},
+		{name: "heavy full", preset: "heavy", capabilities: []string{"swagger", "embedded-ui", "redis"}},
+		{name: "medium default", preset: "medium"},
+		{name: "medium redis", preset: "medium", capabilities: []string{"redis"}},
+		{name: "medium swagger", preset: "medium", capabilities: []string{"swagger"}},
+		{name: "medium embedded-ui", preset: "medium", capabilities: []string{"embedded-ui"}},
+		{name: "medium swagger embedded-ui", preset: "medium", capabilities: []string{"swagger", "embedded-ui"}},
+		{name: "medium swagger redis", preset: "medium", capabilities: []string{"swagger", "redis"}},
+		{name: "medium embedded-ui redis", preset: "medium", capabilities: []string{"embedded-ui", "redis"}},
+		{name: "medium full", preset: "medium", capabilities: []string{"swagger", "embedded-ui", "redis"}},
+		{name: "light default", preset: "light"},
+		{name: "light swagger", preset: "light", capabilities: []string{"swagger"}},
+		{name: "light embedded-ui", preset: "light", capabilities: []string{"embedded-ui"}},
+		{name: "light swagger embedded-ui", preset: "light", capabilities: []string{"swagger", "embedded-ui"}},
+		{name: "light redis", preset: "light", capabilities: []string{"redis"}, wantErr: `capability "redis" is not allowed for preset "light"`},
+		{name: "light swagger redis", preset: "light", capabilities: []string{"swagger", "redis"}, wantErr: `capability "redis" is not allowed for preset "light"`},
+		{name: "light embedded-ui redis", preset: "light", capabilities: []string{"embedded-ui", "redis"}, wantErr: `capability "redis" is not allowed for preset "light"`},
+		{name: "light full", preset: "light", capabilities: []string{"swagger", "embedded-ui", "redis"}, wantErr: `capability "redis" is not allowed for preset "light"`},
+		{name: "extra-light default", preset: "extra-light"},
+		{name: "extra-light swagger", preset: "extra-light", capabilities: []string{"swagger"}, wantErr: `not allowed for preset "extra-light"`},
+		{name: "extra-light embedded-ui", preset: "extra-light", capabilities: []string{"embedded-ui"}, wantErr: `not allowed for preset "extra-light"`},
+		{name: "extra-light redis", preset: "extra-light", capabilities: []string{"redis"}, wantErr: `not allowed for preset "extra-light"`},
+		{name: "extra-light swagger embedded-ui", preset: "extra-light", capabilities: []string{"swagger", "embedded-ui"}, wantErr: `not allowed for preset "extra-light"`},
+		{name: "extra-light swagger redis", preset: "extra-light", capabilities: []string{"swagger", "redis"}, wantErr: `not allowed for preset "extra-light"`},
+		{name: "extra-light embedded-ui redis", preset: "extra-light", capabilities: []string{"embedded-ui", "redis"}, wantErr: `not allowed for preset "extra-light"`},
+		{name: "extra-light full", preset: "extra-light", capabilities: []string{"swagger", "embedded-ui", "redis"}, wantErr: `not allowed for preset "extra-light"`},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateRequest("demo", "github.com/example/demo", tc.preset, tc.capabilities, map[string]string{}, catalog)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("expected combination to be valid, got %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestValidateRequestRejectsExtraLightRuntimeOptions(t *testing.T) {
 	catalog, err := manifest.LoadCatalog(filepathJoinGenerator())
 	if err != nil {
