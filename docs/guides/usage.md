@@ -118,6 +118,8 @@ Generated projects can use:
 - build metadata and release manifest
 - target hooks and optional UPX compression
 
+`fiberx build` may execute project-defined hooks. Only run hooks in trusted repositories. Use `fiberx build --dry-run` to inspect planned commands before execution.
+
 ## Validate And Diagnose The Generator
 
 Default outputs are intentionally short and release-oriented:

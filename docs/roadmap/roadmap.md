@@ -27,6 +27,13 @@ Planned items:
   - `OnPostShutdown`
   - this is planned only for `Fiber v3`; `Fiber v2` will not receive the same hook skeleton
   - goal: make graceful startup and graceful shutdown customization easier without injecting business logic by default
+- `app.Hooks()` integration in generated Fiber v3 projects
+- graceful shutdown as a default generated template concern for Fiber v3
+- default middleware composition uplift for the standard stack
+  - `recover`
+  - `request id`
+  - `logger`
+  - `cors`
 - optional JSON backend selection for generated Fiber projects
   - sources:
     - [Fiber v3 Make Fiber Faster](https://docs.gofiber.io/guide/faster-fiber/)
@@ -35,11 +42,26 @@ Planned items:
   - default: `stdlib`
   - first-round planned values:
     - `stdlib`
-    - `go-json`
     - `sonic`
-    - `segmentio`
-    - `simdjson`
-  - not planned for the first round:
-    - `easyjson`
-    - `jettison`
+    - `go-json`
   - goal: support optional `JSONEncoder / JSONDecoder` integration without changing the standard library default
+- build hook trust-boundary guidance
+  - `fiberx build` may execute project-defined hooks
+  - only run hooks in trusted repositories
+  - `--dry-run` should be used to inspect planned commands before execution
+  - stricter CI policy stays as documentation guidance for now and is not part of the `v0.1.1` CLI contract
+
+## v0.1.2
+
+`v0.1.2` is reserved for default scaffold ergonomics and shared utility uplift.
+
+Planned items:
+
+- sample-derived common scaffold defaults
+  - `pkg/common/constant.go`
+    - time formats
+    - response status flags
+    - common HTTP headers
+  - `pkg/common/error.go`
+- request timeout routing uplift
+  - `transport/http/timeout_router.go`

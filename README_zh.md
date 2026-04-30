@@ -12,12 +12,13 @@
 
 `fiberx` 是一个以 CLI 为入口的 Fiber 项目生成器仓库。
 
-仓库现在只维护生成器主线本身：生成资产、规划规则、校验、渲染、构建工程化和回归验证。不再把旧参考模板或仓库内 addon 池作为当前主线的一部分。
+仓库现在只维护生成器主线本身：生成资产、规划规则、校验、渲染、构建工程化和回归验证。不再把旧参考模板或 addon 池作为当前主线的一部分。
 
 ## 版本
 
 - `v0.1.0`：已完成
 - `v0.1.1`：已规划
+- `v0.1.2`：已规划
 
 ## 文档入口
 
@@ -76,10 +77,17 @@ go run ./cmd/fiberx build --profile prod
 
 ## v0.1.1 预告
 
-下一版计划记录两类新增能力：
+下一版将聚焦 Fiber v3 默认应用骨架和可选性能增强：
 
-- Fiber v3 生命周期 hook 预留区
-- 可选第三方 JSON backend 支持
+- Fiber v3 生命周期 hook 预留区和 `app.Hooks()` 生成
+- graceful shutdown 默认模板，以及更完整的默认中间件组合：`recover`、`request id`、`logger`、`cors`
+- 可选第三方 JSON backend 支持：计划参数 `--json-lib stdlib|sonic|go-json`
+
+## Build Hook 安全提示
+
+- `fiberx build` 可能执行项目自定义的 hooks。
+- 只应在你信任的仓库中运行这些 hooks。
+- 可以先使用 `fiberx build --dry-run` 查看将要执行的命令。
 
 ## 说明
 
@@ -88,4 +96,4 @@ go run ./cmd/fiberx build --profile prod
 
 ## License
 
-本项目采用 MIT License，详情见 [LICENSE](./LICENSE)。
+本项目采用 MIT License，详见 [LICENSE](./LICENSE)。

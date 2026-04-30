@@ -6,6 +6,12 @@ This directory contains the maintained design notes, guides, and release roadmap
 
 - `v0.1.0`: completed
 - `v0.1.1`: planned
+- `v0.1.2`: planned
+
+## Planned Focus
+
+- `v0.1.1`: Fiber v3 lifecycle hooks, `app.Hooks()` integration, graceful shutdown, default middleware uplift, optional `--json-lib`, and build hook safety guidance
+- `v0.1.2`: sample-derived scaffold ergonomics and shared utility uplift
 
 ## Core Documents
 

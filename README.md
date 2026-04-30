@@ -17,6 +17,7 @@ The repository is intentionally focused on the generator itself: assets, plannin
 
 - `v0.1.0`: completed
 - `v0.1.1`: planned
+- `v0.1.2`: planned
 
 ## Docs
 
@@ -72,10 +73,17 @@ go run ./cmd/fiberx build --profile prod
 
 ## v0.1.1 Preview
 
-The next planned milestone records two additions:
+The next planned milestone focuses on the default Fiber v3 app skeleton and optional performance tuning:
 
-- Fiber v3 lifecycle hook skeleton points for startup and shutdown customization
-- optional JSON backend selection through a generator parameter instead of replacing the standard library by default
+- Fiber v3 lifecycle hook skeleton points plus `app.Hooks()` integration
+- graceful shutdown and a stronger default middleware set: `recover`, `request id`, `logger`, `cors`
+- optional JSON backend selection through `--json-lib stdlib|sonic|go-json`
+
+## Build Hook Safety
+
+- `fiberx build` may execute project-defined hooks.
+- Only run hooks in trusted repositories.
+- Use `fiberx build --dry-run` to inspect planned commands before execution.
 
 ## Notes
 
