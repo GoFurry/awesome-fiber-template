@@ -370,23 +370,9 @@ func TestExecuteFailsWhenHookFails(t *testing.T) {
 }
 
 func TestRunUPXMissing(t *testing.T) {
-	originalPath := os.Getenv("PATH")
-	goPath, err := exec.LookPath("go")
-	if err != nil {
-		t.Fatalf("LookPath(go): %v", err)
-	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Fatalf("LookPath(git): %v", err)
-	}
-	pathEntries := []string{filepath.Dir(goPath)}
-	if filepath.Dir(gitPath) != filepath.Dir(goPath) {
-		pathEntries = append(pathEntries, filepath.Dir(gitPath))
-	}
-	t.Setenv("PATH", strings.Join(pathEntries, string(os.PathListSeparator)))
-	defer os.Setenv("PATH", originalPath)
+	t.Setenv("PATH", t.TempDir())
 
-	err = runUPX(filepath.Join(t.TempDir(), "binary"), 5)
+	err := runUPX(filepath.Join(t.TempDir(), "binary"), 5)
 	if err == nil || !strings.Contains(err.Error(), "upx was not found in PATH") {
 		t.Fatalf("expected missing upx error, got %v", err)
 	}

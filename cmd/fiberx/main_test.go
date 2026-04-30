@@ -529,14 +529,46 @@ func TestCLIBuildP2(t *testing.T) {
 	initGitRepoForCLI(t, projectDir)
 
 	configPath := filepath.Join(projectDir, "fiberx.yaml")
-	configData, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read generated build config: %v", err)
-	}
-	configBody := string(configData)
-	configBody = strings.Replace(configBody, "parallel: false", "parallel: true", 1)
-	configBody = strings.Replace(configBody, "enabled: false\n    algorithm: sha256", "enabled: true\n    algorithm: sha256", 1)
-	configBody = strings.Replace(configBody, "enabled: false\n        format: auto", "enabled: true\n        format: auto", 1)
+	configBody := `project:
+  name: demo
+  module: github.com/example/demo
+build:
+  out_dir: dist
+  clean: true
+  parallel: true
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+    ldflags:
+      - "-s -w"
+      - "-X github.com/example/demo/internal/version.Version={{.Version}}"
+      - "-X github.com/example/demo/internal/version.Commit={{.Commit}}"
+      - "-X github.com/example/demo/internal/version.BuildTime={{.BuildTime}}"
+  checksum:
+    enabled: true
+    algorithm: sha256
+  compress:
+    upx:
+      enabled: false
+      level: 5
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - ` + runtime.GOOS + `/` + runtime.GOARCH + `
+      archive:
+        enabled: true
+        format: auto
+        files:
+          - README.md
+          - config
+      pre_hooks: []
+      post_hooks: []
+`
 	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
 		t.Fatalf("write generated build config: %v", err)
 	}
@@ -642,14 +674,50 @@ func TestCLIBuildP3M2DryRunShowsHooksAndUPX(t *testing.T) {
 	projectDir := filepath.Join(workdir, "demo")
 	initGitRepoForCLI(t, projectDir)
 	configPath := filepath.Join(projectDir, "fiberx.yaml")
-	configData, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read generated build config: %v", err)
-	}
-	configBody := string(configData)
-	configBody = strings.Replace(configBody, "enabled: false\n      level: 5", "enabled: true\n      level: 7", 1)
-	configBody = strings.Replace(configBody, "pre_hooks: []", "pre_hooks:\n        - name: inspect\n          command: [\"go\", \"version\"]", 1)
-	configBody = strings.Replace(configBody, "post_hooks: []", "post_hooks:\n        - name: inspect-post\n          command: [\"go\", \"version\"]", 1)
+	configBody := `project:
+  name: demo
+  module: github.com/example/demo
+build:
+  out_dir: dist
+  clean: true
+  parallel: false
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+    ldflags:
+      - "-s -w"
+      - "-X github.com/example/demo/internal/version.Version={{.Version}}"
+      - "-X github.com/example/demo/internal/version.Commit={{.Commit}}"
+      - "-X github.com/example/demo/internal/version.BuildTime={{.BuildTime}}"
+  checksum:
+    enabled: false
+    algorithm: sha256
+  compress:
+    upx:
+      enabled: true
+      level: 7
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - ` + runtime.GOOS + `/` + runtime.GOARCH + `
+      archive:
+        enabled: true
+        format: auto
+        files:
+          - README.md
+          - config
+      pre_hooks:
+        - name: inspect
+          command: ["go", "version"]
+      post_hooks:
+        - name: inspect-post
+          command: ["go", "version"]
+`
 	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
 		t.Fatalf("write generated build config: %v", err)
 	}
