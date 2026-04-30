@@ -43,70 +43,67 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"validate"})
 	})
-	if !strings.Contains(output, "state 4 generator validated successfully") {
-		t.Fatalf("expected State 4 validate output, got:\n%s", output)
+	if !strings.Contains(output, "fiberx validate: ok") ||
+		!strings.Contains(output, "release: v0.1.0") ||
+		!strings.Contains(output, "generator:") ||
+		!strings.Contains(output, "presets: heavy,medium,light,extra-light") ||
+		!strings.Contains(output, "capabilities: redis,swagger,embedded-ui") ||
+		!strings.Contains(output, "default stack: fiber-v3 + cobra + viper") ||
+		!strings.Contains(output, "note: use --verbose for full diagnostics") {
+		t.Fatalf("expected concise validate output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "implemented presets: heavy,medium,light,extra-light") {
-		t.Fatalf("expected implemented preset matrix, got:\n%s", output)
+	if strings.Contains(output, "phase 15") || strings.Contains(output, "capability-policy-") {
+		t.Fatalf("expected concise validate output without detailed phase dump, got:\n%s", output)
 	}
-	if !strings.Contains(output, "implemented capabilities: redis,swagger,embedded-ui") {
-		t.Fatalf("expected implemented capability matrix, got:\n%s", output)
-	}
-	if !strings.Contains(output, "default medium experience: swagger,embedded-ui") {
-		t.Fatalf("expected medium experience summary, got:\n%s", output)
-	}
-	if !strings.Contains(output, "stable production baseline: medium") || !strings.Contains(output, "completed production track: heavy") {
-		t.Fatalf("expected production track summary, got:\n%s", output)
-	}
-	if !strings.Contains(output, "current stage: phase-15-build-and-post-generation-engineering") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 delivery: completed") || !strings.Contains(output, "phase 15 focus: build and post-generation engineering") {
-		t.Fatalf("expected phase 15 summary with completed phase 14 delivery, got:\n%s", output)
-	}
-	if !strings.Contains(output, "phase 15 p0: completed") || !strings.Contains(output, "phase 15 p2: completed") || !strings.Contains(output, "phase 15 p3: active") || !strings.Contains(output, "phase 15 p3-m1: completed") || !strings.Contains(output, "phase 15 p3-m2: active") || !strings.Contains(output, "phase 15 p3 milestone: target-hooks-upx") {
-		t.Fatalf("expected phase 15 p0/p2/p3 status output, got:\n%s", output)
-	}
-	if !strings.Contains(output, "phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests") {
-		t.Fatalf("expected phase 15 delivery target output, got:\n%s", output)
-	}
-	if !strings.Contains(output, "default heavy experience: swagger,embedded-ui") {
-		t.Fatalf("expected heavy experience summary, got:\n%s", output)
-	}
-	if !strings.Contains(output, "light optional experience: swagger,embedded-ui") || !strings.Contains(output, "extra-light optional experience: none") {
-		t.Fatalf("expected light/extra-light capability summary, got:\n%s", output)
-	}
-	if !strings.Contains(output, "capability-policy-swagger: default=heavy,medium optional=light unsupported=extra-light") ||
-		!strings.Contains(output, "capability-policy-embedded-ui: default=heavy,medium optional=light unsupported=extra-light") ||
-		!strings.Contains(output, "capability-policy-redis: default=(none) optional=heavy,medium unsupported=light,extra-light") {
-		t.Fatalf("expected capability policy summary, got:\n%s", output)
-	}
-	if !strings.Contains(output, "default stack: fiber-v3 + cobra + viper") || !strings.Contains(output, "supported fiber versions: v3,v2") || !strings.Contains(output, "supported cli styles: cobra,native") || !strings.Contains(output, "default logger: zap") || !strings.Contains(output, "default database: sqlite") || !strings.Contains(output, "default data access: stdlib") {
-		t.Fatalf("expected stack policy summary, got:\n%s", output)
+
+	output = captureStdout(t, func() error {
+		return run([]string{"validate", "--verbose"})
+	})
+	if !strings.Contains(output, "state 4 generator validated successfully") ||
+		!strings.Contains(output, "stable production baseline: medium") ||
+		!strings.Contains(output, "default medium experience: swagger,embedded-ui") ||
+		!strings.Contains(output, "capability-policy-swagger: default=heavy,medium optional=light unsupported=extra-light") ||
+		!strings.Contains(output, "supported data access: stdlib,sqlx,sqlc") ||
+		!strings.Contains(output, "planned next release: v0.1.1") {
+		t.Fatalf("expected verbose validate output, got:\n%s", output)
 	}
 
 	output = captureStdout(t, func() error {
 		return run([]string{"doctor"})
 	})
-	if !strings.Contains(output, "state: state-4") || !strings.Contains(output, "phase: phase-15-build-and-post-generation-engineering") {
-		t.Fatalf("expected State 4 / Phase 15 doctor output, got:\n%s", output)
+	if !strings.Contains(output, "fiberx doctor") ||
+		!strings.Contains(output, "generator:") ||
+		!strings.Contains(output, "release: v0.1.0") ||
+		!strings.Contains(output, "go: "+runtime.Version()) ||
+		!strings.Contains(output, "workspace:") ||
+		!strings.Contains(output, "manifest root:") ||
+		!strings.Contains(output, "status: ok") ||
+		!strings.Contains(output, "note: use --verbose for full diagnostics") {
+		t.Fatalf("expected concise doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
-		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
+	if strings.Contains(output, "phase-15") || strings.Contains(output, "capability-policy-") {
+		t.Fatalf("expected concise doctor output without detailed phase dump, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-p0: completed") || !strings.Contains(output, "phase-15-p2: completed") || !strings.Contains(output, "phase-15-p3: active") || !strings.Contains(output, "phase-15-p3-m1: completed") || !strings.Contains(output, "phase-15-p3-m2: active") || !strings.Contains(output, "phase-15-p3-milestone: target-hooks-upx") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: profiles-hooks-compression-build-metadata-and-release-manifests") {
-		t.Fatalf("expected phase 14 completed and phase 15 active flags in doctor output, got:\n%s", output)
+
+	output = captureStdout(t, func() error {
+		return run([]string{"doctor", "--verbose"})
+	})
+	if !strings.Contains(output, "release: v0.1.0") ||
+		!strings.Contains(output, "planned next release: v0.1.1") ||
+		!strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") ||
+		!strings.Contains(output, "capability-policy-redis: default=(none) optional=heavy,medium unsupported=light,extra-light") ||
+		!strings.Contains(output, "generator-version: "+version.Version) {
+		t.Fatalf("expected verbose doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
-		t.Fatalf("expected heavy defaults in doctor output, got:\n%s", output)
-	}
-	if !strings.Contains(output, "light-optional-capabilities: swagger,embedded-ui") || !strings.Contains(output, "extra-light-optional-capabilities: none") {
-		t.Fatalf("expected light/extra-light defaults in doctor output, got:\n%s", output)
-	}
-	if !strings.Contains(output, "capability-policy-swagger: default=heavy,medium optional=light unsupported=extra-light") ||
-		!strings.Contains(output, "capability-policy-embedded-ui: default=heavy,medium optional=light unsupported=extra-light") ||
-		!strings.Contains(output, "capability-policy-redis: default=(none) optional=heavy,medium unsupported=light,extra-light") {
-		t.Fatalf("expected capability policy in doctor output, got:\n%s", output)
-	}
-	if !strings.Contains(output, "default-stack: fiber-v3 + cobra + viper") || !strings.Contains(output, "supported-fiber-versions: v3,v2") || !strings.Contains(output, "supported-cli-styles: cobra,native") || !strings.Contains(output, "default-logger: zap") || !strings.Contains(output, "default-database: sqlite") || !strings.Contains(output, "default-data-access: stdlib") {
-		t.Fatalf("expected stack policy in doctor output, got:\n%s", output)
+
+	output = captureStdout(t, func() error {
+		return run([]string{"--help"})
+	})
+	if !strings.Contains(output, "Release: v0.1.0 completed.") ||
+		!strings.Contains(output, "Next milestone: v0.1.1 planned") ||
+		!strings.Contains(output, "fiberx validate [--verbose]") ||
+		!strings.Contains(output, "fiberx doctor [--verbose]") {
+		t.Fatalf("expected release-oriented help output, got:\n%s", output)
 	}
 }
 

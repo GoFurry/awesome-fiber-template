@@ -2,7 +2,7 @@
 
 ![License](https://img.shields.io/badge/License-MIT-6C757D?style=flat&color=3B82F6)
 ![Release](https://img.shields.io/github/v/release/GoFurry/fiberx?style=flat&color=blue)
-![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go&logoColor=white)
+![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go&logoColor=white)[![Go Report Card](https://goreportcard.com/badge/github.com/GoFurry/fiberx)](https://goreportcard.com/report/github.com/GoFurry/fiberx)
 
 ![Weekend Project](https://img.shields.io/badge/weekend-project-8B5CF6?style=flat)
 ![Made with Love](https://img.shields.io/badge/made%20with-%E2%9D%A4-E11D48?style=flat&color=orange)
@@ -11,7 +11,12 @@
 
 `fiberx` is a CLI-first Fiber project generator repository.
 
-The repository is now intentionally focused on the generator itself: generator assets, planning rules, validation, rendering, build automation, and regression coverage. It no longer treats legacy reference templates or repository-local addon pools as part of the maintained mainline.
+The repository is intentionally focused on the generator itself: assets, planning rules, validation, rendering, build automation, and regression coverage. It no longer carries legacy template tracks or addon pools in the maintained mainline.
+
+## Release
+
+- `v0.1.0`: completed
+- `v0.1.1`: planned
 
 ## Docs
 
@@ -32,15 +37,8 @@ The repository is now intentionally focused on the generator itself: generator a
 - default stack: `Fiber v3 + Cobra + Viper`
 - default runtime on `medium / heavy / light`: `zap + sqlite + stdlib`
 - compatibility stack: `Fiber v2 + native-cli`
-- Phase 11 runtime options on `medium / heavy / light`: `--logger zap|slog`, `--db sqlite|pgsql|mysql`, `--data-access stdlib|sqlx|sqlc`
+- runtime options on `medium / heavy / light`: `--logger`, `--db`, `--data-access`
 - generated projects include config profiles, runtime metadata, upgrade inspection, and project-level build automation
-
-## How To Choose
-
-- Choose `heavy` if you want the stronger ops-oriented production track with metrics and scheduler defaults.
-- Choose `medium` if you want the stable production-oriented HTTP baseline without scheduler and metrics defaults.
-- Choose `light` if you want a smaller but still directly usable HTTP service with CRUD and common middleware.
-- Choose `extra-light` if you want the smallest clean starting point with only startup and health basics.
 
 ## Quick Start
 
@@ -72,15 +70,12 @@ go run ./cmd/fiberx build --dry-run
 go run ./cmd/fiberx build --profile prod
 ```
 
-## Repository Goal
+## v0.1.1 Preview
 
-This repository exists to keep `fiberx` itself clean and maintainable as a long-lived generator system:
+The next planned milestone records two additions:
 
-- stable official preset semantics
-- generator-owned assets and rules
-- verifiable output
-- explicit runtime and capability policy
-- project-level build, metadata, and upgrade tooling
+- Fiber v3 lifecycle hook skeleton points for startup and shutdown customization
+- optional JSON backend selection through a generator parameter instead of replacing the standard library by default
 
 ## Notes
 

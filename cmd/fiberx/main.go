@@ -24,6 +24,11 @@ import (
 	"github.com/GoFurry/fiberx/internal/version"
 )
 
+const (
+	currentRelease = "v0.1.0"
+	nextRelease    = "v0.1.1"
+)
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -258,7 +263,12 @@ func runExplain(args []string) error {
 }
 
 func runValidate(args []string) error {
-	if len(args) != 0 {
+	fs := newFlagSet("validate")
+	verbose := fs.Bool("verbose", false, "show full diagnostics")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{})); err != nil {
+		return err
+	}
+	if len(fs.Args()) != 0 {
 		return errors.New("validate does not accept positional arguments")
 	}
 
@@ -273,49 +283,28 @@ func runValidate(args []string) error {
 		return err
 	}
 
-	fmt.Printf("state 4 generator validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
-	fmt.Printf("implemented presets: %s\n", joinOrNone(implementedPresets(catalog)))
-	fmt.Printf("implemented capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
-	fmt.Printf("deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
-	fmt.Println("stable production baseline: medium")
-	fmt.Println("completed production track: heavy")
-	fmt.Println("current stage: phase-15-build-and-post-generation-engineering")
-	fmt.Println("phase 9 delivery: completed")
-	fmt.Println("phase 10 delivery: completed")
-	fmt.Println("phase 11 delivery: completed")
-	fmt.Println("phase 12 delivery: completed")
-	fmt.Println("phase 13 delivery: completed")
-	fmt.Println("phase 14 delivery: completed")
-	fmt.Println("phase 15 p0: completed")
-	fmt.Println("phase 15 p2: completed")
-	fmt.Println("phase 15 p3: active")
-	fmt.Println("phase 15 p3-m1: completed")
-	fmt.Println("phase 15 p3-m2: active")
-	fmt.Println("phase 15 p3 milestone: target-hooks-upx")
-	fmt.Println("phase 15 deferred p3 items: (none)")
-	fmt.Println("phase 15 focus: build and post-generation engineering")
-	fmt.Println("phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests")
-	fmt.Println("default medium experience: swagger,embedded-ui")
-	fmt.Println("default heavy experience: swagger,embedded-ui")
-	fmt.Println("light optional experience: swagger,embedded-ui")
-	fmt.Println("extra-light optional experience: none")
-	printCapabilityPolicy(os.Stdout, catalog)
-	fmt.Printf("default stack: %s\n", stack.DefaultStackLabel())
-	fmt.Printf("supported fiber versions: %s\n", stack.SupportedFiberVersions())
-	fmt.Printf("supported cli styles: %s\n", stack.SupportedCLIStyles())
-	fmt.Printf("default logger: %s\n", stack.DefaultLogger())
-	fmt.Printf("default database: %s\n", stack.DefaultDB())
-	fmt.Printf("default data access: %s\n", stack.DefaultDataAccess())
-	fmt.Printf("supported loggers: %s\n", stack.SupportedLoggers())
-	fmt.Printf("supported databases: %s\n", stack.SupportedDatabases())
-	fmt.Printf("supported data access: %s\n", stack.SupportedDataAccess())
-	fmt.Println("phase 11 first-round presets: medium,heavy,light")
-	fmt.Println("phase 11 deferred presets: extra-light")
+	if !*verbose {
+		fmt.Println("fiberx validate: ok")
+		fmt.Printf("release: %s\n", currentRelease)
+		fmt.Printf("generator: %s (%s)\n", version.Version, version.Commit)
+		fmt.Printf("presets: %s\n", joinOrNone(implementedPresets(catalog)))
+		fmt.Printf("capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
+		fmt.Printf("default stack: %s\n", stack.DefaultStackLabel())
+		fmt.Println("note: use --verbose for full diagnostics")
+		return nil
+	}
+
+	printValidateVerbose(os.Stdout, catalog)
 	return nil
 }
 
 func runDoctor(args []string) error {
-	if len(args) != 0 {
+	fs := newFlagSet("doctor")
+	verbose := fs.Bool("verbose", false, "show full diagnostics")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{})); err != nil {
+		return err
+	}
+	if len(fs.Args()) != 0 {
 		return errors.New("doctor does not accept positional arguments")
 	}
 
@@ -334,55 +323,19 @@ func runDoctor(args []string) error {
 		return err
 	}
 
-	fmt.Printf("cwd: %s\n", cwd)
-	fmt.Printf("go: %s\n", runtime.Version())
-	fmt.Printf("state: %s\n", "state-4")
-	fmt.Printf("phase: %s\n", "phase-15-build-and-post-generation-engineering")
-	fmt.Printf("manifest-root: %s\n", rootAbs)
-	fmt.Printf("presets: %d\n", len(catalog.Presets))
-	fmt.Printf("capabilities: %d\n", len(catalog.Capabilities))
-	fmt.Printf("replace-rules: %d\n", len(catalog.ReplaceRules))
-	fmt.Printf("injection-rules: %d\n", len(catalog.InjectionRules))
-	fmt.Printf("implemented-presets: %s\n", joinOrNone(implementedPresets(catalog)))
-	fmt.Printf("implemented-capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
-	fmt.Printf("deferred-capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
-	fmt.Printf("medium-production-baseline: %s\n", "stable")
-	fmt.Printf("heavy-production-track: %s\n", "completed")
-	fmt.Printf("phase-9-stack-normalization: %s\n", "completed")
-	fmt.Printf("phase-10-capability-consolidation: %s\n", "completed")
-	fmt.Printf("phase-11-runtime-options-and-data-access: %s\n", "completed")
-	fmt.Printf("phase-12-capability-level-verification: %s\n", "completed")
-	fmt.Printf("phase-13-version-upgrade-and-diff-detection: %s\n", "completed")
-	fmt.Printf("phase-14-upgrade-assistant-and-compatibility-policy: %s\n", "completed")
-	fmt.Printf("phase-15-build-and-post-generation-engineering: %s\n", "active")
-	fmt.Printf("phase-15-p0: %s\n", "completed")
-	fmt.Printf("phase-15-p2: %s\n", "completed")
-	fmt.Printf("phase-15-p3: %s\n", "active")
-	fmt.Printf("phase-15-p3-m1: %s\n", "completed")
-	fmt.Printf("phase-15-p3-m2: %s\n", "active")
-	fmt.Printf("phase-15-p3-milestone: %s\n", "target-hooks-upx")
-	fmt.Printf("phase-15-deferred-p3-items: %s\n", "(none)")
-	fmt.Printf("phase-15-focus: %s\n", "build-and-post-generation-engineering")
-	fmt.Printf("phase-15-delivery-target: %s\n", "profiles-hooks-compression-build-metadata-and-release-manifests")
-	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
-	fmt.Printf("default-heavy-capabilities: %s\n", "swagger,embedded-ui")
-	fmt.Printf("light-optional-capabilities: %s\n", "swagger,embedded-ui")
-	fmt.Printf("extra-light-optional-capabilities: %s\n", "none")
-	printCapabilityPolicy(os.Stdout, catalog)
-	fmt.Printf("default-stack: %s\n", stack.DefaultStackLabel())
-	fmt.Printf("supported-fiber-versions: %s\n", stack.SupportedFiberVersions())
-	fmt.Printf("supported-cli-styles: %s\n", stack.SupportedCLIStyles())
-	fmt.Printf("default-logger: %s\n", stack.DefaultLogger())
-	fmt.Printf("default-database: %s\n", stack.DefaultDB())
-	fmt.Printf("default-data-access: %s\n", stack.DefaultDataAccess())
-	fmt.Printf("supported-loggers: %s\n", stack.SupportedLoggers())
-	fmt.Printf("supported-databases: %s\n", stack.SupportedDatabases())
-	fmt.Printf("supported-data-access: %s\n", stack.SupportedDataAccess())
-	fmt.Printf("phase-11-first-round-presets: %s\n", "medium,heavy,light")
-	fmt.Printf("phase-11-deferred-presets: %s\n", "extra-light")
-	fmt.Printf("generator-version: %s\n", version.Version)
-	fmt.Printf("generator-commit: %s\n", version.Commit)
-	fmt.Println("writer-mode: real-write")
+	if !*verbose {
+		fmt.Println("fiberx doctor")
+		fmt.Printf("generator: %s (%s)\n", version.Version, version.Commit)
+		fmt.Printf("release: %s\n", currentRelease)
+		fmt.Printf("go: %s\n", runtime.Version())
+		fmt.Printf("workspace: %s\n", cwd)
+		fmt.Printf("manifest root: %s\n", rootAbs)
+		fmt.Println("status: ok")
+		fmt.Println("note: use --verbose for full diagnostics")
+		return nil
+	}
+
+	printDoctorVerbose(os.Stdout, cwd, rootAbs, catalog)
 	return nil
 }
 
@@ -637,7 +590,7 @@ func newFlagSet(name string) *flag.FlagSet {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "fiberx is the State 4 generator CLI with a stable medium baseline, a completed heavy production track, and active build and post-generation engineering work on top of fiber-v3 + cobra + viper defaults.")
+	fmt.Fprintln(w, "fiberx is a CLI-first Fiber project generator.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc]")
@@ -651,19 +604,74 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx upgrade inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade plan [path] [--json]")
 	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch] [--profile name] [--dry-run]")
-	fmt.Fprintln(w, "  fiberx validate")
-	fmt.Fprintln(w, "  fiberx doctor")
+	fmt.Fprintln(w, "  fiberx validate [--verbose]")
+	fmt.Fprintln(w, "  fiberx doctor [--verbose]")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
 	fmt.Fprintf(w, "Default logger/database/data access: %s / %s / %s\n", stack.DefaultLogger(), stack.DefaultDB(), stack.DefaultDataAccess())
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
-	fmt.Fprintln(w, "Phase 11 runtime policy: medium/heavy/light support logger/db/data-access selection; extra-light rejects these options.")
-	fmt.Fprintln(w, "Current roadmap stage: Phase 15 build and post-generation engineering.")
-	fmt.Fprintln(w, "Phase 15 status: P0 completed, P2 completed, P3 active.")
-	fmt.Fprintln(w, "Phase 15 focus: build and release-oriented post-generation engineering.")
-	fmt.Fprintln(w, "Phase 15 P3-M1: completed.")
-	fmt.Fprintln(w, "Phase 15 P3-M2: active.")
-	fmt.Fprintln(w, "Phase 15 P3 milestone: target hooks and UPX.")
-	fmt.Fprintln(w, "Phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests.")
+	fmt.Fprintln(w, "Release: v0.1.0 completed.")
+	fmt.Fprintln(w, "Next milestone: v0.1.1 planned for Fiber v3 lifecycle hook skeleton points and optional JSON backend selection.")
+	fmt.Fprintln(w, "Use `fiberx doctor --verbose` or `fiberx validate --verbose` for full diagnostics.")
+}
+
+func printValidateVerbose(w io.Writer, catalog manifest.Catalog) {
+	fmt.Fprintf(w, "state 4 generator validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
+	fmt.Fprintf(w, "implemented presets: %s\n", joinOrNone(implementedPresets(catalog)))
+	fmt.Fprintf(w, "implemented capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
+	fmt.Fprintf(w, "deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
+	fmt.Fprintln(w, "stable production baseline: medium")
+	fmt.Fprintln(w, "completed production track: heavy")
+	fmt.Fprintln(w, "release: v0.1.0")
+	fmt.Fprintln(w, "planned next release: v0.1.1")
+	fmt.Fprintln(w, "generator mainline: pure generator repository")
+	fmt.Fprintln(w, "default medium experience: swagger,embedded-ui")
+	fmt.Fprintln(w, "default heavy experience: swagger,embedded-ui")
+	fmt.Fprintln(w, "light optional experience: swagger,embedded-ui")
+	fmt.Fprintln(w, "extra-light optional experience: none")
+	printCapabilityPolicy(w, catalog)
+	fmt.Fprintf(w, "default stack: %s\n", stack.DefaultStackLabel())
+	fmt.Fprintf(w, "supported fiber versions: %s\n", stack.SupportedFiberVersions())
+	fmt.Fprintf(w, "supported cli styles: %s\n", stack.SupportedCLIStyles())
+	fmt.Fprintf(w, "default logger: %s\n", stack.DefaultLogger())
+	fmt.Fprintf(w, "default database: %s\n", stack.DefaultDB())
+	fmt.Fprintf(w, "default data access: %s\n", stack.DefaultDataAccess())
+	fmt.Fprintf(w, "supported loggers: %s\n", stack.SupportedLoggers())
+	fmt.Fprintf(w, "supported databases: %s\n", stack.SupportedDatabases())
+	fmt.Fprintf(w, "supported data access: %s\n", stack.SupportedDataAccess())
+	fmt.Fprintln(w, "runtime-option presets: medium,heavy,light")
+	fmt.Fprintln(w, "runtime-option unavailable presets: extra-light")
+}
+
+func printDoctorVerbose(w io.Writer, cwd string, rootAbs string, catalog manifest.Catalog) {
+	fmt.Fprintf(w, "cwd: %s\n", cwd)
+	fmt.Fprintf(w, "go: %s\n", runtime.Version())
+	fmt.Fprintf(w, "release: %s\n", currentRelease)
+	fmt.Fprintf(w, "planned next release: %s\n", nextRelease)
+	fmt.Fprintf(w, "manifest-root: %s\n", rootAbs)
+	fmt.Fprintf(w, "presets: %d\n", len(catalog.Presets))
+	fmt.Fprintf(w, "capabilities: %d\n", len(catalog.Capabilities))
+	fmt.Fprintf(w, "replace-rules: %d\n", len(catalog.ReplaceRules))
+	fmt.Fprintf(w, "injection-rules: %d\n", len(catalog.InjectionRules))
+	fmt.Fprintf(w, "implemented-presets: %s\n", joinOrNone(implementedPresets(catalog)))
+	fmt.Fprintf(w, "implemented-capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
+	fmt.Fprintf(w, "deferred-capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
+	fmt.Fprintf(w, "default-medium-capabilities: %s\n", "swagger,embedded-ui")
+	fmt.Fprintf(w, "default-heavy-capabilities: %s\n", "swagger,embedded-ui")
+	fmt.Fprintf(w, "light-optional-capabilities: %s\n", "swagger,embedded-ui")
+	fmt.Fprintf(w, "extra-light-optional-capabilities: %s\n", "none")
+	printCapabilityPolicy(w, catalog)
+	fmt.Fprintf(w, "default-stack: %s\n", stack.DefaultStackLabel())
+	fmt.Fprintf(w, "supported-fiber-versions: %s\n", stack.SupportedFiberVersions())
+	fmt.Fprintf(w, "supported-cli-styles: %s\n", stack.SupportedCLIStyles())
+	fmt.Fprintf(w, "default-logger: %s\n", stack.DefaultLogger())
+	fmt.Fprintf(w, "default-database: %s\n", stack.DefaultDB())
+	fmt.Fprintf(w, "default-data-access: %s\n", stack.DefaultDataAccess())
+	fmt.Fprintf(w, "supported-loggers: %s\n", stack.SupportedLoggers())
+	fmt.Fprintf(w, "supported-databases: %s\n", stack.SupportedDatabases())
+	fmt.Fprintf(w, "supported-data-access: %s\n", stack.SupportedDataAccess())
+	fmt.Fprintf(w, "generator-version: %s\n", version.Version)
+	fmt.Fprintf(w, "generator-commit: %s\n", version.Commit)
+	fmt.Fprintln(w, "writer-mode: real-write")
 }
 
 func loadCatalog() (manifest.Catalog, error) {
