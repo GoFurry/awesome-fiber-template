@@ -15,12 +15,12 @@ fiberx build server worker
 fiberx build --target linux/amd64
 fiberx build --clean
 fiberx build --dry-run
+fiberx build --profile prod
 ```
 
 后续阶段再扩展：
 
 ```bash
-fiberx build --profile prod
 fiberx build --all
 ```
 
@@ -29,7 +29,8 @@ fiberx build --all
 - 当前阶段：`Phase 15`
 - 当前进度：`P0 completed`
 - 当前推进：`P2 completed`
-- 下一阶段：`P3 defined, not started`
+- 当前里程碑：`P3-M1 active`
+- 后续里程碑：`P3-M2 deferred`
 
 ## 已完成：P0
 
@@ -80,7 +81,7 @@ fiberx build --all
     - `windows/*` => `zip`
     - 其他平台 => `tar.gz`
 - `checksum.algorithm`
-  - 目前只支持 `sha256`
+  - 当前只支持 `sha256`
 - `--dry-run`
   - 只输出构建计划
   - 不执行 `go build`
@@ -111,35 +112,68 @@ fiberx build --all
   - `dist/SHA256SUMS`
   - 指向最终 distributable artifacts
 
-## 已定义、暂不推进：P3
+## 推进中：P3-M1
 
-后续范围固定为：
+当前范围固定为：
 
 - `profiles`
-- `pre/post hooks`
-- `UPX`
 - `build metadata`
 - `release manifest`
 
-P3 定位：
+当前公开接口：
+
+- `fiberx build --profile <name>`
+- `build.profiles`
+- `dist/build-metadata.json`
+- `dist/release-manifest.json`
+
+定位：
 
 - `profiles`
   - 在 `fiberx.yaml` 中支持按环境或场景切换构建参数
+- `build metadata`
+  - 输出单次构建上下文的元信息文件
+- `release manifest`
+  - 输出面向交付的制品清单
+
+固定边界：
+
+- profile 只是对 base `build` 的 overlay，不是第二套完整 build config
+- profile 只能覆盖：
+  - `out_dir`
+  - `clean`
+  - `parallel`
+  - `defaults.cgo`
+  - `defaults.trimpath`
+  - `defaults.ldflags`
+  - `checksum.enabled`
+  - `checksum.algorithm`
+  - 同名 target 的 `output / platforms / archive.*`
+- profile 不允许：
+  - 创建新 target
+  - 改写 `project.*`
+  - 改写 `version.source`
+  - 改写 `version.package`
+
+## 已定义、暂不推进：P3-M2
+
+后续范围固定为：
+
+- `pre/post hooks`
+- `UPX`
+
+定位：
+
 - `pre/post hooks`
   - 在 build target 前后执行显式配置的脚本
 - `UPX`
   - 保持显式 opt-in，不默认启用
-- `build metadata`
-  - 输出独立构建元信息文件
-- `release manifest`
-  - 输出 release 级别的制品清单
 
 当前明确不推进：
 
-- 不新增 CLI flag
-- 不扩展 `fiberx.yaml` 解析
-- 不改 `internal/build` 执行逻辑
-- 不引入 hooks、UPX、profile、manifest 的任何实际代码
+- 不新增 hooks 相关 CLI
+- 不扩展 target 生命周期命令
+- 不接入 `build.compress.upx` 的实际执行逻辑
 
 ## 边界说明
 

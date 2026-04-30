@@ -65,6 +65,77 @@ build:
 	}
 }
 
+func TestLoadWithProfileAppliesOverlay(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  out_dir: dist
+  clean: true
+  parallel: false
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+    ldflags:
+      - "-s -w"
+  checksum:
+    enabled: false
+    algorithm: sha256
+  profiles:
+    prod:
+      out_dir: dist/prod
+      parallel: true
+      checksum:
+        enabled: true
+        algorithm: sha256
+      targets:
+        - name: server
+          output: demo-prod
+          platforms:
+            - linux/amd64
+          archive:
+            enabled: true
+            format: zip
+            files:
+              - README.md
+              - config
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+        - windows/amd64
+      archive:
+        enabled: false
+        format: auto
+        files:
+          - README.md
+          - config
+`)
+
+	cfg, err := LoadWithProfile(projectDir, "prod")
+	if err != nil {
+		t.Fatalf("LoadWithProfile() returned error: %v", err)
+	}
+	if cfg.Build.OutDir != "dist/prod" || !cfg.Build.Parallel || !cfg.Build.Checksum.Enabled {
+		t.Fatalf("expected profile overlay on build config, got %#v", cfg.Build)
+	}
+	target := cfg.Build.Targets[0]
+	if target.Output != "demo-prod" || len(target.Platforms) != 1 || target.Platforms[0] != "linux/amd64" {
+		t.Fatalf("expected target overlay to apply, got %#v", target)
+	}
+	if !target.Archive.Enabled || target.Archive.Format != "zip" {
+		t.Fatalf("expected archive overlay to apply, got %#v", target.Archive)
+	}
+}
+
 func TestLoadRejectsMissingConfig(t *testing.T) {
 	_, err := Load(t.TempDir())
 	if err == nil || !strings.Contains(err.Error(), Filename) {
@@ -100,6 +171,100 @@ build:
 	_, err := Load(projectDir)
 	if err == nil || !strings.Contains(err.Error(), "build.compress") {
 		t.Fatalf("expected unsupported field error, got %v", err)
+	}
+}
+
+func TestLoadRejectsMissingProfile(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+`)
+
+	_, err := LoadWithProfile(projectDir, "prod")
+	if err == nil || !strings.Contains(err.Error(), `build profile "prod" was not found`) {
+		t.Fatalf("expected missing profile error, got %v", err)
+	}
+}
+
+func TestLoadRejectsUnsupportedProfileFields(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  profiles:
+    prod:
+      compress:
+        upx:
+          enabled: true
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), "build.profiles.prod.compress") {
+		t.Fatalf("expected unsupported profile field error, got %v", err)
+	}
+}
+
+func TestLoadRejectsProfileUnknownTargetPatch(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  profiles:
+    prod:
+      targets:
+        - name: worker
+          output: worker
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), `target patch "worker" does not match any base target`) {
+		t.Fatalf("expected unknown target patch error, got %v", err)
 	}
 }
 

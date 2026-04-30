@@ -20,6 +20,21 @@ build:
   checksum:
     enabled: false
     algorithm: sha256
+  profiles:
+    prod:
+      out_dir: dist/prod
+      parallel: true
+      checksum:
+        enabled: true
+        algorithm: sha256
+      targets:
+        - name: server
+          archive:
+            enabled: true
+            format: auto
+            files:
+              - README.md
+              - config
   targets:
     - name: server
       package: .

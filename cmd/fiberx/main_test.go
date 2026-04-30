@@ -61,7 +61,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "current stage: phase-15-build-and-post-generation-engineering") || !strings.Contains(output, "phase 10 delivery: completed") || !strings.Contains(output, "phase 11 delivery: completed") || !strings.Contains(output, "phase 12 delivery: completed") || !strings.Contains(output, "phase 13 delivery: completed") || !strings.Contains(output, "phase 14 delivery: completed") || !strings.Contains(output, "phase 15 focus: build and post-generation engineering") {
 		t.Fatalf("expected phase 15 summary with completed phase 14 delivery, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase 15 p0: completed") || !strings.Contains(output, "phase 15 p2: completed") || !strings.Contains(output, "phase 15 p3: defined") || !strings.Contains(output, "phase 15 p3 status: not-started") {
+	if !strings.Contains(output, "phase 15 p0: completed") || !strings.Contains(output, "phase 15 p2: completed") || !strings.Contains(output, "phase 15 p3: active") || !strings.Contains(output, "phase 15 p3 milestone: profiles-build-metadata-release-manifest") || !strings.Contains(output, "phase 15 deferred p3 items: hooks,upx") {
 		t.Fatalf("expected phase 15 p0/p2/p3 status output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests") {
@@ -91,7 +91,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	if !strings.Contains(output, "medium-production-baseline: stable") || !strings.Contains(output, "heavy-production-track: completed") {
 		t.Fatalf("expected medium production baseline flag in doctor output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-p0: completed") || !strings.Contains(output, "phase-15-p2: completed") || !strings.Contains(output, "phase-15-p3: defined") || !strings.Contains(output, "phase-15-p3-status: not-started") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: profiles-hooks-compression-build-metadata-and-release-manifests") {
+	if !strings.Contains(output, "phase-9-stack-normalization: completed") || !strings.Contains(output, "phase-10-capability-consolidation: completed") || !strings.Contains(output, "phase-11-runtime-options-and-data-access: completed") || !strings.Contains(output, "phase-12-capability-level-verification: completed") || !strings.Contains(output, "phase-13-version-upgrade-and-diff-detection: completed") || !strings.Contains(output, "phase-14-upgrade-assistant-and-compatibility-policy: completed") || !strings.Contains(output, "phase-15-build-and-post-generation-engineering: active") || !strings.Contains(output, "phase-15-p0: completed") || !strings.Contains(output, "phase-15-p2: completed") || !strings.Contains(output, "phase-15-p3: active") || !strings.Contains(output, "phase-15-p3-milestone: profiles-build-metadata-release-manifest") || !strings.Contains(output, "phase-15-deferred-p3-items: hooks,upx") || !strings.Contains(output, "phase-15-focus: build-and-post-generation-engineering") || !strings.Contains(output, "phase-15-delivery-target: profiles-hooks-compression-build-metadata-and-release-manifests") {
 		t.Fatalf("expected phase 14 completed and phase 15 active flags in doctor output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") {
@@ -207,7 +207,7 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 		t.Fatalf("read generated fiberx build config: %v", err)
 	}
 	fiberxConfig := string(fiberxConfigData)
-	if !strings.Contains(fiberxConfig, "parallel: false") || !strings.Contains(fiberxConfig, "checksum:") || !strings.Contains(fiberxConfig, "archive:") {
+	if !strings.Contains(fiberxConfig, "parallel: false") || !strings.Contains(fiberxConfig, "checksum:") || !strings.Contains(fiberxConfig, "archive:") || !strings.Contains(fiberxConfig, "profiles:") || !strings.Contains(fiberxConfig, "prod:") {
 		t.Fatalf("expected generated fiberx build config to include phase 15 p2 fields, got:\n%s", fiberxConfig)
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "internal", "version", "version.go")); err != nil {
@@ -548,7 +548,7 @@ func TestCLIBuildP2(t *testing.T) {
 		output := captureStdout(t, func() error {
 			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH, "--dry-run"})
 		})
-		if !strings.Contains(output, "build plan project=demo") || !strings.Contains(output, "dry-run: true") || !strings.Contains(output, "archive=") || !strings.Contains(output, "checksum:") {
+		if !strings.Contains(output, "build plan project=demo") || !strings.Contains(output, "dry-run: true") || !strings.Contains(output, "archive=") || !strings.Contains(output, "checksum:") || !strings.Contains(output, "build metadata:") || !strings.Contains(output, "release manifest:") {
 			t.Fatalf("expected dry-run build plan output, got:\n%s", output)
 		}
 	})
@@ -561,7 +561,7 @@ func TestCLIBuildP2(t *testing.T) {
 		output := captureStdout(t, func() error {
 			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH})
 		})
-		if !strings.Contains(output, "built project=demo") || !strings.Contains(output, "dry-run: false") || !strings.Contains(output, "archive=") || !strings.Contains(output, "checksum:") {
+		if !strings.Contains(output, "built project=demo") || !strings.Contains(output, "dry-run: false") || !strings.Contains(output, "archive=") || !strings.Contains(output, "checksum:") || !strings.Contains(output, "build metadata:") || !strings.Contains(output, "release manifest:") {
 			t.Fatalf("expected p2 build output, got:\n%s", output)
 		}
 	})
@@ -580,6 +580,55 @@ func TestCLIBuildP2(t *testing.T) {
 	}
 	if _, err := os.Stat(archivePath); err != nil {
 		t.Fatalf("expected archive output at %q: %v", archivePath, err)
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, "dist", "build-metadata.json")); err != nil {
+		t.Fatalf("expected build metadata output: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, "dist", "release-manifest.json")); err != nil {
+		t.Fatalf("expected release manifest output: %v", err)
+	}
+}
+
+func TestCLIBuildP3Profile(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+
+	projectDir := filepath.Join(workdir, "demo")
+	initGitRepoForCLI(t, projectDir)
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--profile", "prod", "--target", runtime.GOOS + "/" + runtime.GOARCH, "--dry-run"})
+		})
+		if !strings.Contains(output, "profile: prod") || !strings.Contains(output, "build metadata:") || !strings.Contains(output, "release manifest:") {
+			t.Fatalf("expected profile dry-run output, got:\n%s", output)
+		}
+	})
+
+	if _, err := os.Stat(filepath.Join(projectDir, "dist")); !os.IsNotExist(err) {
+		t.Fatalf("expected dry-run not to create dist dir, got %v", err)
+	}
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--profile", "prod", "--target", runtime.GOOS + "/" + runtime.GOARCH})
+		})
+		if !strings.Contains(output, "profile: prod") {
+			t.Fatalf("expected prod profile in build output, got:\n%s", output)
+		}
+	})
+
+	if _, err := os.Stat(filepath.Join(projectDir, "dist", "prod", "build-metadata.json")); err != nil {
+		t.Fatalf("expected profiled build metadata output: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, "dist", "prod", "release-manifest.json")); err != nil {
+		t.Fatalf("expected profiled release manifest output: %v", err)
 	}
 }
 

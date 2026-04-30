@@ -50,7 +50,8 @@ Important boundary:
 - Phase 13 completed generated metadata and diff detection.
 - Phase 14 completed readonly upgrade planning and compatibility policy.
 - Phase 15 completed the `fiberx build` P0 baseline and the P2 packaging layer.
-- Phase 15 P3 is currently defined but not started.
+- Phase 15 P3 is now active through P3-M1: profiles, build metadata, and release manifest.
+- Phase 15 still defers hooks and UPX.
 
 ## Run From Source
 
@@ -246,6 +247,7 @@ go run ./cmd/fiberx build
 go run ./cmd/fiberx build server
 go run ./cmd/fiberx build --clean
 go run ./cmd/fiberx build --target linux/amd64
+go run ./cmd/fiberx build --profile prod
 go run ./cmd/fiberx build --dry-run
 ```
 
@@ -254,6 +256,7 @@ Current build input:
 - project root `fiberx.yaml`
 - one or more named targets
 - `build.version.source=git`
+- optional `build.profiles`
 - optional target archive/checksum settings
 
 Current build output:
@@ -261,9 +264,12 @@ Current build output:
 - binaries under `dist/<target>/<goos>_<goarch>/`
 - optional `.zip` / `.tar.gz` archives beside each platform build
 - optional `dist/SHA256SUMS`
+- `dist/build-metadata.json`
+- `dist/release-manifest.json`
 - `-trimpath` and configured `ldflags`
+- `--profile <name>` for build overlays
 - `--dry-run` for readonly build planning
-- no profile / hook / UPX / build-metadata / release-manifest support yet
+- no hook or UPX support yet
 
 ## Stack Selection
 

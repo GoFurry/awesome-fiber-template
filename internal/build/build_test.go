@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
@@ -77,6 +78,12 @@ func TestExecuteDryRunPlansArtifactsWithoutWritingOutputs(t *testing.T) {
 	if _, err := os.Stat(result.ChecksumPath); !os.IsNotExist(err) {
 		t.Fatalf("expected dry-run not to create checksum file, got %v", err)
 	}
+	if _, err := os.Stat(result.BuildMetadataPath); !os.IsNotExist(err) {
+		t.Fatalf("expected dry-run not to create build metadata file, got %v", err)
+	}
+	if _, err := os.Stat(result.ReleaseManifestPath); !os.IsNotExist(err) {
+		t.Fatalf("expected dry-run not to create release manifest file, got %v", err)
+	}
 }
 
 func TestExecuteWritesArchiveAndChecksums(t *testing.T) {
@@ -107,6 +114,12 @@ func TestExecuteWritesArchiveAndChecksums(t *testing.T) {
 	if _, err := os.Stat(result.ChecksumPath); err != nil {
 		t.Fatalf("expected checksum file at %q: %v", result.ChecksumPath, err)
 	}
+	if _, err := os.Stat(result.BuildMetadataPath); err != nil {
+		t.Fatalf("expected build metadata file at %q: %v", result.BuildMetadataPath, err)
+	}
+	if _, err := os.Stat(result.ReleaseManifestPath); err != nil {
+		t.Fatalf("expected release manifest file at %q: %v", result.ReleaseManifestPath, err)
+	}
 
 	entries := listArchiveEntries(t, artifact.ArchivePath)
 	assertContainsAll(t, entries, []string{
@@ -121,6 +134,51 @@ func TestExecuteWritesArchiveAndChecksums(t *testing.T) {
 	}
 	if !strings.Contains(string(checksumData), filepath.ToSlash(filepath.Join("server", runtime.GOOS+"_"+runtime.GOARCH, filepath.Base(artifact.ArchivePath)))) {
 		t.Fatalf("expected checksum file to reference archive, got:\n%s", string(checksumData))
+	}
+
+	metadataPayload := struct {
+		Profile         string `json:"profile"`
+		ReleaseManifest string `json:"release_manifest"`
+		Artifacts       []struct {
+			Target         string `json:"target"`
+			ChecksumSHA256 string `json:"checksum_sha256"`
+		} `json:"artifacts"`
+	}{}
+	metadataData, err := os.ReadFile(result.BuildMetadataPath)
+	if err != nil {
+		t.Fatalf("read build metadata: %v", err)
+	}
+	if err := json.Unmarshal(metadataData, &metadataPayload); err != nil {
+		t.Fatalf("unmarshal build metadata: %v", err)
+	}
+	if metadataPayload.ReleaseManifest != "release-manifest.json" || len(metadataPayload.Artifacts) != 1 || metadataPayload.Artifacts[0].ChecksumSHA256 == "" {
+		t.Fatalf("unexpected build metadata payload: %#v", metadataPayload)
+	}
+
+	releasePayload := struct {
+		Checksums struct {
+			File      string `json:"file"`
+			Algorithm string `json:"algorithm"`
+		} `json:"checksums"`
+		Artifacts []struct {
+			Target            string `json:"target"`
+			DistributablePath string `json:"distributable_path"`
+			ChecksumSHA256    string `json:"checksum_sha256"`
+			SizeBytes         int64  `json:"size_bytes"`
+		} `json:"artifacts"`
+	}{}
+	releaseData, err := os.ReadFile(result.ReleaseManifestPath)
+	if err != nil {
+		t.Fatalf("read release manifest: %v", err)
+	}
+	if err := json.Unmarshal(releaseData, &releasePayload); err != nil {
+		t.Fatalf("unmarshal release manifest: %v", err)
+	}
+	if releasePayload.Checksums.File != "SHA256SUMS" || releasePayload.Checksums.Algorithm != "sha256" {
+		t.Fatalf("unexpected release checksum payload: %#v", releasePayload.Checksums)
+	}
+	if len(releasePayload.Artifacts) != 1 || releasePayload.Artifacts[0].ChecksumSHA256 == "" || releasePayload.Artifacts[0].SizeBytes <= 0 {
+		t.Fatalf("unexpected release manifest artifacts: %#v", releasePayload.Artifacts)
 	}
 }
 
@@ -203,6 +261,36 @@ func TestExecuteParallelMatchesSerialArtifacts(t *testing.T) {
 
 	if strings.Join(ArtifactPaths(serialResult), "\n") != strings.Join(ArtifactPaths(parallelResult), "\n") {
 		t.Fatalf("expected serial and parallel artifact sets to match\nserial=%v\nparallel=%v", ArtifactPaths(serialResult), ArtifactPaths(parallelResult))
+	}
+}
+
+func TestExecuteAppliesProfileOverlay(t *testing.T) {
+	projectDir := buildProjectFixture(t)
+	cfg, err := buildconfig.LoadWithProfile(projectDir, "prod")
+	if err != nil {
+		t.Fatalf("LoadWithProfile() returned error: %v", err)
+	}
+
+	result, err := Execute(projectDir, cfg, Options{
+		TargetNames: []string{"server"},
+		Profile:     "prod",
+	})
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	if result.Profile != "prod" {
+		t.Fatalf("expected profile prod, got %#v", result)
+	}
+	if !strings.Contains(filepath.ToSlash(result.OutDir), "dist/prod") {
+		t.Fatalf("expected profile out_dir override, got %q", result.OutDir)
+	}
+	if len(result.Artifacts) != 1 {
+		t.Fatalf("expected one artifact from prod profile, got %#v", result.Artifacts)
+	}
+	artifact := result.Artifacts[0]
+	if artifact.TargetName != "server" || artifact.ArchivePath == "" {
+		t.Fatalf("expected archive-enabled prod artifact, got %#v", artifact)
 	}
 }
 
@@ -319,6 +407,23 @@ build:
   checksum:
     enabled: false
     algorithm: sha256
+  profiles:
+    prod:
+      out_dir: dist/prod
+      parallel: true
+      checksum:
+        enabled: true
+        algorithm: sha256
+      targets:
+        - name: server
+          platforms:
+            - ` + runtime.GOOS + `/` + runtime.GOARCH + `
+          archive:
+            enabled: true
+            format: auto
+            files:
+              - README.md
+              - config
   targets:
     - name: server
       package: .

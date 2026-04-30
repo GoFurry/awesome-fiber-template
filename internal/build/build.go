@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/GoFurry/fiberx/internal/buildconfig"
+	generatorversion "github.com/GoFurry/fiberx/internal/version"
 )
 
 type Options struct {
@@ -27,15 +29,19 @@ type Options struct {
 	PlatformFilter string
 	Clean          bool
 	DryRun         bool
+	Profile        string
 }
 
 type Result struct {
-	ProjectDir   string
-	OutDir       string
-	Version      VersionInfo
-	Artifacts    []Artifact
-	ChecksumPath string
-	DryRun       bool
+	ProjectDir          string
+	OutDir              string
+	Profile             string
+	Version             VersionInfo
+	Artifacts           []Artifact
+	ChecksumPath        string
+	BuildMetadataPath   string
+	ReleaseManifestPath string
+	DryRun              bool
 }
 
 type VersionInfo struct {
@@ -51,6 +57,8 @@ type Artifact struct {
 	OutputPath        string
 	ArchivePath       string
 	DistributablePath string
+	ChecksumSHA256    string
+	SizeBytes         int64
 }
 
 type Platform struct {
@@ -74,6 +82,8 @@ type archiveEntry struct {
 
 func Execute(projectDir string, cfg buildconfig.File, opts Options) (Result, error) {
 	outDir := filepath.Join(projectDir, cfg.Build.OutDir)
+	buildMetadataPath := filepath.Join(outDir, "build-metadata.json")
+	releaseManifestPath := filepath.Join(outDir, "release-manifest.json")
 	selectedTargets, err := selectTargets(cfg, opts.TargetNames)
 	if err != nil {
 		return Result{}, err
@@ -114,6 +124,13 @@ func Execute(projectDir string, cfg buildconfig.File, opts Options) (Result, err
 	sortArtifacts(artifacts)
 
 	checksumPath := ""
+	if !opts.DryRun {
+		enrichedArtifacts, err := enrichArtifacts(artifacts)
+		if err != nil {
+			return Result{}, err
+		}
+		artifacts = enrichedArtifacts
+	}
 	if cfg.Build.Checksum.Enabled {
 		checksumPath = filepath.Join(outDir, "SHA256SUMS")
 		if !opts.DryRun {
@@ -122,14 +139,25 @@ func Execute(projectDir string, cfg buildconfig.File, opts Options) (Result, err
 			}
 		}
 	}
+	if !opts.DryRun {
+		if err := writeBuildMetadata(outDir, buildMetadataPath, releaseManifestPath, cfg, opts, versionInfo, artifacts, checksumPath); err != nil {
+			return Result{}, err
+		}
+		if err := writeReleaseManifest(outDir, releaseManifestPath, cfg, opts, versionInfo, artifacts, checksumPath); err != nil {
+			return Result{}, err
+		}
+	}
 
 	return Result{
-		ProjectDir:   projectDir,
-		OutDir:       outDir,
-		Version:      versionInfo,
-		Artifacts:    artifacts,
-		ChecksumPath: checksumPath,
-		DryRun:       opts.DryRun,
+		ProjectDir:          projectDir,
+		OutDir:              outDir,
+		Profile:             opts.Profile,
+		Version:             versionInfo,
+		Artifacts:           artifacts,
+		ChecksumPath:        checksumPath,
+		BuildMetadataPath:   buildMetadataPath,
+		ReleaseManifestPath: releaseManifestPath,
+		DryRun:              opts.DryRun,
 	}, nil
 }
 
@@ -658,15 +686,11 @@ func writeChecksums(outDir, checksumPath string, artifacts []Artifact) error {
 		if distributablePath == "" {
 			distributablePath = artifact.OutputPath
 		}
-		hashValue, err := hashFileSHA256(distributablePath)
-		if err != nil {
-			return err
-		}
 		relativePath, err := filepath.Rel(outDir, distributablePath)
 		if err != nil {
 			return fmt.Errorf("relativize checksum path %q: %w", distributablePath, err)
 		}
-		lines = append(lines, hashValue+"  "+filepath.ToSlash(relativePath))
+		lines = append(lines, artifact.ChecksumSHA256+"  "+filepath.ToSlash(relativePath))
 	}
 	slices.Sort(lines)
 	if err := os.MkdirAll(filepath.Dir(checksumPath), 0o755); err != nil {
@@ -699,6 +723,197 @@ func sortArtifacts(artifacts []Artifact) {
 		}
 		return artifacts[i].OutputPath < artifacts[j].OutputPath
 	})
+}
+
+func enrichArtifacts(artifacts []Artifact) ([]Artifact, error) {
+	enriched := make([]Artifact, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		distributablePath := artifact.DistributablePath
+		if distributablePath == "" {
+			distributablePath = artifact.OutputPath
+		}
+		hashValue, err := hashFileSHA256(distributablePath)
+		if err != nil {
+			return nil, err
+		}
+		info, err := os.Stat(distributablePath)
+		if err != nil {
+			return nil, fmt.Errorf("inspect distributable %q: %w", distributablePath, err)
+		}
+		artifact.ChecksumSHA256 = hashValue
+		artifact.SizeBytes = info.Size()
+		enriched = append(enriched, artifact)
+	}
+	return enriched, nil
+}
+
+type buildMetadataFile struct {
+	SchemaVersion   string                  `json:"schema_version"`
+	GeneratedAt     string                  `json:"generated_at"`
+	Project         buildMetadataProject    `json:"project"`
+	Generator       buildMetadataGenerator  `json:"generator"`
+	Build           buildMetadataBuild      `json:"build"`
+	Version         VersionInfo             `json:"version"`
+	Artifacts       []buildMetadataArtifact `json:"artifacts"`
+	ChecksumFile    string                  `json:"checksum_file,omitempty"`
+	ReleaseManifest string                  `json:"release_manifest"`
+}
+
+type buildMetadataProject struct {
+	Name   string `json:"name"`
+	Module string `json:"module"`
+}
+
+type buildMetadataGenerator struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+}
+
+type buildMetadataBuild struct {
+	Profile       string `json:"profile,omitempty"`
+	Clean         bool   `json:"clean"`
+	Parallel      bool   `json:"parallel"`
+	VersionSource string `json:"version_source"`
+}
+
+type buildMetadataArtifact struct {
+	Target            string `json:"target"`
+	Package           string `json:"package"`
+	Platform          string `json:"platform"`
+	BinaryPath        string `json:"binary_path"`
+	ArchivePath       string `json:"archive_path,omitempty"`
+	DistributablePath string `json:"distributable_path"`
+	ChecksumSHA256    string `json:"checksum_sha256"`
+}
+
+type releaseManifestFile struct {
+	SchemaVersion string                    `json:"schema_version"`
+	Project       buildMetadataProject      `json:"project"`
+	Profile       string                    `json:"profile,omitempty"`
+	GeneratedAt   string                    `json:"generated_at"`
+	Version       VersionInfo               `json:"version"`
+	Artifacts     []releaseManifestArtifact `json:"artifacts"`
+	Checksums     releaseManifestChecksums  `json:"checksums"`
+}
+
+type releaseManifestArtifact struct {
+	Target            string `json:"target"`
+	Platform          string `json:"platform"`
+	DistributablePath string `json:"distributable_path"`
+	ArchiveEnabled    bool   `json:"archive_enabled"`
+	ChecksumSHA256    string `json:"checksum_sha256"`
+	SizeBytes         int64  `json:"size_bytes"`
+}
+
+type releaseManifestChecksums struct {
+	File      string `json:"file,omitempty"`
+	Algorithm string `json:"algorithm,omitempty"`
+}
+
+func writeBuildMetadata(outDir, metadataPath, releaseManifestPath string, cfg buildconfig.File, opts Options, versionInfo VersionInfo, artifacts []Artifact, checksumPath string) error {
+	payload := buildMetadataFile{
+		SchemaVersion: "v1",
+		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+		Project: buildMetadataProject{
+			Name:   cfg.Project.Name,
+			Module: cfg.Project.Module,
+		},
+		Generator: buildMetadataGenerator{
+			Version: generatorversion.Version,
+			Commit:  generatorversion.Commit,
+		},
+		Build: buildMetadataBuild{
+			Profile:       opts.Profile,
+			Clean:         opts.Clean || cfg.Build.Clean,
+			Parallel:      cfg.Build.Parallel,
+			VersionSource: cfg.Build.Version.Source,
+		},
+		Version:         versionInfo,
+		Artifacts:       make([]buildMetadataArtifact, 0, len(artifacts)),
+		ChecksumFile:    relSlash(outDir, checksumPath),
+		ReleaseManifest: relSlash(outDir, releaseManifestPath),
+	}
+	for _, artifact := range artifacts {
+		payload.Artifacts = append(payload.Artifacts, buildMetadataArtifact{
+			Target:            artifact.TargetName,
+			Package:           artifact.Package,
+			Platform:          artifact.Platform,
+			BinaryPath:        relSlash(outDir, artifact.OutputPath),
+			ArchivePath:       relSlash(outDir, artifact.ArchivePath),
+			DistributablePath: relSlash(outDir, distributablePath(artifact)),
+			ChecksumSHA256:    artifact.ChecksumSHA256,
+		})
+	}
+	return writeJSONFile(metadataPath, payload)
+}
+
+func writeReleaseManifest(outDir, manifestPath string, cfg buildconfig.File, opts Options, versionInfo VersionInfo, artifacts []Artifact, checksumPath string) error {
+	payload := releaseManifestFile{
+		SchemaVersion: "v1",
+		Project: buildMetadataProject{
+			Name:   cfg.Project.Name,
+			Module: cfg.Project.Module,
+		},
+		Profile:     opts.Profile,
+		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		Version:     versionInfo,
+		Artifacts:   make([]releaseManifestArtifact, 0, len(artifacts)),
+		Checksums: releaseManifestChecksums{
+			File:      relSlash(outDir, checksumPath),
+			Algorithm: checksumAlgorithm(cfg),
+		},
+	}
+	for _, artifact := range artifacts {
+		payload.Artifacts = append(payload.Artifacts, releaseManifestArtifact{
+			Target:            artifact.TargetName,
+			Platform:          artifact.Platform,
+			DistributablePath: relSlash(outDir, distributablePath(artifact)),
+			ArchiveEnabled:    artifact.ArchivePath != "",
+			ChecksumSHA256:    artifact.ChecksumSHA256,
+			SizeBytes:         artifact.SizeBytes,
+		})
+	}
+	return writeJSONFile(manifestPath, payload)
+}
+
+func writeJSONFile(path string, payload any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create directory for %q: %w", path, err)
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal %q: %w", path, err)
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write %q: %w", path, err)
+	}
+	return nil
+}
+
+func relSlash(baseDir, path string) string {
+	if strings.TrimSpace(path) == "" {
+		return ""
+	}
+	relative, err := filepath.Rel(baseDir, path)
+	if err != nil {
+		return filepath.ToSlash(path)
+	}
+	return filepath.ToSlash(relative)
+}
+
+func distributablePath(artifact Artifact) string {
+	if artifact.DistributablePath != "" {
+		return artifact.DistributablePath
+	}
+	return artifact.OutputPath
+}
+
+func checksumAlgorithm(cfg buildconfig.File) string {
+	if !cfg.Build.Checksum.Enabled {
+		return ""
+	}
+	return cfg.Build.Checksum.Algorithm
 }
 
 func platformLabel(platform Platform) string {

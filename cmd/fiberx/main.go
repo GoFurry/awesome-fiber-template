@@ -288,8 +288,9 @@ func runValidate(args []string) error {
 	fmt.Println("phase 14 delivery: completed")
 	fmt.Println("phase 15 p0: completed")
 	fmt.Println("phase 15 p2: completed")
-	fmt.Println("phase 15 p3: defined")
-	fmt.Println("phase 15 p3 status: not-started")
+	fmt.Println("phase 15 p3: active")
+	fmt.Println("phase 15 p3 milestone: profiles-build-metadata-release-manifest")
+	fmt.Println("phase 15 deferred p3 items: hooks,upx")
 	fmt.Println("phase 15 focus: build and post-generation engineering")
 	fmt.Println("phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests")
 	fmt.Println("default medium experience: swagger,embedded-ui")
@@ -354,8 +355,9 @@ func runDoctor(args []string) error {
 	fmt.Printf("phase-15-build-and-post-generation-engineering: %s\n", "active")
 	fmt.Printf("phase-15-p0: %s\n", "completed")
 	fmt.Printf("phase-15-p2: %s\n", "completed")
-	fmt.Printf("phase-15-p3: %s\n", "defined")
-	fmt.Printf("phase-15-p3-status: %s\n", "not-started")
+	fmt.Printf("phase-15-p3: %s\n", "active")
+	fmt.Printf("phase-15-p3-milestone: %s\n", "profiles-build-metadata-release-manifest")
+	fmt.Printf("phase-15-deferred-p3-items: %s\n", "hooks,upx")
 	fmt.Printf("phase-15-focus: %s\n", "build-and-post-generation-engineering")
 	fmt.Printf("phase-15-delivery-target: %s\n", "profiles-hooks-compression-build-metadata-and-release-manifests")
 	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
@@ -560,7 +562,8 @@ func runBuild(args []string) error {
 	clean := fs.Bool("clean", false, "clean the output directory before building")
 	platform := fs.String("target", "", "filter builds to a single goos/goarch platform")
 	dryRun := fs.Bool("dry-run", false, "print the build plan without writing outputs")
-	if err := fs.Parse(reorderArgs(args, map[string]bool{"--target": true})); err != nil {
+	profile := fs.String("profile", "", "apply a named build profile overlay")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--target": true, "--profile": true})); err != nil {
 		return err
 	}
 
@@ -569,7 +572,7 @@ func runBuild(args []string) error {
 		return err
 	}
 
-	cfg, err := buildconfig.Load(projectDir)
+	cfg, err := buildconfig.LoadWithProfile(projectDir, *profile)
 	if err != nil {
 		return err
 	}
@@ -579,6 +582,7 @@ func runBuild(args []string) error {
 		PlatformFilter: *platform,
 		Clean:          *clean,
 		DryRun:         *dryRun,
+		Profile:        *profile,
 	})
 	if err != nil {
 		return err
@@ -592,6 +596,7 @@ func runBuild(args []string) error {
 	fmt.Printf("version: %s\n", result.Version.Version)
 	fmt.Printf("commit: %s\n", result.Version.Commit)
 	fmt.Printf("build time: %s\n", result.Version.BuildTime)
+	fmt.Printf("profile: %s\n", valueOrNone(result.Profile))
 	fmt.Printf("dry-run: %t\n", result.DryRun)
 	fmt.Printf("artifacts: %d\n", len(result.Artifacts))
 	for _, artifact := range result.Artifacts {
@@ -607,6 +612,8 @@ func runBuild(args []string) error {
 	if result.ChecksumPath != "" {
 		fmt.Printf("checksum: %s\n", filepath.ToSlash(result.ChecksumPath))
 	}
+	fmt.Printf("build metadata: %s\n", filepath.ToSlash(result.BuildMetadataPath))
+	fmt.Printf("release manifest: %s\n", filepath.ToSlash(result.ReleaseManifestPath))
 	return nil
 }
 
@@ -630,7 +637,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx diff [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade plan [path] [--json]")
-	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch] [--dry-run]")
+	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch] [--profile name] [--dry-run]")
 	fmt.Fprintln(w, "  fiberx validate")
 	fmt.Fprintln(w, "  fiberx doctor")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
@@ -638,8 +645,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
 	fmt.Fprintln(w, "Phase 11 runtime policy: medium/heavy/light support logger/db/data-access selection; extra-light rejects these options.")
 	fmt.Fprintln(w, "Current roadmap stage: Phase 15 build and post-generation engineering.")
-	fmt.Fprintln(w, "Phase 15 status: P0 completed, P2 completed, P3 defined but not started.")
+	fmt.Fprintln(w, "Phase 15 status: P0 completed, P2 completed, P3 active.")
 	fmt.Fprintln(w, "Phase 15 focus: build and release-oriented post-generation engineering.")
+	fmt.Fprintln(w, "Phase 15 P3 milestone: profiles, build metadata, and release manifest.")
+	fmt.Fprintln(w, "Phase 15 deferred P3 items: hooks, upx.")
 	fmt.Fprintln(w, "Phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests.")
 }
 

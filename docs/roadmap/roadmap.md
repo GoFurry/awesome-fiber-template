@@ -5,7 +5,6 @@
 ## 当前状态
 
 - 当前阶段：`State 4 / Phase 15`
-- 当前进度：`Phase 11` 已完成，`Phase 12` 已完成，`Phase 13` 已完成，`Phase 14` 已完成，`Phase 15` 进行中
 - 当前默认栈：`Fiber v3 + Cobra + Viper`
 - 首轮服务 preset 默认运行时：`zap + sqlite + stdlib`
 - 当前公开模型：`preset + capability + 少量生成参数`
@@ -56,7 +55,7 @@
 
 - 不自动修改项目文件
 - 不输出 patch
-- 不支持直接变更 preset / capability / runtime recipe
+- 不支持直接变更 `preset / capability / runtime recipe`
 - 不引入 `fiberx migrate`
 
 ### Phase 15：`fiberx build` 与生成后工程化
@@ -69,7 +68,7 @@
 
 - `P0`：`completed`
 - `P2`：`completed`
-- `P3`：`defined / not started`
+- `P3`：`active`
 
 已完成的 `P0` 能力：
 
@@ -119,26 +118,29 @@
   - `dist/SHA256SUMS`
   - 指向最终 distributable artifacts
 
-当前已定义但暂不推进的 `P3` 范围：
+当前推进中的 `P3-M1` 范围：
 
 - `profiles`
-  - 在 `fiberx.yaml` 中支持按环境或场景切换构建参数
-- `pre/post hooks`
-  - 在 build target 前后执行显式配置的脚本
-- `UPX`
-  - 保持 opt-in，不默认启用
 - `build metadata`
-  - 输出独立构建元信息文件
 - `release manifest`
-  - 输出 release 级别的制品清单
+
+`P3-M1` 当前公开入口：
+
+- `fiberx build --profile <name>`
+- `build.profiles`
+- `dist/build-metadata.json`
+- `dist/release-manifest.json`
+
+继续延后的 `P3-M2` 范围：
+
+- `pre/post hooks`
+- `UPX`
 
 当前对 `P3` 的固定边界：
 
-- 不新增 CLI flag
-- 不扩展 `fiberx.yaml` 解析
-- 不改 `internal/build` 执行逻辑
-- 不引入 hooks、UPX、profile、manifest 的任何实际代码
-- 不在本次状态切换里改现有 `build` 命令输出结构
+- `P3-M1` 只做 profile overlay 与构建结果元信息，不改 `P2` 的 archive / checksum / dry-run / parallel 语义。
+- `P3-M2` 之前不引入 hooks、UPX 或新的 target 生命周期命令。
+- profile 只能覆盖现有 build 能力，不允许创建全新 target，也不允许改写 `project.*`、`version.source`、`version.package`。
 
 ## 暂不进入
 

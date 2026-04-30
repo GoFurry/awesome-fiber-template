@@ -698,8 +698,8 @@ func expectedCapabilityMaterialization(preset string, capabilities []string) (bo
 func assertGeneratedFileContains(t *testing.T, targetDir string, relativePath string, want string) {
 	t.Helper()
 
-	content := readGeneratedFile(t, targetDir, relativePath)
-	if !strings.Contains(content, want) {
+	content := normalizeGeneratedText(readGeneratedFile(t, targetDir, relativePath))
+	if !strings.Contains(content, normalizeGeneratedText(want)) {
 		t.Fatalf("expected %s to contain %q, got:\n%s", relativePath, want, content)
 	}
 }
