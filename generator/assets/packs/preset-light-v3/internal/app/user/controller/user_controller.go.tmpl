@@ -12,52 +12,68 @@ import (
 	"{{module_path}}/pkg/common"
 )
 
-type Controller struct {
-	service *service.Service
-}
+type userAPI struct{}
 
-func New(service *service.Service) *Controller {
-	return &Controller{service: service}
-}
+var UserAPI = &userAPI{}
 
-func (ctl *Controller) Create(c fiber.Ctx) error {
+func (api *userAPI) Create(c fiber.Ctx) error {
+	svc := service.GetUserService()
+	if svc == nil {
+		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
+	}
+
 	var input models.CreateUserInput
 	if err := c.Bind().Body(&input); err != nil {
 		return common.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	user, err := ctl.service.Create(c.Context(), input)
+	user, err := svc.Create(c.Context(), input)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, user)
 }
 
-func (ctl *Controller) List(c fiber.Ctx) error {
+func (api *userAPI) List(c fiber.Ctx) error {
+	svc := service.GetUserService()
+	if svc == nil {
+		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
+	}
+
 	pageNum, _ := strconv.Atoi(c.Query("page_num", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "10"))
 
-	result, err := ctl.service.List(c.Context(), pageNum, pageSize)
+	result, err := svc.List(c.Context(), pageNum, pageSize)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, result)
 }
 
-func (ctl *Controller) Get(c fiber.Ctx) error {
+func (api *userAPI) Get(c fiber.Ctx) error {
+	svc := service.GetUserService()
+	if svc == nil {
+		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
+	}
+
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
 	}
 
-	user, err := ctl.service.Get(c.Context(), id)
+	user, err := svc.Get(c.Context(), id)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, user)
 }
 
-func (ctl *Controller) Update(c fiber.Ctx) error {
+func (api *userAPI) Update(c fiber.Ctx) error {
+	svc := service.GetUserService()
+	if svc == nil {
+		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
+	}
+
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
@@ -68,20 +84,25 @@ func (ctl *Controller) Update(c fiber.Ctx) error {
 		return common.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	user, err := ctl.service.Update(c.Context(), id, input)
+	user, err := svc.Update(c.Context(), id, input)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, user)
 }
 
-func (ctl *Controller) Delete(c fiber.Ctx) error {
+func (api *userAPI) Delete(c fiber.Ctx) error {
+	svc := service.GetUserService()
+	if svc == nil {
+		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
+	}
+
 	id, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
 	}
 
-	if err := ctl.service.Delete(c.Context(), id); err != nil {
+	if err := svc.Delete(c.Context(), id); err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, fiber.Map{"id": id})

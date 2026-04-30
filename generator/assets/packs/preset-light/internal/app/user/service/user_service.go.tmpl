@@ -7,16 +7,23 @@ import (
 
 	"{{module_path}}/internal/app/user/dao"
 	"{{module_path}}/internal/app/user/models"
+	appdb "{{module_path}}/internal/infra/db"
 )
 
 var ErrInvalidUserInput = errors.New("invalid user input")
+
+var userService *Service
 
 type Service struct {
 	store *dao.Store
 }
 
-func New(store *dao.Store) *Service {
-	return &Service{store: store}
+func Init(database *appdb.Handle) {
+	userService = &Service{store: dao.NewStore(database)}
+}
+
+func GetUserService() *Service {
+	return userService
 }
 
 func (s *Service) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {

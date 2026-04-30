@@ -2,8 +2,6 @@ package bootstrap
 
 import (
 	"{{module_path}}/config"
-	usercontroller "{{module_path}}/internal/app/user/controller"
-	userdao "{{module_path}}/internal/app/user/dao"
 	userservice "{{module_path}}/internal/app/user/service"
 	"{{module_path}}/internal/infra/cache"
 	"{{module_path}}/internal/infra/db"
@@ -46,9 +44,7 @@ func serve(configPath string) error {
 	defer stopScheduler()
 
 	cacheStore := cache.New(cfg.Redis)
-	userStore := userdao.NewStore(database)
-	userService := userservice.New(userStore, cacheStore)
-	userController := usercontroller.New(userService)
+	userservice.Init(database, cacheStore)
 
 	services := append([]string{}, Services()...)
 	if cfg.Metrics.Enabled {
@@ -61,11 +57,10 @@ func serve(configPath string) error {
 	logger.Info("fiberx heavy service starting", logging.String("addr", cfg.Address()))
 
 	app := httprouter.NewApp(httprouter.Dependencies{
-		Config:         cfg,
-		Logger:         logger,
-		Metrics:        metricsCollector,
-		UserController: userController,
-		Services:       services,
+		Config:   cfg,
+		Logger:   logger,
+		Metrics:  metricsCollector,
+		Services: services,
 	})
 
 	return app.Listen(cfg.Address())

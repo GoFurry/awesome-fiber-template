@@ -14,17 +14,15 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	"{{module_path}}/config"
-	usercontroller "{{module_path}}/internal/app/user/controller"
 	applogging "{{module_path}}/internal/infra/logging"
 	httpmiddleware "{{module_path}}/internal/transport/http/middleware"
 	"{{module_path}}/pkg/common"
 )
 
 type Dependencies struct {
-	Config         config.Config
-	Logger         *applogging.Logger
-	UserController *usercontroller.Controller
-	Services       []string
+	Config   config.Config
+	Logger   *applogging.Logger
+	Services []string
 }
 
 func NewApp(deps Dependencies) *fiber.App {
@@ -60,7 +58,7 @@ func NewApp(deps Dependencies) *fiber.App {
 	}))
 
 	registerHealthRoutes(app, deps)
-	registerUserRoutes(app, deps.UserController)
+	api(app.Group("/api"))
 	registerSwaggerRoutes(app, deps.Config)
 	registerEmbeddedUIRoutes(app, deps.Config)
 
@@ -79,19 +77,10 @@ func registerHealthRoutes(app *fiber.App, deps Dependencies) {
 		return common.Success(c, payload)
 	}
 
-	app.Get(HealthzPath, handler)
-	app.Get(LivezPath, handler)
-	app.Get(ReadyzPath, handler)
-	app.Get(StartupzPath, handler)
-}
-
-func registerUserRoutes(app *fiber.App, controller *usercontroller.Controller) {
-	group := app.Group(UserBasePath)
-	group.Post("/", controller.Create)
-	group.Get("/", controller.List)
-	group.Get("/:id", controller.Get)
-	group.Put("/:id", controller.Update)
-	group.Delete("/:id", controller.Delete)
+	app.Get("/healthz", handler)
+	app.Get("/livez", handler)
+	app.Get("/readyz", handler)
+	app.Get("/startupz", handler)
 }
 
 func registerSwaggerRoutes(app *fiber.App, cfg config.Config) {

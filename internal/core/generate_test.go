@@ -45,10 +45,10 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 		{name: "medium fiber-v2 cobra", preset: "medium", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
 		{name: "medium fiber-v2 native", preset: "medium", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
 		{name: "medium with redis", preset: "medium", capabilities: []string{"redis"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectRedis: true, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
-		{name: "light default", preset: "light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
-		{name: "light fiber-v2 native", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
-		{name: "light fiber-v3 native", preset: "light", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
-		{name: "light fiber-v2 cobra", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerUserRoutes(app, deps.UserController)`, expectLight: true},
+		{name: "light default", preset: "light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
+		{name: "light fiber-v2 native", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
+		{name: "light fiber-v3 native", preset: "light", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
+		{name: "light fiber-v2 cobra", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
 		{name: "light with swagger", preset: "light", capabilities: []string{"swagger"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectLight: true, expectDocsAsset: true},
 		{name: "light with embedded-ui", preset: "light", capabilities: []string{"embedded-ui"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerEmbeddedUIRoutes(app, deps.Config)`, expectLight: true, expectUIAsset: true},
 		{name: "extra-light default", preset: "extra-light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerHealthRoutes(app, deps)`, expectExtraLight: true},
@@ -109,6 +109,7 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 			assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "version", "version.go"), `Version   = "dev"`)
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, tc.routerSnippet)
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, `github.com/gofiber/fiber/`+expectedFiberVersion(tc.fiberVersion))
+			assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `HealthzPath`)
 			assertGeneratedFileContains(t, targetDir, "go.mod", expectedFiberDependency(tc.fiberVersion))
 			if expectedCLIStyle(tc.cliStyle) == stack.CLICobra {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("cmd", "root.go"), `github.com/spf13/cobra`)
@@ -136,6 +137,30 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `"jobs:scheduler"`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "infra", "metrics", "metrics.go"), "fiberx_requests_total")
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "jobs", "scheduler.go"), "fiberx heavy demo job ran")
+			}
+			if tc.expectMedium || tc.expectHeavy || tc.expectLight {
+				assertGeneratedFileContains(t, targetDir, tc.routerPath, `api(app.Group("/api"))`)
+				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `RouteRegistrar`)
+				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `registerApplicationRoutes(`)
+				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `UserController`)
+				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `registerUserRoutes(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func api(root fiber.Router)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func v1(root fiber.Router)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func userRoutes(root fiber.Router)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `user.UserAPI.Create`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `UserBasePath = "/api/v1/user"`)
+				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "bootstrap", "route_registrars.go"))
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userservice.Init(`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registrars := buildRouteRegistrars(`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userStore :=`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userService :=`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userController :=`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `var UserAPI = &userAPI{}`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func GetUserService() *Service`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func Init(`)
+			}
+			if tc.expectExtraLight {
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `HealthzPath`)
 			}
 
 			bootstrap := readGeneratedFile(t, targetDir, filepath.Join("internal", "bootstrap", "bootstrap.go"))
@@ -701,6 +726,15 @@ func assertGeneratedFileContains(t *testing.T, targetDir string, relativePath st
 	content := normalizeGeneratedText(readGeneratedFile(t, targetDir, relativePath))
 	if !strings.Contains(content, normalizeGeneratedText(want)) {
 		t.Fatalf("expected %s to contain %q, got:\n%s", relativePath, want, content)
+	}
+}
+
+func assertGeneratedFileNotContains(t *testing.T, targetDir string, relativePath string, want string) {
+	t.Helper()
+
+	content := normalizeGeneratedText(readGeneratedFile(t, targetDir, relativePath))
+	if strings.Contains(content, normalizeGeneratedText(want)) {
+		t.Fatalf("expected %s to not contain %q, got:\n%s", relativePath, want, content)
 	}
 }
 

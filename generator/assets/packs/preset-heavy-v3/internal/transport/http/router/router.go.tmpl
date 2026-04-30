@@ -14,7 +14,6 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 
 	"{{module_path}}/config"
-	usercontroller "{{module_path}}/internal/app/user/controller"
 	applogging "{{module_path}}/internal/infra/logging"
 	appmetrics "{{module_path}}/internal/infra/metrics"
 	httpmiddleware "{{module_path}}/internal/transport/http/middleware"
@@ -23,11 +22,10 @@ import (
 )
 
 type Dependencies struct {
-	Config         config.Config
-	Logger         *applogging.Logger
-	Metrics        *appmetrics.Collector
-	UserController *usercontroller.Controller
-	Services       []string
+	Config   config.Config
+	Logger   *applogging.Logger
+	Metrics  *appmetrics.Collector
+	Services []string
 }
 
 func NewApp(deps Dependencies) *fiber.App {
@@ -37,7 +35,6 @@ func NewApp(deps Dependencies) *fiber.App {
 	}
 
 	app := fiber.New(fiber.Config{
-
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			logger.Error("request failed", applogging.String("path", c.Path()), applogging.String("error", err.Error()))
 			status := fiber.StatusInternalServerError
@@ -66,7 +63,7 @@ func NewApp(deps Dependencies) *fiber.App {
 	}))
 
 	registerHealthRoutes(app, deps)
-	registerUserRoutes(app, deps.UserController)
+	api(app.Group("/api"))
 	registerSwaggerRoutes(app, deps.Config)
 	registerEmbeddedUIRoutes(app, deps.Config)
 	registerMetricsRoutes(app, deps)
@@ -94,19 +91,10 @@ func registerHealthRoutes(app *fiber.App, deps Dependencies) {
 		return common.Success(c, payload)
 	}
 
-	app.Get(HealthzPath, handler)
-	app.Get(LivezPath, handler)
-	app.Get(ReadyzPath, handler)
-	app.Get(StartupzPath, handler)
-}
-
-func registerUserRoutes(app *fiber.App, controller *usercontroller.Controller) {
-	group := app.Group(UserBasePath)
-	group.Post("/", controller.Create)
-	group.Get("/", controller.List)
-	group.Get("/:id", controller.Get)
-	group.Put("/:id", controller.Update)
-	group.Delete("/:id", controller.Delete)
+	app.Get("/healthz", handler)
+	app.Get("/livez", handler)
+	app.Get("/readyz", handler)
+	app.Get("/startupz", handler)
 }
 
 func registerSwaggerRoutes(app *fiber.App, cfg config.Config) {

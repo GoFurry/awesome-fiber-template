@@ -10,20 +10,27 @@ import (
 	"{{module_path}}/internal/app/user/dao"
 	"{{module_path}}/internal/app/user/models"
 	"{{module_path}}/internal/infra/cache"
+	appdb "{{module_path}}/internal/infra/db"
 )
 
 var ErrInvalidUserInput = errors.New("invalid user input")
+
+var userService *Service
 
 type Service struct {
 	store *dao.Store
 	cache cache.Store
 }
 
-func New(store *dao.Store, cacheStore cache.Store) *Service {
-	return &Service{
-		store: store,
+func Init(database *appdb.Handle, cacheStore cache.Store) {
+	userService = &Service{
+		store: dao.NewStore(database),
 		cache: cacheStore,
 	}
+}
+
+func GetUserService() *Service {
+	return userService
 }
 
 func (s *Service) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {

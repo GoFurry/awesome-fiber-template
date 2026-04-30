@@ -49,17 +49,17 @@ func NewApp(deps Dependencies) *fiber.App {
 
 func registerHealthRoutes(app *fiber.App, deps Dependencies) {
 	payload := fiber.Map{
-		"app_name":    deps.Config.Server.AppName,
-		"services":    deps.Services,
-		"database":    fiber.Map{"ready": deps.Database != nil},
+		"app_name": deps.Config.Server.AppName,
+		"services": deps.Services,
+		"database": fiber.Map{"ready": deps.Database != nil},
 	}
 
 	handler := func(c *fiber.Ctx) error {
 		return common.Success(c, payload)
 	}
 
-	app.Get(HealthzPath, handler)
-	app.Get(LivezPath, handler)
-	app.Get(ReadyzPath, handler)
-	app.Get(StartupzPath, handler)
+	app.Get("/healthz", handler)
+	app.Get("/livez", handler)
+	app.Get("/readyz", handler)
+	app.Get("/startupz", handler)
 }

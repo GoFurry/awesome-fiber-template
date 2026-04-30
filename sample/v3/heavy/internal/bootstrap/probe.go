@@ -1,0 +1,31 @@
+package bootstrap
+
+import (
+	env "github.com/GoFurry/fiberx/v3/heavy/config"
+	cache "github.com/GoFurry/fiberx/v3/heavy/internal/infra/cache"
+	"github.com/GoFurry/fiberx/v3/heavy/internal/infra/db"
+)
+
+func Live() bool {
+	return true
+}
+
+func Started() bool {
+	return started.Load()
+}
+
+func Ready() bool {
+	if !Started() {
+		return false
+	}
+
+	cfg := env.GetServerConfig()
+	if cfg.DataBase.Enabled && !db.Orm.Ready() {
+		return false
+	}
+	if cfg.Redis.Enabled && !cache.RedisReady() {
+		return false
+	}
+
+	return true
+}

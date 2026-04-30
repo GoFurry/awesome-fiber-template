@@ -2,8 +2,6 @@ package bootstrap
 
 import (
 	"{{module_path}}/config"
-	usercontroller "{{module_path}}/internal/app/user/controller"
-	userdao "{{module_path}}/internal/app/user/dao"
 	userservice "{{module_path}}/internal/app/user/service"
 	"{{module_path}}/internal/infra/db"
 	"{{module_path}}/internal/infra/logging"
@@ -35,17 +33,14 @@ func serve(configPath string) error {
 	}
 	defer database.Close()
 
-	userStore := userdao.NewStore(database)
-	userService := userservice.New(userStore)
-	userController := usercontroller.New(userService)
+	userservice.Init(database)
 
 	logger.Info("fiberx light service starting", logging.String("addr", cfg.Address()))
 
 	app := httprouter.NewApp(httprouter.Dependencies{
-		Config:         cfg,
-		Logger:         logger,
-		UserController: userController,
-		Services:       Services(),
+		Config:   cfg,
+		Logger:   logger,
+		Services: Services(),
 	})
 
 	return app.Listen(cfg.Address())
