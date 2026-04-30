@@ -68,6 +68,7 @@ type Recipe struct {
 	Logger       string   `json:"logger,omitempty"`
 	DB           string   `json:"db,omitempty"`
 	DataAccess   string   `json:"data_access,omitempty"`
+	JSONLib      string   `json:"json_lib,omitempty"`
 }
 
 type AssetSet struct {
@@ -265,6 +266,7 @@ func buildRecipe(plan planner.Plan) Recipe {
 		recipe.DB = plan.Database
 		recipe.DataAccess = plan.DataAccess
 	}
+	recipe.JSONLib = plan.JSONLib
 	return recipe
 }
 
@@ -373,6 +375,9 @@ func renderRecipeManagedFiles(recipe Recipe, catalogRoot string) ([]ManagedFile,
 	}
 	if recipe.DataAccess != "" {
 		options[stack.OptionDataAccess] = recipe.DataAccess
+	}
+	if recipe.JSONLib != "" {
+		options[stack.OptionJSONLib] = recipe.JSONLib
 	}
 
 	tempDir, err := os.MkdirTemp("", "fiberx-phase13-diff-*")

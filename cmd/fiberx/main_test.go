@@ -64,7 +64,8 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		!strings.Contains(output, "default medium experience: swagger,embedded-ui") ||
 		!strings.Contains(output, "capability-policy-swagger: default=heavy,medium optional=light unsupported=extra-light") ||
 		!strings.Contains(output, "supported data access: stdlib,sqlx,sqlc") ||
-		!strings.Contains(output, "planned next release: v0.1.1") {
+		!strings.Contains(output, "supported json libs: stdlib,sonic,go-json") ||
+		!strings.Contains(output, "current milestone: v0.1.1") {
 		t.Fatalf("expected verbose validate output, got:\n%s", output)
 	}
 
@@ -89,9 +90,10 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"doctor", "--verbose"})
 	})
 	if !strings.Contains(output, "release: v0.1.0") ||
-		!strings.Contains(output, "planned next release: v0.1.1") ||
+		!strings.Contains(output, "current milestone: v0.1.1") ||
 		!strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") ||
 		!strings.Contains(output, "capability-policy-redis: default=(none) optional=heavy,medium unsupported=light,extra-light") ||
+		!strings.Contains(output, "supported-json-libs: stdlib,sonic,go-json") ||
 		!strings.Contains(output, "generator-version: "+version.Version) {
 		t.Fatalf("expected verbose doctor output, got:\n%s", output)
 	}
@@ -100,7 +102,8 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"--help"})
 	})
 	if !strings.Contains(output, "Release: v0.1.0 completed.") ||
-		!strings.Contains(output, "Next milestone: v0.1.1 planned") ||
+		!strings.Contains(output, "Current milestone: v0.1.1 in progress for Fiber v3 app hooks") ||
+		!strings.Contains(output, "--json-lib stdlib|sonic|go-json") ||
 		!strings.Contains(output, "fiberx validate [--verbose]") ||
 		!strings.Contains(output, "fiberx doctor [--verbose]") {
 		t.Fatalf("expected release-oriented help output, got:\n%s", output)
@@ -181,7 +184,7 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 			return run([]string{"new", "demo", "--preset", "heavy"})
 		})
 	})
-	if !strings.Contains(output, "generated preset=heavy") || !strings.Contains(output, "capabilities: swagger,embedded-ui") || !strings.Contains(output, "stack: fiber-v3 + cobra + viper") || !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib") || !strings.Contains(output, "metadata: .fiberx/manifest.json") {
+	if !strings.Contains(output, "generated preset=heavy") || !strings.Contains(output, "capabilities: swagger,embedded-ui") || !strings.Contains(output, "stack: fiber-v3 + cobra + viper") || !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib json-lib=stdlib") || !strings.Contains(output, "metadata: .fiberx/manifest.json") {
 		t.Fatalf("expected heavy generation summary, got:\n%s", output)
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "main.go")); err != nil {
@@ -236,11 +239,28 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 			return run([]string{"new", "demo", "--preset", "medium", "--fiber-version", "v2", "--cli-style", "native"})
 		})
 	})
-	if !strings.Contains(output, "stack: fiber-v2 + native") || !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib") {
+	if !strings.Contains(output, "stack: fiber-v2 + native") || !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib json-lib=stdlib") {
 		t.Fatalf("expected compatibility stack generation summary, got:\n%s", output)
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "main.go")); err != nil {
 		t.Fatalf("expected compatibility project to be generated: %v", err)
+	}
+
+	workdir = t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		output = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light", "--json-lib", "sonic"})
+		})
+	})
+	if !strings.Contains(output, "runtime: logger=zap db=sqlite data-access=stdlib json-lib=sonic") {
+		t.Fatalf("expected json-lib generation summary, got:\n%s", output)
+	}
+	readmeData, err := os.ReadFile(filepath.Join(workdir, "demo", "README.md"))
+	if err != nil {
+		t.Fatalf("read generated README with json-lib: %v", err)
+	}
+	if !strings.Contains(string(readmeData), "json backend: `sonic`") {
+		t.Fatalf("expected generated README to include json backend, got:\n%s", string(readmeData))
 	}
 
 	workdir = t.TempDir()

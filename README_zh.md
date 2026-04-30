@@ -17,7 +17,7 @@
 ## 版本
 
 - `v0.1.0`：已完成
-- `v0.1.1`：已规划
+- `v0.1.1`：进行中
 - `v0.1.2`：已规划
 
 ## 文档入口
@@ -75,13 +75,13 @@ go run ./cmd/fiberx build --dry-run
 go run ./cmd/fiberx build --profile prod
 ```
 
-## v0.1.1 预告
+## v0.1.1 当前重点
 
-下一版将聚焦 Fiber v3 默认应用骨架和可选性能增强：
+当前 `v0.1.1` 聚焦 Fiber 默认应用骨架和可选性能增强：
 
 - Fiber v3 生命周期 hook 预留区和 `app.Hooks()` 生成
 - graceful shutdown 默认模板，以及更完整的默认中间件组合：`recover`、`request id`、`logger`、`cors`
-- 可选第三方 JSON backend 支持：计划参数 `--json-lib stdlib|sonic|go-json`
+- 可选第三方 JSON backend 支持：`--json-lib stdlib|sonic|go-json`
 
 ## Build Hook 安全提示
 

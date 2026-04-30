@@ -15,9 +15,9 @@ It includes:
 
 ## v0.1.1
 
-`v0.1.1` is the next planned milestone.
+`v0.1.1` is the current in-progress milestone.
 
-Planned items:
+Current scope:
 
 - Fiber v3 lifecycle hook skeleton points in the default generated app structure
   - source: [Fiber v3 Hooks](https://docs.gofiber.io/api/hooks/)
@@ -28,7 +28,7 @@ Planned items:
   - this is planned only for `Fiber v3`; `Fiber v2` will not receive the same hook skeleton
   - goal: make graceful startup and graceful shutdown customization easier without injecting business logic by default
 - `app.Hooks()` integration in generated Fiber v3 projects
-- graceful shutdown as a default generated template concern for Fiber v3
+- graceful shutdown as a default generated template concern for `Fiber v2 + v3`
 - default middleware composition uplift for the standard stack
   - `recover`
   - `request id`
@@ -38,7 +38,7 @@ Planned items:
   - sources:
     - [Fiber v3 Make Fiber Faster](https://docs.gofiber.io/guide/faster-fiber/)
     - [Fiber v2 Make Fiber Faster](https://docs.gofiber.io/v2.x/guide/faster-fiber/)
-  - planned generator parameter: `--json-lib`
+  - generator parameter: `--json-lib`
   - default: `stdlib`
   - first-round planned values:
     - `stdlib`

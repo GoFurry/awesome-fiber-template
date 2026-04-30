@@ -120,6 +120,8 @@ func replacementValue(name string, plan planner.Plan) string {
 		return plan.CLIStyle
 	case "fiber_module":
 		return plan.Options["fiber_module"]
+	case "fiber_dependency":
+		return plan.Options["fiber_dependency"]
 	case "default_stack":
 		return plan.Options["default_stack"]
 	case "default_logger":
@@ -136,6 +138,14 @@ func replacementValue(name string, plan planner.Plan) string {
 		return plan.Options["db_type_default"]
 	case "data_access_kind":
 		return plan.Options["data_access_kind"]
+	case "json_lib":
+		return plan.Options["json_lib"]
+	case "json_import":
+		return plan.Options["json_import"]
+	case "json_encoder":
+		return plan.Options["json_encoder"]
+	case "json_decoder":
+		return plan.Options["json_decoder"]
 	case "swagger_enabled":
 		return boolString(planHasCapability(plan, "swagger"))
 	case "embedded_ui_enabled":

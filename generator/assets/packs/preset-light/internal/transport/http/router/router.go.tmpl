@@ -1,6 +1,7 @@
 package router
 
 import (
+	{{json_import}}
 	"errors"
 	"os"
 	"path/filepath"
@@ -33,6 +34,8 @@ func NewApp(deps Dependencies) *fiber.App {
 
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true,
+		JSONEncoder:          {{json_encoder}},
+		JSONDecoder:          {{json_decoder}},
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			logger.Error("request failed", applogging.String("path", c.Path()), applogging.String("error", err.Error()))
 			status := fiber.StatusInternalServerError
@@ -47,6 +50,7 @@ func NewApp(deps Dependencies) *fiber.App {
 	})
 
 	app.Use(requestid.New())
+	app.Use(httpmiddleware.AccessLog(logger))
 	app.Use(recover.New())
 	app.Use(httpmiddleware.SecurityHeaders())
 	app.Use(etag.New())

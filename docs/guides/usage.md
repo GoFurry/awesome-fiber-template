@@ -5,7 +5,7 @@ This guide explains how to use the current `fiberx` generator from the repositor
 ## Release Snapshot
 
 - current release: `v0.1.0`
-- next planned milestone: `v0.1.1`
+- current milestone: `v0.1.1`
 - generatable presets: `heavy`, `medium`, `light`, `extra-light`
 - implemented capabilities: `redis`, `swagger`, `embedded-ui`
 - default stack: `fiber-v3 + cobra + viper`
@@ -57,6 +57,7 @@ go run ./cmd/fiberx new demo --preset extra-light
 go run ./cmd/fiberx new demo --preset medium --with redis
 go run ./cmd/fiberx new demo --preset medium --fiber-version v2 --cli-style native
 go run ./cmd/fiberx new demo --preset medium --logger slog --db pgsql --data-access sqlx
+go run ./cmd/fiberx new demo --preset medium --json-lib sonic
 go run ./cmd/fiberx new demo --preset light --db mysql --data-access sqlc
 ```
 
@@ -78,6 +79,7 @@ With an explicit project name:
 
 ```bash
 go run ./cmd/fiberx init --name demo --preset medium
+go run ./cmd/fiberx init --name demo --preset light --json-lib go-json
 ```
 
 ## Inspect Presets And Capabilities

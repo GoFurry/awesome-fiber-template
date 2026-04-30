@@ -94,6 +94,7 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 			assertGeneratedFileContains(t, targetDir, "README.md", "github.com/example/demo")
 			assertGeneratedFileContains(t, targetDir, "README.md", "fiber version: `"+expectedFiberVersion(tc.fiberVersion)+"`")
 			assertGeneratedFileContains(t, targetDir, "README.md", "cli style: `"+expectedCLIStyle(tc.cliStyle)+"`")
+			assertGeneratedFileContains(t, targetDir, "README.md", "json backend: `stdlib`")
 			assertGeneratedFileContains(t, targetDir, "README.md", "docs/runbook.md")
 			assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "runbook.md"), "config/server.prod.yaml")
 			assertGeneratedFileContains(t, targetDir, filepath.Join("docs", "configuration.md"), "config/server.dev.yaml")
@@ -109,7 +110,13 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 			assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "version", "version.go"), `Version   = "dev"`)
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, tc.routerSnippet)
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, `github.com/gofiber/fiber/`+expectedFiberVersion(tc.fiberVersion))
+			assertGeneratedFileContains(t, targetDir, tc.routerPath, `JSONEncoder:`)
+			assertGeneratedFileContains(t, targetDir, tc.routerPath, `json.Marshal`)
+			assertGeneratedFileContains(t, targetDir, tc.routerPath, `JSONDecoder:`)
+			assertGeneratedFileContains(t, targetDir, tc.routerPath, `json.Unmarshal`)
 			assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `HealthzPath`)
+			assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `signal.NotifyContext`)
+			assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `app.Shutdown()`)
 			assertGeneratedFileContains(t, targetDir, "go.mod", expectedFiberDependency(tc.fiberVersion))
 			if expectedCLIStyle(tc.cliStyle) == stack.CLICobra {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("cmd", "root.go"), `github.com/spf13/cobra`)
@@ -150,6 +157,7 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `user.UserAPI.Create`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `UserBasePath = "/api/v1/user"`)
 				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "bootstrap", "route_registrars.go"))
+				assertGeneratedFileContains(t, targetDir, tc.routerPath, `app.Use(httpmiddleware.AccessLog(logger))`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userservice.Init(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registrars := buildRouteRegistrars(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userStore :=`)
@@ -158,9 +166,25 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `var UserAPI = &userAPI{}`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func GetUserService() *Service`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func Init(`)
+				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registerAppHooks(app, cfg, logger)`)
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"), `OnPreStartupMessage`)
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"), `OnPostStartupMessage`)
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"), `OnPreShutdown`)
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"), `OnPostShutdown`)
+				} else {
+					assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"))
+					assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registerAppHooks(`)
+				}
 			}
 			if tc.expectExtraLight {
+				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `AccessLog(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `HealthzPath`)
+				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"), `OnPreStartupMessage`)
+				} else {
+					assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"))
+				}
 			}
 
 			bootstrap := readGeneratedFile(t, targetDir, filepath.Join("internal", "bootstrap", "bootstrap.go"))
@@ -477,7 +501,7 @@ func TestRunWritesPhase13MetadataManifest(t *testing.T) {
 	if strings.Join(projectManifest.Recipe.Capabilities, ",") != "swagger,embedded-ui" {
 		t.Fatalf("unexpected manifest capabilities: %+v", projectManifest.Recipe.Capabilities)
 	}
-	if projectManifest.Recipe.Logger != stack.DefaultLogger() || projectManifest.Recipe.DB != stack.DefaultDB() || projectManifest.Recipe.DataAccess != stack.DefaultDataAccess() {
+	if projectManifest.Recipe.Logger != stack.DefaultLogger() || projectManifest.Recipe.DB != stack.DefaultDB() || projectManifest.Recipe.DataAccess != stack.DefaultDataAccess() || projectManifest.Recipe.JSONLib != stack.DefaultJSONLib() {
 		t.Fatalf("unexpected manifest runtime recipe: %+v", projectManifest.Recipe)
 	}
 	if projectManifest.Assets.Base != "service-base-cobra" {
@@ -532,11 +556,12 @@ func TestRunSupportsPhase11RuntimeSelections(t *testing.T) {
 				t.Fatalf("Run() returned error: %v", err)
 			}
 
-			if summary.Logger != tc.logger || summary.Database != tc.dbKind || summary.DataAccess != tc.dataAccess {
+			if summary.Logger != tc.logger || summary.Database != tc.dbKind || summary.DataAccess != tc.dataAccess || summary.JSONLib != stack.DefaultJSONLib() {
 				t.Fatalf("unexpected runtime summary: %+v", summary)
 			}
 
 			assertGeneratedFileContains(t, targetDir, "README.md", "logger: `"+tc.logger+"`")
+			assertGeneratedFileContains(t, targetDir, "README.md", "json backend: `stdlib`")
 			switch tc.dbKind {
 			case stack.DBPgSQL:
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `db_type: "postgres"`)
@@ -591,6 +616,9 @@ func TestPhase11RuntimeMatrixDefaultStack(t *testing.T) {
 					if summary.DataAccess != dataAccess {
 						t.Fatalf("expected data access %q, got %q", dataAccess, summary.DataAccess)
 					}
+					if summary.JSONLib != stack.DefaultJSONLib() {
+						t.Fatalf("expected json lib %q, got %q", stack.DefaultJSONLib(), summary.JSONLib)
+					}
 					assertPhase11RuntimeArtifacts(t, targetDir, dbKind, dataAccess)
 
 					runGeneratedProjectTests(t, targetDir)
@@ -608,6 +636,94 @@ func TestPhase11RuntimeMatrixDefaultStack(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func TestRunSupportsJSONLibSelections(t *testing.T) {
+	testCases := []struct {
+		name          string
+		preset        string
+		fiberVersion  string
+		jsonLib       string
+		wantImport    string
+		wantEncoder   string
+		wantDecoder   string
+		expectHooksV3 bool
+	}{
+		{
+			name:          "medium v3 sonic",
+			preset:        "medium",
+			fiberVersion:  stack.FiberV3,
+			jsonLib:       stack.JSONLibSonic,
+			wantImport:    `"github.com/bytedance/sonic"`,
+			wantEncoder:   `sonic.Marshal`,
+			wantDecoder:   `sonic.Unmarshal`,
+			expectHooksV3: true,
+		},
+		{
+			name:          "light v2 go-json",
+			preset:        "light",
+			fiberVersion:  stack.FiberV2,
+			jsonLib:       stack.JSONLibGoJSON,
+			wantImport:    `json "github.com/goccy/go-json"`,
+			wantEncoder:   `json.Marshal`,
+			wantDecoder:   `json.Unmarshal`,
+			expectHooksV3: false,
+		},
+		{
+			name:          "extra-light v3 stdlib",
+			preset:        "extra-light",
+			fiberVersion:  stack.FiberV3,
+			jsonLib:       stack.JSONLibStdlib,
+			wantImport:    `"encoding/json"`,
+			wantEncoder:   `json.Marshal`,
+			wantDecoder:   `json.Unmarshal`,
+			expectHooksV3: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetDir := t.TempDir()
+			options := requestOptionsForTest(targetDir, tc.fiberVersion, stack.CLICobra)
+			options[stack.OptionJSONLib] = tc.jsonLib
+
+			summary, err := Run(Request{
+				ProjectName: "demo",
+				ModulePath:  "github.com/example/demo",
+				Preset:      tc.preset,
+				Options:     options,
+			})
+			if err != nil {
+				t.Fatalf("Run() returned error: %v", err)
+			}
+			if summary.JSONLib != tc.jsonLib {
+				t.Fatalf("expected json lib %q, got %q", tc.jsonLib, summary.JSONLib)
+			}
+
+			routerPath := filepath.Join("internal", "transport", "http", "router", "router.go")
+			assertGeneratedFileContains(t, targetDir, routerPath, tc.wantImport)
+			assertGeneratedFileContains(t, targetDir, routerPath, tc.wantEncoder)
+			assertGeneratedFileContains(t, targetDir, routerPath, tc.wantDecoder)
+			assertGeneratedFileContains(t, targetDir, "README.md", "json backend: `"+tc.jsonLib+"`")
+
+			projectManifest, err := metadata.LoadManifest(targetDir)
+			if err != nil {
+				t.Fatalf("LoadManifest() returned error: %v", err)
+			}
+			if projectManifest.Recipe.JSONLib != tc.jsonLib {
+				t.Fatalf("expected manifest json lib %q, got %q", tc.jsonLib, projectManifest.Recipe.JSONLib)
+			}
+
+			hooksPath := filepath.Join("internal", "bootstrap", "app_hooks.go")
+			if tc.expectHooksV3 {
+				assertGeneratedFileContains(t, targetDir, hooksPath, `OnPreStartupMessage`)
+			} else {
+				assertGeneratedFileMissing(t, targetDir, hooksPath)
+			}
+
+			runGeneratedProjectTests(t, targetDir)
+		})
 	}
 }
 

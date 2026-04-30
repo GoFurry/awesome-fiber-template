@@ -36,6 +36,14 @@ replacements:
     value_from: db_type_default
   - placeholder: "{{data_access_kind}}"
     value_from: data_access_kind
+  - placeholder: "{{json_lib}}"
+    value_from: json_lib
+  - placeholder: "{{json_import}}"
+    value_from: json_import
+  - placeholder: "{{json_encoder}}"
+    value_from: json_encoder
+  - placeholder: "{{json_decoder}}"
+    value_from: json_decoder
   - placeholder: "{{swagger_enabled}}"
     value_from: swagger_enabled
   - placeholder: "{{embedded_ui_enabled}}"

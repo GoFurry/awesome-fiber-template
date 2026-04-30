@@ -21,6 +21,7 @@ type Plan struct {
 	Logger          string
 	Database        string
 	DataAccess      string
+	JSONLib         string
 	Preset          manifest.PresetManifest
 	Capabilities    []manifest.CapabilityManifest
 	Base            AssetSelection
@@ -110,6 +111,7 @@ func BuildPlan(projectName string, modulePath string, presetName string, capabil
 		Logger:          loggerName,
 		Database:        databaseName,
 		DataAccess:      dataAccessName,
+		JSONLib:         stack.JSONLib(options),
 		Preset:          preset,
 		Capabilities:    capabilities,
 		Base:            base,

@@ -1,0 +1,43 @@
+package bootstrap
+
+import (
+	"log/slog"
+
+	"github.com/gofiber/fiber/v3"
+
+	"{{module_path}}/config"
+)
+
+func registerAppHooks(app *fiber.App, cfg config.Config, logger *slog.Logger) {
+	if app == nil {
+		return
+	}
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	app.Hooks().OnPreStartupMessage(func(sm *fiber.PreStartupMessageData) error {
+		sm.AddInfo("app-name", "App Name", cfg.Server.AppName)
+		sm.AddInfo("listen-address", "Listen", cfg.Address())
+		return nil
+	})
+
+	app.Hooks().OnPostStartupMessage(func(sm *fiber.PostStartupMessageData) error {
+		logger.Info("startup banner processed", slog.Bool("disabled", sm.Disabled), slog.Bool("prevented", sm.Prevented))
+		return nil
+	})
+
+	app.Hooks().OnPreShutdown(func() error {
+		logger.Info("shutdown starting", slog.String("addr", cfg.Address()))
+		return nil
+	})
+
+	app.Hooks().OnPostShutdown(func(err error) error {
+		if err != nil {
+			logger.Error("shutdown completed with error", slog.String("error", err.Error()))
+			return nil
+		}
+		logger.Info("shutdown completed", slog.String("addr", cfg.Address()))
+		return nil
+	})
+}

@@ -13,6 +13,7 @@ type Summary struct {
 	Logger                    string
 	Database                  string
 	DataAccess                string
+	JSONLib                   string
 	GeneratorVersion          string
 	GeneratorCommit           string
 	TemplateSetFingerprint    string
@@ -60,6 +61,7 @@ func Build(plan planner.Plan, rendered renderer.Result, writeResult writer.Resul
 		Logger:                    plan.Logger,
 		Database:                  plan.Database,
 		DataAccess:                plan.DataAccess,
+		JSONLib:                   plan.JSONLib,
 		GeneratorVersion:          generatorVersion,
 		GeneratorCommit:           generatorCommit,
 		TemplateSetFingerprint:    templateSetFingerprint,

@@ -16,7 +16,7 @@ The repository is intentionally focused on the generator itself: assets, plannin
 ## Release
 
 - `v0.1.0`: completed
-- `v0.1.1`: planned
+- `v0.1.1`: in progress
 - `v0.1.2`: planned
 
 ## Docs
@@ -71,9 +71,9 @@ go run ./cmd/fiberx build --dry-run
 go run ./cmd/fiberx build --profile prod
 ```
 
-## v0.1.1 Preview
+## v0.1.1 Focus
 
-The next planned milestone focuses on the default Fiber v3 app skeleton and optional performance tuning:
+The current `v0.1.1` milestone focuses on the default Fiber app skeleton and optional performance tuning:
 
 - Fiber v3 lifecycle hook skeleton points plus `app.Hooks()` integration
 - graceful shutdown and a stronger default middleware set: `recover`, `request id`, `logger`, `cors`

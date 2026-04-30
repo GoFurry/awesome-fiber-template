@@ -81,6 +81,7 @@ func runNew(args []string) error {
 	loggerBackend := fs.String("logger", stack.DefaultLogger(), "logger backend: zap or slog")
 	dbKind := fs.String("db", stack.DefaultDB(), "database kind: sqlite, pgsql, or mysql")
 	dataAccess := fs.String("data-access", stack.DefaultDataAccess(), "data access stack: stdlib, sqlx, or sqlc")
+	jsonLib := fs.String("json-lib", stack.DefaultJSONLib(), "json backend: stdlib, sonic, or go-json")
 
 	if err := fs.Parse(reorderArgs(args, map[string]bool{
 		"--module":        true,
@@ -91,6 +92,7 @@ func runNew(args []string) error {
 		"--logger":        true,
 		"--db":            true,
 		"--data-access":   true,
+		"--json-lib":      true,
 	})); err != nil {
 		return err
 	}
@@ -113,7 +115,7 @@ func runNew(args []string) error {
 		stack.OptionFiberVersion: *fiberVersion,
 		stack.OptionCLIStyle:     *cliStyle,
 	}
-	setOptionalRuntimeFlags(fs, options, *loggerBackend, *dbKind, *dataAccess)
+	setOptionalRuntimeFlags(fs, options, *loggerBackend, *dbKind, *dataAccess, *jsonLib)
 	req := core.Request{
 		ProjectName:  projectName,
 		ModulePath:   defaultModulePath(projectName, *modulePath),
@@ -142,6 +144,7 @@ func runInit(args []string) error {
 	loggerBackend := fs.String("logger", stack.DefaultLogger(), "logger backend: zap or slog")
 	dbKind := fs.String("db", stack.DefaultDB(), "database kind: sqlite, pgsql, or mysql")
 	dataAccess := fs.String("data-access", stack.DefaultDataAccess(), "data access stack: stdlib, sqlx, or sqlc")
+	jsonLib := fs.String("json-lib", stack.DefaultJSONLib(), "json backend: stdlib, sonic, or go-json")
 
 	if err := fs.Parse(reorderArgs(args, map[string]bool{
 		"--name":          true,
@@ -153,6 +156,7 @@ func runInit(args []string) error {
 		"--logger":        true,
 		"--db":            true,
 		"--data-access":   true,
+		"--json-lib":      true,
 	})); err != nil {
 		return err
 	}
@@ -181,7 +185,7 @@ func runInit(args []string) error {
 		stack.OptionFiberVersion: *fiberVersion,
 		stack.OptionCLIStyle:     *cliStyle,
 	}
-	setOptionalRuntimeFlags(fs, options, *loggerBackend, *dbKind, *dataAccess)
+	setOptionalRuntimeFlags(fs, options, *loggerBackend, *dbKind, *dataAccess, *jsonLib)
 
 	req := core.Request{
 		ProjectName:  projectName,
@@ -367,8 +371,8 @@ func runInspect(args []string) error {
 	fmt.Printf("preset: %s\n", projectManifest.Recipe.Preset)
 	fmt.Printf("capabilities: %s\n", joinOrNone(projectManifest.Recipe.Capabilities))
 	fmt.Printf("stack: fiber-%s + %s\n", projectManifest.Recipe.FiberVersion, projectManifest.Recipe.CLIStyle)
-	if projectManifest.Recipe.Logger != "" || projectManifest.Recipe.DB != "" || projectManifest.Recipe.DataAccess != "" {
-		fmt.Printf("runtime: logger=%s db=%s data-access=%s\n", valueOrNone(projectManifest.Recipe.Logger), valueOrNone(projectManifest.Recipe.DB), valueOrNone(projectManifest.Recipe.DataAccess))
+	if projectManifest.Recipe.Logger != "" || projectManifest.Recipe.DB != "" || projectManifest.Recipe.DataAccess != "" || projectManifest.Recipe.JSONLib != "" {
+		fmt.Printf("runtime: logger=%s db=%s data-access=%s json-lib=%s\n", valueOrNone(projectManifest.Recipe.Logger), valueOrNone(projectManifest.Recipe.DB), valueOrNone(projectManifest.Recipe.DataAccess), valueOrNone(projectManifest.Recipe.JSONLib))
 	}
 	fmt.Printf("base: %s\n", projectManifest.Assets.Base)
 	fmt.Printf("preset packs: %s\n", joinOrNone(projectManifest.Assets.PresetPacks))
@@ -409,6 +413,9 @@ func runDiff(args []string) error {
 	fmt.Printf("current-generator: %s (%s)\n", diffReport.Generator.Current.Version, diffReport.Generator.Current.Commit)
 	fmt.Printf("preset: %s\n", diffReport.Recipe.Preset)
 	fmt.Printf("capabilities: %s\n", joinOrNone(diffReport.Recipe.Capabilities))
+	if diffReport.Recipe.Logger != "" || diffReport.Recipe.DB != "" || diffReport.Recipe.DataAccess != "" || diffReport.Recipe.JSONLib != "" {
+		fmt.Printf("runtime: logger=%s db=%s data-access=%s json-lib=%s\n", valueOrNone(diffReport.Recipe.Logger), valueOrNone(diffReport.Recipe.DB), valueOrNone(diffReport.Recipe.DataAccess), valueOrNone(diffReport.Recipe.JSONLib))
+	}
 	fmt.Printf("missing files: %s\n", joinOrNone(diffReport.MissingFiles))
 	fmt.Printf("changed files: %s\n", joinOrNone(diffReport.ChangedFiles))
 	fmt.Printf("new managed files: %s\n", joinOrNone(diffReport.NewManagedFiles))
@@ -458,8 +465,8 @@ func runUpgradeInspect(args []string) error {
 	fmt.Printf("preset: %s\n", assessment.Recipe.Preset)
 	fmt.Printf("capabilities: %s\n", joinOrNone(assessment.Recipe.Capabilities))
 	fmt.Printf("stack: fiber-%s + %s\n", assessment.Recipe.FiberVersion, assessment.Recipe.CLIStyle)
-	if assessment.Recipe.Logger != "" || assessment.Recipe.DB != "" || assessment.Recipe.DataAccess != "" {
-		fmt.Printf("runtime: logger=%s db=%s data-access=%s\n", valueOrNone(assessment.Recipe.Logger), valueOrNone(assessment.Recipe.DB), valueOrNone(assessment.Recipe.DataAccess))
+	if assessment.Recipe.Logger != "" || assessment.Recipe.DB != "" || assessment.Recipe.DataAccess != "" || assessment.Recipe.JSONLib != "" {
+		fmt.Printf("runtime: logger=%s db=%s data-access=%s json-lib=%s\n", valueOrNone(assessment.Recipe.Logger), valueOrNone(assessment.Recipe.DB), valueOrNone(assessment.Recipe.DataAccess), valueOrNone(assessment.Recipe.JSONLib))
 	}
 	fmt.Printf("diff status: %s\n", assessment.DiffStatus)
 	fmt.Printf("compatibility level: %s\n", assessment.CompatibilityLevel)
@@ -593,8 +600,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "fiberx is a CLI-first Fiber project generator.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc]")
-	fmt.Fprintln(w, "  fiberx init [--name name] [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc]")
+	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc] [--json-lib stdlib|sonic|go-json]")
+	fmt.Fprintln(w, "  fiberx init [--name name] [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc] [--json-lib stdlib|sonic|go-json]")
 	fmt.Fprintln(w, "  fiberx list presets")
 	fmt.Fprintln(w, "  fiberx list capabilities")
 	fmt.Fprintln(w, "  fiberx explain preset <name>")
@@ -608,9 +615,10 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "  fiberx doctor [--verbose]")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
 	fmt.Fprintf(w, "Default logger/database/data access: %s / %s / %s\n", stack.DefaultLogger(), stack.DefaultDB(), stack.DefaultDataAccess())
+	fmt.Fprintf(w, "Default JSON backend: %s\n", stack.DefaultJSONLib())
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
 	fmt.Fprintln(w, "Release: v0.1.0 completed.")
-	fmt.Fprintln(w, "Next milestone: v0.1.1 planned for Fiber v3 lifecycle hook skeleton points and optional JSON backend selection.")
+	fmt.Fprintln(w, "Current milestone: v0.1.1 in progress for Fiber v3 app hooks, graceful shutdown, middleware uplift, and optional JSON backend selection.")
 	fmt.Fprintln(w, "Use `fiberx doctor --verbose` or `fiberx validate --verbose` for full diagnostics.")
 }
 
@@ -622,7 +630,7 @@ func printValidateVerbose(w io.Writer, catalog manifest.Catalog) {
 	fmt.Fprintln(w, "stable production baseline: medium")
 	fmt.Fprintln(w, "completed production track: heavy")
 	fmt.Fprintln(w, "release: v0.1.0")
-	fmt.Fprintln(w, "planned next release: v0.1.1")
+	fmt.Fprintln(w, "current milestone: v0.1.1")
 	fmt.Fprintln(w, "generator mainline: pure generator repository")
 	fmt.Fprintln(w, "default medium experience: swagger,embedded-ui")
 	fmt.Fprintln(w, "default heavy experience: swagger,embedded-ui")
@@ -635,9 +643,11 @@ func printValidateVerbose(w io.Writer, catalog manifest.Catalog) {
 	fmt.Fprintf(w, "default logger: %s\n", stack.DefaultLogger())
 	fmt.Fprintf(w, "default database: %s\n", stack.DefaultDB())
 	fmt.Fprintf(w, "default data access: %s\n", stack.DefaultDataAccess())
+	fmt.Fprintf(w, "default json lib: %s\n", stack.DefaultJSONLib())
 	fmt.Fprintf(w, "supported loggers: %s\n", stack.SupportedLoggers())
 	fmt.Fprintf(w, "supported databases: %s\n", stack.SupportedDatabases())
 	fmt.Fprintf(w, "supported data access: %s\n", stack.SupportedDataAccess())
+	fmt.Fprintf(w, "supported json libs: %s\n", stack.SupportedJSONLibs())
 	fmt.Fprintln(w, "runtime-option presets: medium,heavy,light")
 	fmt.Fprintln(w, "runtime-option unavailable presets: extra-light")
 }
@@ -646,7 +656,7 @@ func printDoctorVerbose(w io.Writer, cwd string, rootAbs string, catalog manifes
 	fmt.Fprintf(w, "cwd: %s\n", cwd)
 	fmt.Fprintf(w, "go: %s\n", runtime.Version())
 	fmt.Fprintf(w, "release: %s\n", currentRelease)
-	fmt.Fprintf(w, "planned next release: %s\n", nextRelease)
+	fmt.Fprintf(w, "current milestone: %s\n", nextRelease)
 	fmt.Fprintf(w, "manifest-root: %s\n", rootAbs)
 	fmt.Fprintf(w, "presets: %d\n", len(catalog.Presets))
 	fmt.Fprintf(w, "capabilities: %d\n", len(catalog.Capabilities))
@@ -666,9 +676,11 @@ func printDoctorVerbose(w io.Writer, cwd string, rootAbs string, catalog manifes
 	fmt.Fprintf(w, "default-logger: %s\n", stack.DefaultLogger())
 	fmt.Fprintf(w, "default-database: %s\n", stack.DefaultDB())
 	fmt.Fprintf(w, "default-data-access: %s\n", stack.DefaultDataAccess())
+	fmt.Fprintf(w, "default-json-lib: %s\n", stack.DefaultJSONLib())
 	fmt.Fprintf(w, "supported-loggers: %s\n", stack.SupportedLoggers())
 	fmt.Fprintf(w, "supported-databases: %s\n", stack.SupportedDatabases())
 	fmt.Fprintf(w, "supported-data-access: %s\n", stack.SupportedDataAccess())
+	fmt.Fprintf(w, "supported-json-libs: %s\n", stack.SupportedJSONLibs())
 	fmt.Fprintf(w, "generator-version: %s\n", version.Version)
 	fmt.Fprintf(w, "generator-commit: %s\n", version.Commit)
 	fmt.Fprintln(w, "writer-mode: real-write")
@@ -801,7 +813,7 @@ func printSummary(w io.Writer, summary report.Summary) {
 		fmt.Fprintf(w, " + viper")
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "runtime: logger=%s db=%s data-access=%s\n", summary.Logger, summary.Database, summary.DataAccess)
+	fmt.Fprintf(w, "runtime: logger=%s db=%s data-access=%s json-lib=%s\n", summary.Logger, summary.Database, summary.DataAccess, summary.JSONLib)
 	fmt.Fprintf(w, "base: %s\n", summary.Base)
 	fmt.Fprintf(w, "preset packs: %s\n", joinOrNone(summary.PresetPacks))
 	fmt.Fprintf(w, "capabilities: %s\n", joinOrNone(summary.Capabilities))
@@ -920,7 +932,7 @@ func reorderArgs(args []string, valueFlags map[string]bool) []string {
 	return append(reordered, positionals...)
 }
 
-func setOptionalRuntimeFlags(fs *flag.FlagSet, options map[string]string, loggerBackend, dbKind, dataAccess string) {
+func setOptionalRuntimeFlags(fs *flag.FlagSet, options map[string]string, loggerBackend, dbKind, dataAccess, jsonLib string) {
 	visited := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) {
 		visited[f.Name] = true
@@ -934,5 +946,8 @@ func setOptionalRuntimeFlags(fs *flag.FlagSet, options map[string]string, logger
 	}
 	if visited["data-access"] {
 		options[stack.OptionDataAccess] = dataAccess
+	}
+	if visited["json-lib"] {
+		options[stack.OptionJSONLib] = jsonLib
 	}
 }

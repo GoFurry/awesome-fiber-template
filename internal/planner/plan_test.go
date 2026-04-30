@@ -34,8 +34,8 @@ func TestBuildPlanSelectsMediumRedisAssetsAndRules(t *testing.T) {
 	if len(plan.CapabilityPacks) != 3 {
 		t.Fatalf("expected three capability packs for medium defaults + redis, got %#v", plan.CapabilityPacks)
 	}
-	if plan.Logger != "zap" || plan.Database != "sqlite" || plan.DataAccess != "stdlib" {
-		t.Fatalf("expected default runtime options zap/sqlite/stdlib, got logger=%q db=%q data=%q", plan.Logger, plan.Database, plan.DataAccess)
+	if plan.Logger != "zap" || plan.Database != "sqlite" || plan.DataAccess != "stdlib" || plan.JSONLib != "stdlib" {
+		t.Fatalf("expected default runtime options zap/sqlite/stdlib/stdlib, got logger=%q db=%q data=%q json=%q", plan.Logger, plan.Database, plan.DataAccess, plan.JSONLib)
 	}
 	if len(plan.RuntimeOverlays) != 2 {
 		t.Fatalf("expected two runtime overlays, got %#v", plan.RuntimeOverlays)

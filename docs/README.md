@@ -5,7 +5,7 @@ This directory contains the maintained design notes, guides, and release roadmap
 ## Current Release
 
 - `v0.1.0`: completed
-- `v0.1.1`: planned
+- `v0.1.1`: in progress
 - `v0.1.2`: planned
 
 ## Planned Focus

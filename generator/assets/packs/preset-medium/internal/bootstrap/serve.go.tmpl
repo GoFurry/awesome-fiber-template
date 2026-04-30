@@ -1,6 +1,12 @@
 package bootstrap
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+
 	"{{module_path}}/config"
 	userservice "{{module_path}}/internal/app/user/service"
 	"{{module_path}}/internal/infra/cache"
@@ -45,5 +51,28 @@ func serve(configPath string) error {
 		Services: Services(),
 	})
 
-	return app.Listen(cfg.Address())
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	listenErrCh := make(chan error, 1)
+	go func() {
+		listenErrCh <- app.Listen(cfg.Address())
+	}()
+
+	select {
+	case err := <-listenErrCh:
+		return err
+	case <-ctx.Done():
+	}
+
+	logger.Info("shutdown signal received", logging.String("addr", cfg.Address()))
+	shutdownErr := app.Shutdown()
+	listenErr := <-listenErrCh
+	if shutdownErr != nil {
+		return shutdownErr
+	}
+	if listenErr != nil && !strings.Contains(strings.ToLower(listenErr.Error()), "server closed") {
+		return listenErr
+	}
+	return nil
 }

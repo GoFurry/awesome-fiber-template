@@ -1,0 +1,39 @@
+package middleware
+
+import (
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+
+	applogging "{{module_path}}/internal/infra/logging"
+)
+
+func AccessLog(logger *applogging.Logger) fiber.Handler {
+	if logger == nil {
+		logger = applogging.Default()
+	}
+
+	return func(c fiber.Ctx) error {
+		startedAt := time.Now()
+		err := c.Next()
+
+		fields := []applogging.Field{
+			applogging.String("method", c.Method()),
+			applogging.String("path", c.Path()),
+			applogging.Int("status", c.Response().StatusCode()),
+			applogging.String("latency", time.Since(startedAt).String()),
+		}
+		if requestID := c.GetRespHeader("X-Request-ID"); requestID != "" {
+			fields = append(fields, applogging.String("request_id", requestID))
+		}
+
+		if err != nil {
+			fields = append(fields, applogging.String("error", err.Error()))
+			logger.Error("request completed with error", fields...)
+			return err
+		}
+
+		logger.Info("request completed", fields...)
+		return nil
+	}
+}
