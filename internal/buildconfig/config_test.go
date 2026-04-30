@@ -136,6 +136,52 @@ build:
 	}
 }
 
+func TestLoadParsesTargetHooksAndUPX(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  compress:
+    upx:
+      enabled: true
+      level: 7
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+      pre_hooks:
+        - name: generate
+          command: ["go", "generate", "./..."]
+          dir: "."
+          env:
+            MODE: test
+      post_hooks:
+        - command: ["go", "version"]
+`)
+
+	cfg, err := Load(projectDir)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if !cfg.Build.Compress.UPX.Enabled || cfg.Build.Compress.UPX.Level != 7 {
+		t.Fatalf("unexpected upx config: %#v", cfg.Build.Compress.UPX)
+	}
+	if len(cfg.Build.Targets[0].PreHooks) != 1 || len(cfg.Build.Targets[0].PostHooks) != 1 {
+		t.Fatalf("unexpected hook config: %#v", cfg.Build.Targets[0])
+	}
+}
+
 func TestLoadRejectsMissingConfig(t *testing.T) {
 	_, err := Load(t.TempDir())
 	if err == nil || !strings.Contains(err.Error(), Filename) {
@@ -151,9 +197,8 @@ project:
   name: demo
   module: github.com/example/demo
 build:
-  compress:
-    upx:
-      enabled: true
+  post_hooks:
+    - command: ["go", "version"]
   version:
     source: git
     package: github.com/example/demo/internal/version
@@ -169,8 +214,38 @@ build:
 `)
 
 	_, err := Load(projectDir)
-	if err == nil || !strings.Contains(err.Error(), "build.compress") {
+	if err == nil || !strings.Contains(err.Error(), "build.post_hooks") {
 		t.Fatalf("expected unsupported field error, got %v", err)
+	}
+}
+
+func TestLoadRejectsUnsupportedGlobalHooks(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  pre_hooks:
+    - command: ["go", "version"]
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), "build.pre_hooks") {
+		t.Fatalf("expected unsupported global hooks error, got %v", err)
 	}
 }
 
@@ -265,6 +340,134 @@ build:
 	_, err := Load(projectDir)
 	if err == nil || !strings.Contains(err.Error(), `target patch "worker" does not match any base target`) {
 		t.Fatalf("expected unknown target patch error, got %v", err)
+	}
+}
+
+func TestLoadRejectsProfileTargetHooks(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  profiles:
+    prod:
+      targets:
+        - name: server
+          pre_hooks:
+            - command: ["go", "version"]
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), "build.profiles.prod.targets[].pre_hooks") {
+		t.Fatalf("expected unsupported profile target hooks error, got %v", err)
+	}
+}
+
+func TestLoadRejectsEmptyHookCommand(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+      pre_hooks:
+        - name: empty
+          command: []
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), "hook command must contain at least one element") {
+		t.Fatalf("expected empty hook command error, got %v", err)
+	}
+}
+
+func TestLoadRejectsHookDirOutsideProject(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+      pre_hooks:
+        - command: ["go", "version"]
+          dir: "../outside"
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), "must stay within the project root") {
+		t.Fatalf("expected hook dir boundary error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidUPXLevel(t *testing.T) {
+	projectDir := t.TempDir()
+	mustWriteProjectSupportFiles(t, projectDir)
+	writeBuildConfig(t, projectDir, `
+project:
+  name: demo
+  module: github.com/example/demo
+build:
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+  compress:
+    upx:
+      enabled: true
+      level: 10
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - linux/amd64
+`)
+
+	_, err := Load(projectDir)
+	if err == nil || !strings.Contains(err.Error(), "upx level 10") {
+		t.Fatalf("expected invalid upx level error, got %v", err)
 	}
 }
 

@@ -20,6 +20,10 @@ build:
   checksum:
     enabled: false
     algorithm: sha256
+  compress:
+    upx:
+      enabled: false
+      level: 5
   profiles:
     prod:
       out_dir: dist/prod
@@ -48,3 +52,5 @@ build:
         files:
           - README.md
           - config
+      pre_hooks: []
+      post_hooks: []

@@ -23,7 +23,7 @@
 
 ## State 4：生成后维护与工程化
 
-### Phase 13：版本升级与差异检测
+### Phase 13：版本元信息与差异检测
 
 当前状态：`completed`
 
@@ -69,6 +69,8 @@
 - `P0`：`completed`
 - `P2`：`completed`
 - `P3`：`active`
+- `P3-M1`：`completed`
+- `P3-M2`：`active`
 
 已完成的 `P0` 能力：
 
@@ -87,16 +89,6 @@
 - `--dry-run`
 - 并发构建
 
-`P2` 已落地口径：
-
-- `build.parallel`
-- `build.targets[].archive.enabled`
-- `build.targets[].archive.format`
-- `build.targets[].archive.files`
-- `build.checksum.enabled`
-- `build.checksum.algorithm`
-- `fiberx build --dry-run`
-
 `P2` 完成依据：
 
 - 自动测试通过：
@@ -110,37 +102,83 @@
   - `archive`
   - `SHA256SUMS`
   - `parallel` 下输出顺序稳定
-- archive 验证通过：
-  - Linux => `.tar.gz`
-  - Windows => `.zip`
-  - archive 内包含二进制和附加文件
-- checksum 验证通过：
-  - `dist/SHA256SUMS`
-  - 指向最终 distributable artifacts
 
-当前推进中的 `P3-M1` 范围：
+已完成的 `P3-M1` 能力：
 
-- `profiles`
-- `build metadata`
-- `release manifest`
-
-`P3-M1` 当前公开入口：
-
-- `fiberx build --profile <name>`
 - `build.profiles`
+- `fiberx build --profile <name>`
 - `dist/build-metadata.json`
 - `dist/release-manifest.json`
 
-继续延后的 `P3-M2` 范围：
+`P3-M1` 固定边界：
 
-- `pre/post hooks`
-- `UPX`
+- profile 只是 base `build` 的 overlay
+- profile 不创建新 target
+- profile 不改写 `project.*`
+- profile 不改写 `version.source / version.package`
+
+当前推进中的 `P3-M2` 范围：
+
+- `build.targets[].pre_hooks`
+- `build.targets[].post_hooks`
+- `build.compress.upx`
+
+`P3-M2` 当前进度判断：
+
+- 核心实现：`completed`
+- 自动回归：`completed`
+- 手动冒烟：`completed`
+- 提交收口：`pending`
+
+`P3-M2` 当前固定规则：
+
+- hooks 只做 target 层，不做全局 hooks，也不做 profile hooks
+- hooks 使用 argv 数组执行，不通过 shell
+- 任一 hook 失败即整体失败
+- `--dry-run` 只展示 hooks / UPX 计划，不执行
+- UPX 是显式 opt-in 且为硬依赖：启用后找不到 `upx` 就直接失败
+
+`P3-M2` 执行顺序固定为：
+
+1. `pre_hooks`
+2. `go build`
+3. 可选 `UPX`
+4. `post_hooks`
+5. 可选 archive
+6. 可选 checksum
+7. `build-metadata.json`
+8. `release-manifest.json`
+
+`P3-M2` 当前收口依据：
+
+- `--dry-run` 已验证：
+  - 正确展示 hooks / UPX / metadata / release manifest 计划
+  - 不写 `dist`
+  - 不执行 hooks
+- archive 已验证：
+  - Linux => `.tar.gz`
+  - Windows => `.zip`
+  - archive 内包含二进制和附加文件
+- hook 失败路径已验证：
+  - `pre_hooks` 失败会中断整体构建
+- UPX 路径已验证：
+  - 未找到 `upx` 时直接失败
+  - 找到 `upx` 后成功构建
+- `build-metadata.json` / `release-manifest.json` 已验证反映 hooks / UPX 结果
+
+`P3-M2` 收口前还缺什么：
+
+- 提交当前工作区改动
+- 再决定是将 `Phase 15` 整体标记为 completed，还是继续在其后定义新的工程化阶段
 
 当前对 `P3` 的固定边界：
 
-- `P3-M1` 只做 profile overlay 与构建结果元信息，不改 `P2` 的 archive / checksum / dry-run / parallel 语义。
-- `P3-M2` 之前不引入 hooks、UPX 或新的 target 生命周期命令。
-- profile 只能覆盖现有 build 能力，不允许创建全新 target，也不允许改写 `project.*`、`version.source`、`version.package`。
+- `P3-M1` 已完成，不再改写其 profiles / metadata / manifest 公开语义
+- `P3-M2` 当前不引入新的 CLI flag
+- 不支持 `build.pre_hooks`
+- 不支持 `build.post_hooks`
+- 不支持 `build.profiles.*.pre_hooks / post_hooks`
+- 不支持 profile 级 UPX 覆盖
 
 ## 暂不进入
 

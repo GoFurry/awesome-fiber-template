@@ -29,6 +29,7 @@ type Build struct {
 	Defaults Defaults           `yaml:"defaults"`
 	Targets  []Target           `yaml:"targets"`
 	Checksum Checksum           `yaml:"checksum"`
+	Compress Compress           `yaml:"compress"`
 	Profiles map[string]Profile `yaml:"profiles"`
 }
 
@@ -49,6 +50,8 @@ type Target struct {
 	Output    string   `yaml:"output"`
 	Platforms []string `yaml:"platforms"`
 	Archive   Archive  `yaml:"archive"`
+	PreHooks  []Hook   `yaml:"pre_hooks"`
+	PostHooks []Hook   `yaml:"post_hooks"`
 }
 
 type Archive struct {
@@ -60,6 +63,22 @@ type Archive struct {
 type Checksum struct {
 	Enabled   bool   `yaml:"enabled"`
 	Algorithm string `yaml:"algorithm"`
+}
+
+type Compress struct {
+	UPX UPX `yaml:"upx"`
+}
+
+type UPX struct {
+	Enabled bool `yaml:"enabled"`
+	Level   int  `yaml:"level"`
+}
+
+type Hook struct {
+	Name    string            `yaml:"name"`
+	Command []string          `yaml:"command"`
+	Dir     string            `yaml:"dir"`
+	Env     map[string]string `yaml:"env"`
 }
 
 type Profile struct {
@@ -157,6 +176,8 @@ func (f *File) normalize() {
 		f.Build.Targets[index].Name = strings.TrimSpace(f.Build.Targets[index].Name)
 		f.Build.Targets[index].Package = strings.TrimSpace(f.Build.Targets[index].Package)
 		f.Build.Targets[index].Output = strings.TrimSpace(f.Build.Targets[index].Output)
+		normalizeHooks(f.Build.Targets[index].PreHooks)
+		normalizeHooks(f.Build.Targets[index].PostHooks)
 		f.Build.Targets[index].Archive.Format = strings.TrimSpace(strings.ToLower(f.Build.Targets[index].Archive.Format))
 		if f.Build.Targets[index].Archive.Format == "" {
 			f.Build.Targets[index].Archive.Format = "auto"
@@ -191,13 +212,15 @@ func (f *File) normalize() {
 		}
 		f.Build.Profiles = normalizedProfiles
 	}
+	if f.Build.Compress.UPX.Level == 0 {
+		f.Build.Compress.UPX.Level = 5
+	}
 }
 
 func validateUnsupported(root yaml.Node) error {
 	unsupportedPaths := []string{
-		"build.compress",
-		"build.targets[].pre_hooks",
-		"build.targets[].post_hooks",
+		"build.pre_hooks",
+		"build.post_hooks",
 	}
 	for _, path := range unsupportedPaths {
 		if hasPath(root, path) {
@@ -205,6 +228,9 @@ func validateUnsupported(root yaml.Node) error {
 		}
 	}
 	if err := validateUnsupportedProfiles(root); err != nil {
+		return err
+	}
+	if err := validateUnsupportedCompress(root); err != nil {
 		return err
 	}
 	return nil
@@ -225,6 +251,9 @@ func validateConfig(projectDir string, cfg File, phaseLabel string) error {
 	}
 	if cfg.Build.Checksum.Algorithm != "sha256" {
 		return fmt.Errorf("build checksum algorithm %q is not supported in %s", cfg.Build.Checksum.Algorithm, phaseLabel)
+	}
+	if cfg.Build.Compress.UPX.Level < 1 || cfg.Build.Compress.UPX.Level > 9 {
+		return fmt.Errorf("build upx level %d is not supported in %s", cfg.Build.Compress.UPX.Level, phaseLabel)
 	}
 	if len(cfg.Build.Targets) == 0 {
 		return fmt.Errorf("build config field %q must contain at least one target", "build.targets")
@@ -286,6 +315,26 @@ func validateConfig(projectDir string, cfg File, phaseLabel string) error {
 			}
 			if resolvedPath == outDirPath {
 				return fmt.Errorf("build target %q archive file %q must not point to out_dir %q", target.Name, archiveFile, cfg.Build.OutDir)
+			}
+		}
+		for _, hookSet := range [][]Hook{target.PreHooks, target.PostHooks} {
+			for _, hook := range hookSet {
+				if len(hook.Command) == 0 {
+					return fmt.Errorf("build target %q hook command must contain at least one element", target.Name)
+				}
+				for _, part := range hook.Command {
+					if strings.TrimSpace(part) == "" {
+						return fmt.Errorf("build target %q hook command elements must not be empty", target.Name)
+					}
+				}
+				if err := validateHookDir(projectDir, hook.Dir, target.Name); err != nil {
+					return err
+				}
+				for key := range hook.Env {
+					if strings.TrimSpace(key) == "" {
+						return fmt.Errorf("build target %q hook env keys must not be empty", target.Name)
+					}
+				}
 			}
 		}
 	}
@@ -438,6 +487,37 @@ func validateUnsupportedProfiles(root yaml.Node) error {
 	return nil
 }
 
+func validateUnsupportedCompress(root yaml.Node) error {
+	buildNode, ok := mappingValue(firstContent(&root), "build")
+	if !ok {
+		return nil
+	}
+	compressNode, ok := mappingValue(buildNode, "compress")
+	if !ok {
+		return nil
+	}
+	if compressNode.Kind != yaml.MappingNode {
+		return fmt.Errorf("build config field %q is not supported in Phase 15 P3-M2", "build.compress")
+	}
+	for index := 0; index+1 < len(compressNode.Content); index += 2 {
+		key := compressNode.Content[index].Value
+		if key != "upx" {
+			return fmt.Errorf("build config field %q is not supported in Phase 15 P3-M2", "build.compress."+key)
+		}
+		upxNode := compressNode.Content[index+1]
+		if upxNode.Kind != yaml.MappingNode {
+			return fmt.Errorf("build config field %q is not supported in Phase 15 P3-M2", "build.compress.upx")
+		}
+		for childIndex := 0; childIndex+1 < len(upxNode.Content); childIndex += 2 {
+			childKey := upxNode.Content[childIndex].Value
+			if childKey != "enabled" && childKey != "level" {
+				return fmt.Errorf("build config field %q is not supported in Phase 15 P3-M2", "build.compress.upx."+childKey)
+			}
+		}
+	}
+	return nil
+}
+
 func firstContent(node *yaml.Node) *yaml.Node {
 	if node == nil || len(node.Content) == 0 {
 		return nil
@@ -459,6 +539,50 @@ func trimLowerStrings(values []string) []string {
 		trimmed = append(trimmed, strings.TrimSpace(strings.ToLower(value)))
 	}
 	return trimmed
+}
+
+func normalizeHooks(hooks []Hook) {
+	for index := range hooks {
+		hooks[index].Name = strings.TrimSpace(hooks[index].Name)
+		hooks[index].Dir = strings.TrimSpace(hooks[index].Dir)
+		for commandIndex := range hooks[index].Command {
+			hooks[index].Command[commandIndex] = strings.TrimSpace(hooks[index].Command[commandIndex])
+		}
+		if hooks[index].Env == nil {
+			continue
+		}
+		normalizedEnv := make(map[string]string, len(hooks[index].Env))
+		for key, value := range hooks[index].Env {
+			normalizedEnv[strings.TrimSpace(key)] = value
+		}
+		hooks[index].Env = normalizedEnv
+	}
+}
+
+func validateHookDir(projectDir, dir, targetName string) error {
+	if strings.TrimSpace(dir) == "" {
+		return nil
+	}
+	if filepath.IsAbs(dir) {
+		return fmt.Errorf("build target %q hook dir %q must be relative to the project root", targetName, dir)
+	}
+	resolvedPath := filepath.Clean(filepath.Join(projectDir, filepath.FromSlash(dir)))
+	projectRoot := filepath.Clean(projectDir)
+	relToProject, err := filepath.Rel(projectRoot, resolvedPath)
+	if err != nil || strings.HasPrefix(relToProject, "..") {
+		return fmt.Errorf("build target %q hook dir %q must stay within the project root", targetName, dir)
+	}
+	info, err := os.Stat(resolvedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("build target %q hook dir %q does not exist", targetName, dir)
+		}
+		return fmt.Errorf("inspect build target %q hook dir %q: %w", targetName, dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("build target %q hook dir %q must be a directory", targetName, dir)
+	}
+	return nil
 }
 
 func parsePlatform(raw string) (string, string, bool) {

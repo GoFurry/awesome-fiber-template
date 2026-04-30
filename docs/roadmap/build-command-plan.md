@@ -2,35 +2,13 @@
 
 这份文档记录 `fiberx build` 的阶段化目标，用来承接脚手架生成之后的构建、打包与分发能力。
 
-目标不是把 `fiberx` 做成完整 CI 平台，而是让它具备“读取项目级构建描述并稳定产出可分发制品”的工程化能力。
-
-## 目标形态
-
-`fiberx build` 应覆盖以下使用方式：
-
-```bash
-fiberx build
-fiberx build server
-fiberx build server worker
-fiberx build --target linux/amd64
-fiberx build --clean
-fiberx build --dry-run
-fiberx build --profile prod
-```
-
-后续阶段再扩展：
-
-```bash
-fiberx build --all
-```
-
 ## 当前状态
 
 - 当前阶段：`Phase 15`
-- 当前进度：`P0 completed`
-- 当前推进：`P2 completed`
-- 当前里程碑：`P3-M1 active`
-- 后续里程碑：`P3-M2 deferred`
+- `P0`：`completed`
+- `P2`：`completed`
+- `P3-M1`：`completed`
+- `P3-M2`：`active`
 
 ## 已完成：P0
 
@@ -49,11 +27,6 @@ fiberx build --all
   - `fiberx.yaml`
   - `internal/version/version.go`
 
-当前默认输出结构：
-
-- `<out_dir>/<target-name>/<goos>_<goarch>/<binary>`
-- Windows 自动追加 `.exe`
-
 ## 已完成：P2
 
 已交付：
@@ -63,120 +36,87 @@ fiberx build --all
 - `--dry-run`
 - 并发构建
 
-已实现口径：
-
-- `build.parallel`
-- `build.targets[].archive.enabled`
-- `build.targets[].archive.format`
-- `build.targets[].archive.files`
-- `build.checksum.enabled`
-- `build.checksum.algorithm`
-- `fiberx build --dry-run`
-
-固定规则：
-
-- `archive.format`
-  - 支持：`auto | zip | tar.gz`
-  - `auto`：
-    - `windows/*` => `zip`
-    - 其他平台 => `tar.gz`
-- `checksum.algorithm`
-  - 当前只支持 `sha256`
-- `--dry-run`
-  - 只输出构建计划
-  - 不执行 `go build`
-  - 不写 archive
-  - 不写 checksum
-- `parallel=true`
-  - 按 `target × platform` 并发执行
-  - 最终输出顺序保持稳定
-
 完成依据：
 
-- 自动测试通过：
-  - `go test ./...`
-  - `buildconfig / build / cmd` 相关回归
-- CLI 状态正常：
-  - `validate`
-  - `doctor`
-- 手动冒烟已覆盖：
+- 自动测试通过
+- `validate / doctor` 状态正常
+- 手动冒烟覆盖：
   - `--dry-run`
-  - `archive`
+  - archive
   - `SHA256SUMS`
-  - `parallel` 下输出顺序稳定
-- archive 验证通过：
-  - Linux => `.tar.gz`
-  - Windows => `.zip`
-  - archive 内包含二进制和附加文件
-- checksum 验证通过：
-  - `dist/SHA256SUMS`
-  - 指向最终 distributable artifacts
+  - 并发输出顺序稳定
 
-## 推进中：P3-M1
+## 已完成：P3-M1
 
-当前范围固定为：
+已交付：
 
-- `profiles`
-- `build metadata`
-- `release manifest`
-
-当前公开接口：
-
-- `fiberx build --profile <name>`
 - `build.profiles`
+- `fiberx build --profile <name>`
 - `dist/build-metadata.json`
 - `dist/release-manifest.json`
 
-定位：
-
-- `profiles`
-  - 在 `fiberx.yaml` 中支持按环境或场景切换构建参数
-- `build metadata`
-  - 输出单次构建上下文的元信息文件
-- `release manifest`
-  - 输出面向交付的制品清单
-
 固定边界：
 
-- profile 只是对 base `build` 的 overlay，不是第二套完整 build config
-- profile 只能覆盖：
-  - `out_dir`
-  - `clean`
-  - `parallel`
-  - `defaults.cgo`
-  - `defaults.trimpath`
-  - `defaults.ldflags`
-  - `checksum.enabled`
-  - `checksum.algorithm`
-  - 同名 target 的 `output / platforms / archive.*`
-- profile 不允许：
-  - 创建新 target
-  - 改写 `project.*`
-  - 改写 `version.source`
-  - 改写 `version.package`
+- profile 只是 base `build` 的 overlay
+- profile 不创建新 target
+- profile 不改写 `project.*`
+- profile 不改写 `version.source / version.package`
 
-## 已定义、暂不推进：P3-M2
+## 推进中：P3-M2
 
-后续范围固定为：
+当前范围：
 
-- `pre/post hooks`
-- `UPX`
+- `build.targets[].pre_hooks`
+- `build.targets[].post_hooks`
+- `build.compress.upx`
 
-定位：
+当前进度判断：
 
-- `pre/post hooks`
-  - 在 build target 前后执行显式配置的脚本
-- `UPX`
-  - 保持显式 opt-in，不默认启用
+- 核心实现：`completed`
+- 自动回归：`completed`
+- 手动冒烟：`completed`
+- 提交收口：`pending`
 
-当前明确不推进：
+当前规则：
 
-- 不新增 hooks 相关 CLI
-- 不扩展 target 生命周期命令
-- 不接入 `build.compress.upx` 的实际执行逻辑
+- hooks 只支持 target 层
+- hooks 使用 argv 数组，不通过 shell
+- 任一 hook 非 0 退出即整体失败
+- `--dry-run` 只展示 hooks / UPX 计划，不执行
+- UPX 只做显式 opt-in，启用后找不到 `upx` 直接失败
 
-## 边界说明
+执行顺序固定为：
 
-- `UPX` 保持显式 opt-in，不进入默认构建链路
-- `build` 优先面向 Go 二进制产物，不扩展到镜像构建或远程发布
-- `fiberx.yaml` 的构建段服务于项目级分发，不反向影响 preset/capability 模型
+1. `pre_hooks`
+2. `go build`
+3. 可选 `UPX`
+4. `post_hooks`
+5. 可选 archive
+6. 可选 checksum
+7. `build-metadata.json`
+8. `release-manifest.json`
+
+收口依据：
+
+- `--dry-run` 已验证不会写 `dist`，且会展示 hooks / UPX / metadata / manifest 路径
+- archive 已验证：
+  - Linux 产出 `.tar.gz`
+  - Windows 产出 `.zip`
+- hook 失败路径已验证会中断构建
+- UPX 缺失与启用后的成功路径都已验证
+- metadata / release manifest 已验证包含 hooks / UPX 结果
+
+收口前还缺什么：
+
+- 提交当前工作区改动
+- 再决定是否将整个 `Phase 15` 标记为 completed
+
+## 当前明确不支持
+
+- `build.pre_hooks`
+- `build.post_hooks`
+- `build.profiles.*.pre_hooks`
+- `build.profiles.*.post_hooks`
+- profile 级 UPX 覆盖
+- shell-style hook 字符串
+- 自动跳过缺失的 `upx`

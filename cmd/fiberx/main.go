@@ -289,8 +289,10 @@ func runValidate(args []string) error {
 	fmt.Println("phase 15 p0: completed")
 	fmt.Println("phase 15 p2: completed")
 	fmt.Println("phase 15 p3: active")
-	fmt.Println("phase 15 p3 milestone: profiles-build-metadata-release-manifest")
-	fmt.Println("phase 15 deferred p3 items: hooks,upx")
+	fmt.Println("phase 15 p3-m1: completed")
+	fmt.Println("phase 15 p3-m2: active")
+	fmt.Println("phase 15 p3 milestone: target-hooks-upx")
+	fmt.Println("phase 15 deferred p3 items: (none)")
 	fmt.Println("phase 15 focus: build and post-generation engineering")
 	fmt.Println("phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests")
 	fmt.Println("default medium experience: swagger,embedded-ui")
@@ -356,8 +358,10 @@ func runDoctor(args []string) error {
 	fmt.Printf("phase-15-p0: %s\n", "completed")
 	fmt.Printf("phase-15-p2: %s\n", "completed")
 	fmt.Printf("phase-15-p3: %s\n", "active")
-	fmt.Printf("phase-15-p3-milestone: %s\n", "profiles-build-metadata-release-manifest")
-	fmt.Printf("phase-15-deferred-p3-items: %s\n", "hooks,upx")
+	fmt.Printf("phase-15-p3-m1: %s\n", "completed")
+	fmt.Printf("phase-15-p3-m2: %s\n", "active")
+	fmt.Printf("phase-15-p3-milestone: %s\n", "target-hooks-upx")
+	fmt.Printf("phase-15-deferred-p3-items: %s\n", "(none)")
 	fmt.Printf("phase-15-focus: %s\n", "build-and-post-generation-engineering")
 	fmt.Printf("phase-15-delivery-target: %s\n", "profiles-hooks-compression-build-metadata-and-release-manifests")
 	fmt.Printf("default-medium-capabilities: %s\n", "swagger,embedded-ui")
@@ -607,6 +611,15 @@ func runBuild(args []string) error {
 		if artifact.DistributablePath != "" && artifact.DistributablePath != artifact.OutputPath {
 			fmt.Printf(" distributable=%s", filepath.ToSlash(artifact.DistributablePath))
 		}
+		if len(artifact.PreHooks) > 0 {
+			fmt.Printf(" pre_hooks=%s", joinOrNone(artifact.PreHooks))
+		}
+		if len(artifact.PostHooks) > 0 {
+			fmt.Printf(" post_hooks=%s", joinOrNone(artifact.PostHooks))
+		}
+		if artifact.UPXEnabled {
+			fmt.Printf(" upx=enabled(level=%d)", artifact.UPXLevel)
+		}
 		fmt.Println()
 	}
 	if result.ChecksumPath != "" {
@@ -647,8 +660,9 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Current roadmap stage: Phase 15 build and post-generation engineering.")
 	fmt.Fprintln(w, "Phase 15 status: P0 completed, P2 completed, P3 active.")
 	fmt.Fprintln(w, "Phase 15 focus: build and release-oriented post-generation engineering.")
-	fmt.Fprintln(w, "Phase 15 P3 milestone: profiles, build metadata, and release manifest.")
-	fmt.Fprintln(w, "Phase 15 deferred P3 items: hooks, upx.")
+	fmt.Fprintln(w, "Phase 15 P3-M1: completed.")
+	fmt.Fprintln(w, "Phase 15 P3-M2: active.")
+	fmt.Fprintln(w, "Phase 15 P3 milestone: target hooks and UPX.")
 	fmt.Fprintln(w, "Phase 15 delivery target: profiles, hooks, compression, build metadata, and release manifests.")
 }
 

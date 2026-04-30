@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,6 +60,10 @@ type Artifact struct {
 	DistributablePath string
 	ChecksumSHA256    string
 	SizeBytes         int64
+	PreHooks          []string
+	PostHooks         []string
+	UPXEnabled        bool
+	UPXLevel          int
 }
 
 type Platform struct {
@@ -116,7 +121,7 @@ func Execute(projectDir string, cfg buildconfig.File, opts Options) (Result, err
 		}
 	}
 
-	artifacts, err := executeTasks(projectDir, cfg, versionInfo, tasks, opts.DryRun)
+	artifacts, err := executeTasks(projectDir, cfg, versionInfo, tasks, opts)
 	if err != nil {
 		return Result{}, err
 	}
@@ -161,7 +166,7 @@ func Execute(projectDir string, cfg buildconfig.File, opts Options) (Result, err
 	}, nil
 }
 
-func executeTasks(projectDir string, cfg buildconfig.File, versionInfo VersionInfo, tasks []buildTask, dryRun bool) ([]Artifact, error) {
+func executeTasks(projectDir string, cfg buildconfig.File, versionInfo VersionInfo, tasks []buildTask, opts Options) ([]Artifact, error) {
 	if len(tasks) == 0 {
 		return []Artifact{}, nil
 	}
@@ -169,7 +174,7 @@ func executeTasks(projectDir string, cfg buildconfig.File, versionInfo VersionIn
 	if !cfg.Build.Parallel {
 		artifacts := make([]Artifact, 0, len(tasks))
 		for _, task := range tasks {
-			artifact, err := executeTask(projectDir, cfg, versionInfo, task, dryRun)
+			artifact, err := executeTask(projectDir, cfg, versionInfo, task, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -203,7 +208,7 @@ func executeTasks(projectDir string, cfg buildconfig.File, versionInfo VersionIn
 					if !ok {
 						return
 					}
-					artifact, err := executeTask(projectDir, cfg, versionInfo, task, dryRun)
+					artifact, err := executeTask(projectDir, cfg, versionInfo, task, opts)
 					if err != nil {
 						select {
 						case errCh <- err:
@@ -248,12 +253,35 @@ func executeTasks(projectDir string, cfg buildconfig.File, versionInfo VersionIn
 	return artifacts, nil
 }
 
-func executeTask(projectDir string, cfg buildconfig.File, versionInfo VersionInfo, task buildTask, dryRun bool) (Artifact, error) {
-	if !dryRun {
+func executeTask(projectDir string, cfg buildconfig.File, versionInfo VersionInfo, task buildTask, opts Options) (Artifact, error) {
+	artifact := Artifact{
+		TargetName:        task.Target.Name,
+		Package:           task.Target.Package,
+		Platform:          platformLabel(task.Platform),
+		OutputPath:        task.OutputPath,
+		ArchivePath:       task.ArchivePath,
+		DistributablePath: task.DistributablePath,
+		PreHooks:          hookNames(task.Target.PreHooks),
+		PostHooks:         hookNames(task.Target.PostHooks),
+		UPXEnabled:        cfg.Build.Compress.UPX.Enabled,
+		UPXLevel:          cfg.Build.Compress.UPX.Level,
+	}
+	if !opts.DryRun {
 		if err := os.MkdirAll(filepath.Dir(task.OutputPath), 0o755); err != nil {
 			return Artifact{}, fmt.Errorf("create artifact directory for %q: %w", task.OutputPath, err)
 		}
+		if err := runHooks(projectDir, cfg.Build.OutDir, task, opts.Profile, "pre", task.Target.PreHooks); err != nil {
+			return Artifact{}, err
+		}
 		if err := runGoBuild(projectDir, cfg, task.Target, task.Platform, task.OutputPath, versionInfo); err != nil {
+			return Artifact{}, err
+		}
+		if cfg.Build.Compress.UPX.Enabled {
+			if err := runUPX(task.OutputPath, cfg.Build.Compress.UPX.Level); err != nil {
+				return Artifact{}, fmt.Errorf("compress target %q for %s with upx: %w", task.Target.Name, platformLabel(task.Platform), err)
+			}
+		}
+		if err := runHooks(projectDir, cfg.Build.OutDir, task, opts.Profile, "post", task.Target.PostHooks); err != nil {
 			return Artifact{}, err
 		}
 		if task.ArchivePath != "" {
@@ -262,15 +290,7 @@ func executeTask(projectDir string, cfg buildconfig.File, versionInfo VersionInf
 			}
 		}
 	}
-
-	return Artifact{
-		TargetName:        task.Target.Name,
-		Package:           task.Target.Package,
-		Platform:          platformLabel(task.Platform),
-		OutputPath:        task.OutputPath,
-		ArchivePath:       task.ArchivePath,
-		DistributablePath: task.DistributablePath,
-	}, nil
+	return artifact, nil
 }
 
 func planTasks(projectDir, outDir string, targets []buildconfig.Target, filter string) ([]buildTask, error) {
@@ -774,16 +794,22 @@ type buildMetadataBuild struct {
 	Clean         bool   `json:"clean"`
 	Parallel      bool   `json:"parallel"`
 	VersionSource string `json:"version_source"`
+	UPXEnabled    bool   `json:"upx_enabled"`
+	UPXLevel      int    `json:"upx_level"`
 }
 
 type buildMetadataArtifact struct {
-	Target            string `json:"target"`
-	Package           string `json:"package"`
-	Platform          string `json:"platform"`
-	BinaryPath        string `json:"binary_path"`
-	ArchivePath       string `json:"archive_path,omitempty"`
-	DistributablePath string `json:"distributable_path"`
-	ChecksumSHA256    string `json:"checksum_sha256"`
+	Target            string   `json:"target"`
+	Package           string   `json:"package"`
+	Platform          string   `json:"platform"`
+	BinaryPath        string   `json:"binary_path"`
+	ArchivePath       string   `json:"archive_path,omitempty"`
+	DistributablePath string   `json:"distributable_path"`
+	ChecksumSHA256    string   `json:"checksum_sha256"`
+	PreHooks          []string `json:"pre_hooks,omitempty"`
+	PostHooks         []string `json:"post_hooks,omitempty"`
+	UPXEnabled        bool     `json:"upx_enabled"`
+	UPXLevel          int      `json:"upx_level,omitempty"`
 }
 
 type releaseManifestFile struct {
@@ -797,12 +823,14 @@ type releaseManifestFile struct {
 }
 
 type releaseManifestArtifact struct {
-	Target            string `json:"target"`
-	Platform          string `json:"platform"`
-	DistributablePath string `json:"distributable_path"`
-	ArchiveEnabled    bool   `json:"archive_enabled"`
-	ChecksumSHA256    string `json:"checksum_sha256"`
-	SizeBytes         int64  `json:"size_bytes"`
+	Target            string   `json:"target"`
+	Platform          string   `json:"platform"`
+	DistributablePath string   `json:"distributable_path"`
+	ArchiveEnabled    bool     `json:"archive_enabled"`
+	ChecksumSHA256    string   `json:"checksum_sha256"`
+	SizeBytes         int64    `json:"size_bytes"`
+	UPXEnabled        bool     `json:"upx_enabled"`
+	HooksApplied      []string `json:"hooks_applied,omitempty"`
 }
 
 type releaseManifestChecksums struct {
@@ -827,6 +855,8 @@ func writeBuildMetadata(outDir, metadataPath, releaseManifestPath string, cfg bu
 			Clean:         opts.Clean || cfg.Build.Clean,
 			Parallel:      cfg.Build.Parallel,
 			VersionSource: cfg.Build.Version.Source,
+			UPXEnabled:    cfg.Build.Compress.UPX.Enabled,
+			UPXLevel:      cfg.Build.Compress.UPX.Level,
 		},
 		Version:         versionInfo,
 		Artifacts:       make([]buildMetadataArtifact, 0, len(artifacts)),
@@ -842,6 +872,10 @@ func writeBuildMetadata(outDir, metadataPath, releaseManifestPath string, cfg bu
 			ArchivePath:       relSlash(outDir, artifact.ArchivePath),
 			DistributablePath: relSlash(outDir, distributablePath(artifact)),
 			ChecksumSHA256:    artifact.ChecksumSHA256,
+			PreHooks:          append([]string(nil), artifact.PreHooks...),
+			PostHooks:         append([]string(nil), artifact.PostHooks...),
+			UPXEnabled:        artifact.UPXEnabled,
+			UPXLevel:          artifact.UPXLevel,
 		})
 	}
 	return writeJSONFile(metadataPath, payload)
@@ -871,6 +905,8 @@ func writeReleaseManifest(outDir, manifestPath string, cfg buildconfig.File, opt
 			ArchiveEnabled:    artifact.ArchivePath != "",
 			ChecksumSHA256:    artifact.ChecksumSHA256,
 			SizeBytes:         artifact.SizeBytes,
+			UPXEnabled:        artifact.UPXEnabled,
+			HooksApplied:      append(append([]string{}, artifact.PreHooks...), artifact.PostHooks...),
 		})
 	}
 	return writeJSONFile(manifestPath, payload)
@@ -914,6 +950,65 @@ func checksumAlgorithm(cfg buildconfig.File) string {
 		return ""
 	}
 	return cfg.Build.Checksum.Algorithm
+}
+
+func hookNames(hooks []buildconfig.Hook) []string {
+	names := make([]string, 0, len(hooks))
+	for _, hook := range hooks {
+		name := strings.TrimSpace(hook.Name)
+		if name == "" {
+			name = strings.Join(hook.Command, " ")
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+func runHooks(projectDir, outDir string, task buildTask, profile string, stage string, hooks []buildconfig.Hook) error {
+	for index, hook := range hooks {
+		hookName := strings.TrimSpace(hook.Name)
+		if hookName == "" {
+			hookName = stage + "-" + strconv.Itoa(index+1)
+		}
+		command := exec.Command(hook.Command[0], hook.Command[1:]...)
+		command.Dir = projectDir
+		if strings.TrimSpace(hook.Dir) != "" {
+			command.Dir = filepath.Join(projectDir, filepath.FromSlash(hook.Dir))
+		}
+		env := append(os.Environ(),
+			"FIBERX_BUILD_TARGET="+task.Target.Name,
+			"FIBERX_BUILD_GOOS="+task.Platform.GOOS,
+			"FIBERX_BUILD_GOARCH="+task.Platform.GOARCH,
+			"FIBERX_BUILD_PROFILE="+profile,
+			"FIBERX_BUILD_PROJECT_DIR="+projectDir,
+			"FIBERX_BUILD_OUT_DIR="+filepath.Join(projectDir, outDir),
+			"FIBERX_BUILD_BINARY="+task.OutputPath,
+			"FIBERX_BUILD_ARCHIVE="+task.ArchivePath,
+			"FIBERX_BUILD_DISTRIBUTABLE="+task.DistributablePath,
+		)
+		for key, value := range hook.Env {
+			env = append(env, key+"="+value)
+		}
+		command.Env = env
+		output, err := command.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%s hook %q for target %q on %s failed: %s", stage, hookName, task.Target.Name, platformLabel(task.Platform), strings.TrimSpace(string(output)))
+		}
+	}
+	return nil
+}
+
+func runUPX(binaryPath string, level int) error {
+	upxPath, err := exec.LookPath("upx")
+	if err != nil {
+		return fmt.Errorf("upx was not found in PATH")
+	}
+	cmd := exec.Command(upxPath, fmt.Sprintf("-%d", level), binaryPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s", strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 
 func platformLabel(platform Platform) string {

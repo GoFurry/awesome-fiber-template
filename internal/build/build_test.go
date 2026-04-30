@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -294,6 +295,147 @@ func TestExecuteAppliesProfileOverlay(t *testing.T) {
 	}
 }
 
+func TestExecuteRunsHooksAndWritesHookMetadata(t *testing.T) {
+	projectDir := buildProjectFixture(t)
+	cfg, err := buildconfig.Load(projectDir)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	logPath := filepath.Join(projectDir, "hook.log")
+	cfg.Build.Targets[0].PreHooks = []buildconfig.Hook{{
+		Name:    "pre-log",
+		Command: []string{"go", "run", "./cmd/hookprobe", "pre"},
+		Env: map[string]string{
+			"HOOK_LOG": logPath,
+		},
+	}}
+	cfg.Build.Targets[0].PostHooks = []buildconfig.Hook{{
+		Name:    "post-log",
+		Command: []string{"go", "run", "./cmd/hookprobe", "post"},
+		Env: map[string]string{
+			"HOOK_LOG": logPath,
+		},
+	}}
+
+	result, err := Execute(projectDir, cfg, Options{
+		TargetNames: []string{"server"},
+	})
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	logData, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read hook log: %v", err)
+	}
+	if strings.TrimSpace(string(logData)) != "pre\npost" && strings.TrimSpace(string(logData)) != "pre\r\npost" {
+		t.Fatalf("expected hook log order pre/post, got %q", string(logData))
+	}
+
+	metadataData, err := os.ReadFile(result.BuildMetadataPath)
+	if err != nil {
+		t.Fatalf("read build metadata: %v", err)
+	}
+	var metadataPayload struct {
+		Artifacts []struct {
+			PreHooks  []string `json:"pre_hooks"`
+			PostHooks []string `json:"post_hooks"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(metadataData, &metadataPayload); err != nil {
+		t.Fatalf("unmarshal build metadata: %v", err)
+	}
+	if len(metadataPayload.Artifacts) != 1 || len(metadataPayload.Artifacts[0].PreHooks) != 1 || len(metadataPayload.Artifacts[0].PostHooks) != 1 {
+		t.Fatalf("expected hook metadata to be recorded, got %#v", metadataPayload)
+	}
+}
+
+func TestExecuteFailsWhenHookFails(t *testing.T) {
+	projectDir := buildProjectFixture(t)
+	cfg, err := buildconfig.Load(projectDir)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	cfg.Build.Targets[0].PreHooks = []buildconfig.Hook{{
+		Name:    "fail",
+		Command: []string{"go", "run", "./cmd/hookprobe", "fail"},
+	}}
+
+	_, err = Execute(projectDir, cfg, Options{
+		TargetNames: []string{"server"},
+	})
+	if err == nil || !strings.Contains(err.Error(), `pre hook "fail"`) {
+		t.Fatalf("expected failing pre hook error, got %v", err)
+	}
+}
+
+func TestRunUPXMissing(t *testing.T) {
+	originalPath := os.Getenv("PATH")
+	goPath, err := exec.LookPath("go")
+	if err != nil {
+		t.Fatalf("LookPath(go): %v", err)
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatalf("LookPath(git): %v", err)
+	}
+	pathEntries := []string{filepath.Dir(goPath)}
+	if filepath.Dir(gitPath) != filepath.Dir(goPath) {
+		pathEntries = append(pathEntries, filepath.Dir(gitPath))
+	}
+	t.Setenv("PATH", strings.Join(pathEntries, string(os.PathListSeparator)))
+	defer os.Setenv("PATH", originalPath)
+
+	err = runUPX(filepath.Join(t.TempDir(), "binary"), 5)
+	if err == nil || !strings.Contains(err.Error(), "upx was not found in PATH") {
+		t.Fatalf("expected missing upx error, got %v", err)
+	}
+}
+
+func TestExecuteRunsUPXWhenEnabled(t *testing.T) {
+	projectDir := buildProjectFixture(t)
+	cfg, err := buildconfig.Load(projectDir)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	cfg.Build.Compress.UPX.Enabled = true
+	cfg.Build.Compress.UPX.Level = 7
+	upxLogPath := filepath.Join(projectDir, "upx.log")
+	upxDir := createFakeUPX(t, upxLogPath)
+	t.Setenv("PATH", upxDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	result, err := Execute(projectDir, cfg, Options{
+		TargetNames: []string{"server"},
+	})
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	upxLogData, err := os.ReadFile(upxLogPath)
+	if err != nil {
+		t.Fatalf("read upx log: %v", err)
+	}
+	if !strings.Contains(string(upxLogData), "-7") {
+		t.Fatalf("expected fake upx log to contain level flag, got %q", string(upxLogData))
+	}
+
+	releaseData, err := os.ReadFile(result.ReleaseManifestPath)
+	if err != nil {
+		t.Fatalf("read release manifest: %v", err)
+	}
+	var releasePayload struct {
+		Artifacts []struct {
+			UPXEnabled bool `json:"upx_enabled"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(releaseData, &releasePayload); err != nil {
+		t.Fatalf("unmarshal release manifest: %v", err)
+	}
+	if len(releasePayload.Artifacts) != 1 || !releasePayload.Artifacts[0].UPXEnabled {
+		t.Fatalf("expected upx_enabled in release manifest, got %#v", releasePayload)
+	}
+}
+
 func TestExecuteRejectsMissingPackage(t *testing.T) {
 	projectDir := buildProjectFixture(t)
 	cfg, err := buildconfig.Load(projectDir)
@@ -385,6 +527,33 @@ var (
 	Commit = "unknown"
 	BuildTime = ""
 )
+`)
+	writeFile(t, filepath.Join(projectDir, "cmd", "hookprobe", "main.go"), `package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	mode := ""
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
+	if mode == "fail" {
+		fmt.Fprintln(os.Stderr, "hook failure")
+		os.Exit(1)
+	}
+	logPath := os.Getenv("HOOK_LOG")
+	if logPath != "" {
+		file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		fmt.Fprintln(file, mode)
+	}
+}
 `)
 	buildConfig := `project:
   name: demo
@@ -528,4 +697,27 @@ func writeFile(t *testing.T, path, contents string) {
 	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 		t.Fatalf("write %q: %v", path, err)
 	}
+}
+
+func createFakeUPX(t *testing.T, logPath string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	var scriptPath string
+	var content string
+	if runtime.GOOS == "windows" {
+		scriptPath = filepath.Join(dir, "upx.cmd")
+		content = "@echo off\r\n" +
+			fmt.Sprintf("echo %%*>>\"%s\"\r\n", strings.ReplaceAll(logPath, "/", "\\")) +
+			"exit /b 0\r\n"
+	} else {
+		scriptPath = filepath.Join(dir, "upx")
+		content = "#!/bin/sh\n" +
+			fmt.Sprintf("echo \"$@\" >> \"%s\"\n", logPath) +
+			"exit 0\n"
+	}
+	if err := os.WriteFile(scriptPath, []byte(content), 0o755); err != nil {
+		t.Fatalf("write fake upx: %v", err)
+	}
+	return dir
 }

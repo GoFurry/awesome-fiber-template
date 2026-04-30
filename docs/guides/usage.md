@@ -50,8 +50,8 @@ Important boundary:
 - Phase 13 completed generated metadata and diff detection.
 - Phase 14 completed readonly upgrade planning and compatibility policy.
 - Phase 15 completed the `fiberx build` P0 baseline and the P2 packaging layer.
-- Phase 15 P3 is now active through P3-M1: profiles, build metadata, and release manifest.
-- Phase 15 still defers hooks and UPX.
+- Phase 15 P3-M1 completed profiles, build metadata, and release manifest.
+- Phase 15 P3-M2 is now active for target hooks and UPX.
 
 ## Run From Source
 
@@ -266,10 +266,12 @@ Current build output:
 - optional `dist/SHA256SUMS`
 - `dist/build-metadata.json`
 - `dist/release-manifest.json`
+- optional target `pre_hooks / post_hooks`
+- optional `build.compress.upx`
 - `-trimpath` and configured `ldflags`
 - `--profile <name>` for build overlays
 - `--dry-run` for readonly build planning
-- no hook or UPX support yet
+- no global/profile-level hooks and no profile-level UPX overrides
 
 ## Stack Selection
 
