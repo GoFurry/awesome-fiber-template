@@ -1,4 +1,4 @@
-﻿# fiberx
+# fiberx
 
 ![License](https://img.shields.io/badge/License-MIT-6C757D?style=flat&color=3B82F6)
 ![Release](https://img.shields.io/github/v/release/GoFurry/fiberx?style=flat&color=blue)
@@ -11,28 +11,17 @@
 
 `fiberx` is a CLI-first Fiber project generator repository.
 
-`fiberx` evolved from the earlier `awesome-fiber-template` repository and is the formalized home for the project going forward.
-
-Instead of trying to cover many frameworks, this repository now stays focused on Fiber and is evolving toward a generator-centered workflow while preserving four stable official starting points.
-
-It currently preserves `v3/*` reference templates for the existing engineering baselines, and also includes an `addons/` directory as an independent optional capability pool for reusable service wrappers and utility packages.
+The repository is now intentionally focused on the generator itself: generator assets, planning rules, validation, rendering, build automation, and regression coverage. It no longer treats legacy reference templates or repository-local addon pools as part of the maintained mainline.
 
 ## Docs
 
 - [Docs index](./docs/README.md)
 - [Usage guide](./docs/guides/usage.md)
+- [Generator architecture](./docs/architecture/fiberx-generator-architecture.md)
 - [Template boundaries](./docs/architecture/template-boundaries.md)
-- [Addon design rules](./docs/architecture/addon-design-rules.md)
+- [Repository rules](./docs/architecture/repository-rules.md)
 - [Template selection guide](./docs/guides/template-selection.md)
-- [Addon integration guide](./docs/guides/addon-integration.md)
-- [Roadmap archive](./docs/roadmap/roadmap.md)
-
-## Current Reference Presets
-
-- [`v3/heavy`](./v3/heavy): full-featured edition with Redis, scheduler, service install/uninstall, WAF, Prometheus, Swagger, reusable helper packages, and a stronger infrastructure baseline
-- [`v3/medium`](./v3/medium): balanced HTTP service edition that keeps Redis, WAF, service manager support, embedded UI, and most middleware, but removes scheduler and Prometheus complexity
-- [`v3/light`](./v3/light): plain Go-style service edition that keeps the common API middleware baseline and optional embedded UI, while removing Redis, service manager support, and extra helper packages
-- [`v3/extra-light`](./v3/extra-light): minimal edition with native CLI, SQLite-only setup, no built-in business demo, and only `recover + healthcheck`
+- [Roadmap](./docs/roadmap/roadmap.md)
 
 ## Current Generator Tracks
 
@@ -44,7 +33,7 @@ It currently preserves `v3/*` reference templates for the existing engineering b
 - default runtime on `medium / heavy / light`: `zap + sqlite + stdlib`
 - compatibility stack: `Fiber v2 + native-cli`
 - Phase 11 runtime options on `medium / heavy / light`: `--logger zap|slog`, `--db sqlite|pgsql|mysql`, `--data-access stdlib|sqlx|sqlc`
-- generated projects now include `server.yaml`, `server.dev.yaml`, `server.prod.yaml`, plus runbook and verification docs
+- generated projects include config profiles, runtime metadata, upgrade inspection, and project-level build automation
 
 ## How To Choose
 
@@ -55,7 +44,7 @@ It currently preserves `v3/*` reference templates for the existing engineering b
 
 ## Quick Start
 
-You can generate a runnable service directly from the repository root. For example:
+Generate a runnable project directly from the repository root:
 
 ```bash
 go run ./cmd/fiberx new demo --preset medium
@@ -69,35 +58,34 @@ Compatibility example:
 go run ./cmd/fiberx new demo-legacy --preset medium --fiber-version v2 --cli-style native
 ```
 
-Phase 11 runtime example:
+Runtime options example:
 
 ```bash
 go run ./cmd/fiberx new demo-data --preset medium --logger slog --db pgsql --data-access sqlx
 ```
 
-The historical `v3/*` reference presets are still available and runnable directly. For example:
+Build automation example:
 
 ```bash
-cd v3/light
-go run . serve
+go run ./cmd/fiberx build
+go run ./cmd/fiberx build --dry-run
+go run ./cmd/fiberx build --profile prod
 ```
-
-Each reference preset is a standalone Go module with its own `go.mod`, config, README, and dependency boundary.
 
 ## Repository Goal
 
-This repository is meant to turn the current preset semantics and repository rules into a generator-ready system while keeping the boundaries clear:
+This repository exists to keep `fiberx` itself clean and maintainable as a long-lived generator system:
 
-- stable official presets
-- generator-owned rules and assets
-- practical middleware and bootstrap defaults
-- verifiable output and regression-friendly structure
-- independent addon packages for reusable external services and utilities
+- stable official preset semantics
+- generator-owned assets and rules
+- verifiable output
+- explicit runtime and capability policy
+- project-level build, metadata, and upgrade tooling
 
 ## Notes
 
-- `fiberx` is now positioned as a generator repository, while `v3/*` remains available as reference preset snapshots.
-- If you use one of the current reference presets in your own project, replace the module path inside that preset's `go.mod`.
+- The generator mainline is the only maintained source of truth in this repository.
+- Historical content is preserved through Git history rather than repository-local legacy directories.
 
 ## License
 

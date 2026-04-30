@@ -1,17 +1,15 @@
 # Docs
 
-This directory contains the long-term rules, architecture notes, and implementation roadmap for `fiberx`.
+This directory contains the long-term rules, architecture notes, guides, and implementation roadmap for the `fiberx` generator mainline.
 
 ## Contents
 
 - [`architecture/fiberx-generator-architecture.md`](./architecture/fiberx-generator-architecture.md)
 - [`architecture/template-boundaries.md`](./architecture/template-boundaries.md)
-- [`architecture/addon-design-rules.md`](./architecture/addon-design-rules.md)
 - [`architecture/repository-rules.md`](./architecture/repository-rules.md)
 - [`guides/usage.md`](./guides/usage.md)
 - [`guides/template-selection.md`](./guides/template-selection.md)
 - [`guides/capability-policy.md`](./guides/capability-policy.md)
-- [`guides/addon-integration.md`](./guides/addon-integration.md)
 - [`guides/deployment-runbook.md`](./guides/deployment-runbook.md)
 - [`guides/config-profiles.md`](./guides/config-profiles.md)
 - [`guides/response-contract.md`](./guides/response-contract.md)
@@ -33,10 +31,10 @@ Use the root README for a quick repository overview, then start from the generat
 - Completed production track: `heavy`
 - Current stage: `Phase 15` build and post-generation engineering
 - Phase 15 P0: completed
-- Phase 15 P2: archive, checksum, dry-run, and parallel build execution completed
+- Phase 15 P2: completed
 - Phase 15 P3: active
 - Phase 15 P3-M1: completed
-- Phase 15 P3-M2: target hooks and UPX are in progress
+- Phase 15 P3-M2: active
 - Phase 12 delivery: capability matrix and validation closure completed
 - Phase 13 delivery: generated metadata and diff detection completed
 - Phase 14 delivery: readonly upgrade planning and compatibility classification completed
@@ -46,10 +44,6 @@ Use the root README for a quick repository overview, then start from the generat
 - Default heavy experience: `swagger`, `embedded-ui`
 - Light optional experience: `swagger`, `embedded-ui`
 - Extra-light optional experience: `none`
-- Capability policy:
-  - `swagger`: default on `heavy,medium`, optional on `light`
-  - `embedded-ui`: default on `heavy,medium`, optional on `light`
-  - `redis`: optional on `heavy,medium` only
 - Default stack: `fiber-v3 + cobra + viper`
 - Default logger: `zap`
 - Default database: `sqlite`
@@ -60,8 +54,7 @@ Use the root README for a quick repository overview, then start from the generat
 - Supported databases: `sqlite`, `pgsql`, `mysql`
 - Supported data access stacks: `stdlib`, `sqlx`, `sqlc`
 - Generated project metadata: `.fiberx/manifest.json`
-- New inspection commands: `fiberx inspect`, `fiberx diff`
-- New upgrade commands: `fiberx upgrade inspect`, `fiberx upgrade plan`
+- Upgrade inspection commands: `fiberx upgrade inspect`, `fiberx upgrade plan`
 - Build command baseline: `fiberx build`
 
 ## Current Roadmap Position
@@ -73,4 +66,4 @@ Use the root README for a quick repository overview, then start from the generat
 - Capability-matrix progress: Phase 12 full matrix and black-box closure passed local regression
 - Metadata progress: generated-project metadata and diff detection are completed
 - Upgrade-planning progress: readonly upgrade assessment and compatibility policy are completed
-- Build-command progress: Phase 15 P0 and P2 are complete; Phase 15 P3-M1 is complete and Phase 15 P3-M2 is in progress for target hooks and UPX
+- Build-command progress: Phase 15 P0 and P2 are complete; Phase 15 P3-M1 is complete and Phase 15 P3-M2 is active for target hooks and UPX

@@ -432,7 +432,6 @@ Without that environment variable, an out-of-tree binary may fail to locate mani
 
 - [Template Selection Guide](./template-selection.md)
 - [Capability Policy Guide](./capability-policy.md)
-- [Addon Integration Guide](./addon-integration.md)
 - [Deployment Runbook Guide](./deployment-runbook.md)
 - [Config Profiles Guide](./config-profiles.md)
 - [Response Contract Guide](./response-contract.md)
