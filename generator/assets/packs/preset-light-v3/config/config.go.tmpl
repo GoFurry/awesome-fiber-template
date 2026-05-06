@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"net"
 	"os"
 
@@ -14,6 +15,7 @@ type Config struct {
 	Middleware MiddlewareConfig `yaml:"middleware"`
 	Swagger    SwaggerConfig    `yaml:"swagger"`
 	EmbeddedUI EmbeddedUIConfig `yaml:"embedded_ui"`
+	Redis      RedisConfig      `yaml:"redis"`
 }
 
 type ServerConfig struct {
@@ -74,8 +76,9 @@ type LogConfig struct {
 }
 
 type MiddlewareConfig struct {
-	CORS CORSConfig `yaml:"cors"`
-	Gzip GzipConfig `yaml:"gzip"`
+	CORS    CORSConfig    `yaml:"cors"`
+	Gzip    GzipConfig    `yaml:"gzip"`
+	Timeout TimeoutConfig `yaml:"timeout"`
 }
 
 type CORSConfig struct {
@@ -86,6 +89,12 @@ type GzipConfig struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+type TimeoutConfig struct {
+	Enabled         bool     `yaml:"enabled"`
+	DurationSeconds int      `yaml:"duration_seconds"`
+	ExcludePaths    []string `yaml:"exclude_paths"`
+}
+
 type SwaggerConfig struct {
 	Enabled     bool   `yaml:"enabled"`
 	RoutePrefix string `yaml:"route_prefix"`
@@ -94,6 +103,13 @@ type SwaggerConfig struct {
 type EmbeddedUIConfig struct {
 	Enabled     bool   `yaml:"enabled"`
 	RoutePrefix string `yaml:"route_prefix"`
+}
+
+type RedisConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 func Load(path string) (Config, error) {
@@ -108,6 +124,9 @@ func Load(path string) (Config, error) {
 	}
 
 	cfg.applyDefaults()
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
 	return cfg, nil
 }
 
@@ -197,10 +216,31 @@ func (c *Config) applyDefaults() {
 	if len(c.Middleware.CORS.AllowOrigins) == 0 {
 		c.Middleware.CORS.AllowOrigins = []string{"*"}
 	}
+	if c.Middleware.Timeout.DurationSeconds == 0 {
+		c.Middleware.Timeout.DurationSeconds = 15
+	}
+	if len(c.Middleware.Timeout.ExcludePaths) == 0 {
+		c.Middleware.Timeout.ExcludePaths = []string{
+			"/livez",
+			"/readyz",
+			"/startupz",
+			"/healthz",
+		}
+	}
 	if c.Swagger.RoutePrefix == "" {
 		c.Swagger.RoutePrefix = "/docs"
 	}
 	if c.EmbeddedUI.RoutePrefix == "" {
 		c.EmbeddedUI.RoutePrefix = "/ui"
 	}
+	if c.Redis.Addr == "" {
+		c.Redis.Addr = "127.0.0.1:6379"
+	}
+}
+
+func (c Config) validate() error {
+	if c.Middleware.Timeout.Enabled && c.Middleware.Timeout.DurationSeconds <= 0 {
+		return errors.New("middleware.timeout.duration_seconds must be greater than 0 when timeout is enabled")
+	}
+	return nil
 }

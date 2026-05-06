@@ -1,0 +1,52 @@
+package common
+
+import "net/http"
+
+type AppErrorContract interface {
+	error
+	GetErrorCode() int
+	GetMsg() string
+	GetHTTPStatus() int
+}
+
+type AppError struct {
+	errorCode  int
+	httpStatus int
+	msg        string
+}
+
+func NewError(errorCode, httpStatus int, msg string) *AppError {
+	return &AppError{
+		errorCode:  errorCode,
+		httpStatus: httpStatus,
+		msg:        msg,
+	}
+}
+
+func NewServiceError(msg string) *AppError {
+	return NewError(ReturnFailed, http.StatusInternalServerError, msg)
+}
+
+func NewDAOError(msg string) *AppError {
+	return NewError(ReturnFailed, http.StatusInternalServerError, msg)
+}
+
+func NewValidationError(msg string) *AppError {
+	return NewError(ReturnFailed, http.StatusBadRequest, msg)
+}
+
+func (e AppError) Error() string {
+	return e.msg
+}
+
+func (e AppError) GetErrorCode() int {
+	return e.errorCode
+}
+
+func (e AppError) GetMsg() string {
+	return e.msg
+}
+
+func (e AppError) GetHTTPStatus() int {
+	return e.httpStatus
+}

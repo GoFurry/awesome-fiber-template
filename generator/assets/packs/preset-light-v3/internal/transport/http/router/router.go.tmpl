@@ -61,7 +61,7 @@ func NewApp(deps Dependencies) *fiber.App {
 	}))
 
 	registerHealthRoutes(app, deps)
-	api(app.Group("/api"))
+	api(wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout))
 	registerSwaggerRoutes(app, deps.Config)
 	registerEmbeddedUIRoutes(app, deps.Config)
 

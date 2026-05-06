@@ -46,6 +46,15 @@ middleware:
       - "*"
   gzip:
     enabled: true
+  timeout:
+    enabled: true
+    duration_seconds: 15
+    exclude_paths:
+      - "/livez"
+      - "/readyz"
+      - "/startupz"
+      - "/healthz"
+      - "/metrics"
 swagger:
   enabled: true
   route_prefix: "/docs"

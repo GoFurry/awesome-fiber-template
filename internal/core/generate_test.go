@@ -45,10 +45,10 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 		{name: "medium fiber-v2 cobra", preset: "medium", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
 		{name: "medium fiber-v2 native", preset: "medium", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
 		{name: "medium with redis", preset: "medium", capabilities: []string{"redis"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectRedis: true, expectMedium: true, expectDocsAsset: true, expectUIAsset: true},
-		{name: "light default", preset: "light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
-		{name: "light fiber-v2 native", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
-		{name: "light fiber-v3 native", preset: "light", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
-		{name: "light fiber-v2 cobra", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `api(app.Group("/api"))`, expectLight: true},
+		{name: "light default", preset: "light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout)`, expectLight: true},
+		{name: "light fiber-v2 native", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout)`, expectLight: true},
+		{name: "light fiber-v3 native", preset: "light", fiberVersion: stack.FiberV3, cliStyle: stack.CLINative, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout)`, expectLight: true},
+		{name: "light fiber-v2 cobra", preset: "light", fiberVersion: stack.FiberV2, cliStyle: stack.CLICobra, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout)`, expectLight: true},
 		{name: "light with swagger", preset: "light", capabilities: []string{"swagger"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerSwaggerRoutes(app, deps.Config)`, expectLight: true, expectDocsAsset: true},
 		{name: "light with embedded-ui", preset: "light", capabilities: []string{"embedded-ui"}, routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerEmbeddedUIRoutes(app, deps.Config)`, expectLight: true, expectUIAsset: true},
 		{name: "extra-light default", preset: "extra-light", routerPath: filepath.Join("internal", "transport", "http", "router", "router.go"), routerSnippet: `registerHealthRoutes(app, deps)`, expectExtraLight: true},
@@ -137,6 +137,7 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "transport", "http", "webui", "dist", "index.html"))
 			}
 			if tc.expectHeavy {
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `/metrics`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `route_prefix: "/metrics"`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `interval: "1s"`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `jobs.Start(cfg.Scheduler, logger, metricsCollector)`)
@@ -146,17 +147,35 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "jobs", "scheduler.go"), "fiberx heavy demo job ran")
 			}
 			if tc.expectMedium || tc.expectHeavy || tc.expectLight {
-				assertGeneratedFileContains(t, targetDir, tc.routerPath, `api(app.Group("/api"))`)
+				assertGeneratedFileContains(t, targetDir, tc.routerPath, `wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout)`)
 				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `RouteRegistrar`)
 				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `registerApplicationRoutes(`)
 				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `UserController`)
 				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `registerUserRoutes(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `type timeoutRouter struct`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `func wrapTimeoutRouter(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `"request timeout"`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func api(root fiber.Router)`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func v1(root fiber.Router)`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func userRoutes(root fiber.Router)`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `user.UserAPI.Create`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `UserBasePath = "/api/v1/user"`)
 				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "bootstrap", "route_registrars.go"))
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "constant.go"), `TimeFormatDigitDay`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "constant.go"), `ReturnSuccess`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "constant.go"), `ContentTypeJSON`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "error.go"), `type AppErrorContract interface`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "error.go"), `type AppError struct`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "error.go"), `NewValidationError`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `func Success(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `func Error(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `func NewResponse(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `normalizeError(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `type TimeoutConfig struct`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `middleware.timeout.duration_seconds must be greater than 0 when timeout is enabled`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `timeout:`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `duration_seconds: 15`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `exclude_paths:`)
 				assertGeneratedFileContains(t, targetDir, tc.routerPath, `app.Use(httpmiddleware.AccessLog(logger))`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userservice.Init(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registrars := buildRouteRegistrars(`)
@@ -178,6 +197,9 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				}
 			}
 			if tc.expectExtraLight {
+				assertGeneratedFileMissing(t, targetDir, filepath.Join("pkg", "common", "constant.go"))
+				assertGeneratedFileMissing(t, targetDir, filepath.Join("pkg", "common", "error.go"))
+				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"))
 				assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `AccessLog(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `HealthzPath`)
 				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {

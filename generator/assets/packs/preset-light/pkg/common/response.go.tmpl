@@ -8,9 +8,13 @@ type Envelope struct {
 	Data    any `json:"data"`
 }
 
+type Response struct {
+	context *fiber.Ctx
+}
+
 func Success(c *fiber.Ctx, data any) error {
 	return c.Status(fiber.StatusOK).JSON(Envelope{
-		Code:    1,
+		Code:    ReturnSuccess,
 		Message: "success",
 		Data:    data,
 	})
@@ -18,8 +22,53 @@ func Success(c *fiber.Ctx, data any) error {
 
 func Error(c *fiber.Ctx, status int, message string) error {
 	return c.Status(status).JSON(Envelope{
-		Code:    0,
+		Code:    ReturnFailed,
 		Message: message,
 		Data:    fiber.Map{},
 	})
+}
+
+func NewResponse(ctx *fiber.Ctx) *Response {
+	return &Response{context: ctx}
+}
+
+func (r *Response) Success() error {
+	return r.write(fiber.StatusOK, ReturnSuccess, "success", nil)
+}
+
+func (r *Response) SuccessWithData(data any) error {
+	return r.write(fiber.StatusOK, ReturnSuccess, "success", data)
+}
+
+func (r *Response) Error(data any) error {
+	appErr := normalizeError(data)
+	return r.write(appErr.GetHTTPStatus(), appErr.GetErrorCode(), appErr.GetMsg(), nil)
+}
+
+func (r *Response) ErrorWithCode(data any, status int) error {
+	appErr := normalizeError(data)
+	return r.write(status, appErr.GetErrorCode(), appErr.GetMsg(), nil)
+}
+
+func (r *Response) write(status, code int, message string, data any) error {
+	return r.context.Status(status).JSON(Envelope{
+		Code:    code,
+		Message: message,
+		Data:    data,
+	})
+}
+
+func normalizeError(data any) AppErrorContract {
+	switch value := data.(type) {
+	case nil:
+		return NewServiceError("request failed")
+	case AppErrorContract:
+		return value
+	case error:
+		return NewServiceError(value.Error())
+	case string:
+		return NewServiceError(value)
+	default:
+		return NewServiceError("request failed")
+	}
 }

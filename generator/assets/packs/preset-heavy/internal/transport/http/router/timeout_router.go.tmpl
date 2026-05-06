@@ -1,0 +1,151 @@
+package router
+
+import (
+	"errors"
+	"strings"
+	"time"
+
+	"{{module_path}}/config"
+	"{{module_path}}/pkg/common"
+	"github.com/gofiber/fiber/v2"
+	fibertimeout "github.com/gofiber/fiber/v2/middleware/timeout"
+)
+
+type timeoutRouter struct {
+	fiber.Router
+	config config.TimeoutConfig
+}
+
+func wrapTimeoutRouter(router fiber.Router, cfg config.TimeoutConfig) fiber.Router {
+	if !cfg.Enabled || cfg.DurationSeconds <= 0 {
+		return router
+	}
+
+	return &timeoutRouter{
+		Router: router,
+		config: cfg,
+	}
+}
+
+func (router *timeoutRouter) Group(prefix string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	return &timeoutRouter{
+		Router: router.Router.Group(prefix, handlers...),
+		config: router.config,
+	}
+}
+
+func (router *timeoutRouter) Get(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Get(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Head(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Head(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Post(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Post(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Put(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Put(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Delete(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Delete(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Connect(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Connect(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Options(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Options(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Trace(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Trace(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Patch(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Patch(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) Add(method string, path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.Add(method, path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) All(path string, handlers ...func(*fiber.Ctx) error) fiber.Router {
+	router.Router.All(path, router.wrapHandlers(handlers...)...)
+	return router
+}
+
+func (router *timeoutRouter) wrapHandlers(handlers ...func(*fiber.Ctx) error) []func(*fiber.Ctx) error {
+	if len(handlers) == 0 {
+		return nil
+	}
+
+	wrapped := make([]func(*fiber.Ctx) error, 0, len(handlers))
+	for _, handler := range handlers {
+		wrapped = append(wrapped, router.wrapHandler(handler))
+	}
+	return wrapped
+}
+
+func (router *timeoutRouter) wrapHandler(handler func(*fiber.Ctx) error) func(*fiber.Ctx) error {
+	timeoutHandler := fibertimeout.New(handler, time.Duration(router.config.DurationSeconds)*time.Second)
+
+	return func(c *fiber.Ctx) error {
+		if pathExcluded(c.Path(), router.config.ExcludePaths) {
+			return handler(c)
+		}
+
+		if err := timeoutHandler(c); err != nil {
+			if errors.Is(err, fiber.ErrRequestTimeout) {
+				return common.NewResponse(c).ErrorWithCode(
+					common.NewError(common.ReturnFailed, fiber.StatusRequestTimeout, "request timeout"),
+					fiber.StatusRequestTimeout,
+				)
+			}
+			return err
+		}
+
+		return nil
+	}
+}
+
+func pathExcluded(path string, excluded []string) bool {
+	normalizedPath := normalizePath(path)
+	for _, item := range excluded {
+		if normalizedPath == normalizePath(item) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizePath(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	if len(trimmed) > 1 {
+		trimmed = strings.TrimRight(trimmed, "/")
+		if trimmed == "" {
+			return "/"
+		}
+	}
+	return trimmed
+}
