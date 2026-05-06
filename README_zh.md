@@ -12,42 +12,40 @@
 
 `fiberx` 是一个以 CLI 为入口的 Fiber 项目生成器仓库。
 
-仓库现在只维护生成器主线本身：生成资产、规划规则、校验、渲染、构建工程化和回归验证。不再把旧参考模板或 addon 池作为当前主线的一部分。
+仓库当前只维护生成器主线本身：模板资源、规划规则、校验、渲染、升级评估、构建辅助和回归验证。
 
 ## 版本
 
 - `v0.1.0`：已完成
-- `v0.1.1`：进行中
-- `v0.1.2`：已规划
+- `v0.1.1`：已完成
+- `v0.1.2`：已完成
+- `v0.1.3`：已规划
 
 ## 文档入口
 
 - [文档索引](./docs/README.md)
 - [使用指南](./docs/guides/usage.md)
+- [发布流程](./docs/guides/release-process.md)
+- [Build Hook 安全说明](./docs/guides/build-hook-safety.md)
 - [生成器架构](./docs/architecture/fiberx-generator-architecture.md)
 - [模板边界](./docs/architecture/template-boundaries.md)
 - [仓库规则](./docs/architecture/repository-rules.md)
-- [模板选择指南](./docs/guides/template-selection.md)
+- [贡献指南](./CONTRIBUTING.md)
+- [变更记录](./CHANGELOG.md)
 - [路线图](./docs/roadmap/roadmap.md)
 
 ## 当前生成器能力
 
 - `medium`：稳定生产基线，默认带 Swagger 和 embedded UI
-- `heavy`：更完整的生产向轨道，默认带 Swagger、embedded UI、metrics、scheduler，并支持可选 Redis
-- `light`：轻量 HTTP 服务，保留 SQLite-first CRUD、常见中间件，以及可选 Swagger / embedded UI
-- `extra-light`：最小可启动底座，保留 SQLite 启动、健康检查与 recover-only 中间件
+- `heavy`：生产导向轨道，默认带 Swagger、embedded UI、metrics、scheduler，可选 Redis
+- `light`：轻量 HTTP 服务，保留 SQLite-first CRUD 和可选 Swagger / embedded UI
+- `extra-light`：最小可启动骨架，保留 SQLite 启动、健康检查和 recover-only 中间件
 - 默认栈：`Fiber v3 + Cobra + Viper`
-- `medium / heavy / light` 默认运行时：`zap + sqlite + stdlib`
 - 兼容栈：`Fiber v2 + native-cli`
-- `medium / heavy / light` 当前支持运行时参数：
-  - `--logger zap|slog`
-  - `--db sqlite|pgsql|mysql`
-  - `--data-access stdlib|sqlx|sqlc`
+- `medium / heavy / light` 当前支持运行时参数：`--logger`、`--db`、`--data-access`
 - 生成项目当前支持配置 profiles、运行时元信息、升级评估和项目级构建自动化
 
 ## 快速开始
-
-直接从仓库根目录生成一个可运行项目：
 
 ```bash
 go run ./cmd/fiberx new demo --preset medium
@@ -67,7 +65,7 @@ go run ./cmd/fiberx new demo-legacy --preset medium --fiber-version v2 --cli-sty
 go run ./cmd/fiberx new demo-data --preset medium --logger slog --db pgsql --data-access sqlx
 ```
 
-构建工程化示例：
+构建示例：
 
 ```bash
 go run ./cmd/fiberx build
@@ -75,24 +73,34 @@ go run ./cmd/fiberx build --dry-run
 go run ./cmd/fiberx build --profile prod
 ```
 
-## v0.1.1 当前重点
+## 仓库目录定位
 
-当前 `v0.1.1` 聚焦 Fiber 默认应用骨架和可选性能增强：
+- `sample/`：参考快照和测试对照，不是当前正式维护的 generator 主线
+- `output/`：本地生成产物与临时二进制目录，除 `.gitkeep` 外默认不纳入 Git
 
-- Fiber v3 生命周期 hook 预留区和 `app.Hooks()` 生成
-- graceful shutdown 默认模板，以及更完整的默认中间件组合：`recover`、`request id`、`logger`、`cors`
-- 可选第三方 JSON backend 支持：`--json-lib stdlib|sonic|go-json`
+## v0.1.2 发布范围
+
+`v0.1.2` 主要完成默认骨架的一致性与易用性收口：
+
+- 为 `light`、`medium`、`heavy` 补齐共享常量
+- 补齐基础错误模型与响应兼容层
+- 为业务路由接入可配置的 timeout 包装
+- 补齐发布、贡献和 build hook 安全文档
+
+## v0.1.3 预告
+
+下一阶段聚焦 CLI 体验和构建安全边界：
+
+- 生成前预览与 dry-run 风格反馈
+- `build` 的安全开关与显式确认流程
+- 区分生成器与生成项目的分层 `doctor`
+- 面向用户的 `explain matrix`
 
 ## Build Hook 安全提示
 
 - `fiberx build` 可能执行项目自定义的 hooks。
 - 只应在你信任的仓库中运行这些 hooks。
 - 可以先使用 `fiberx build --dry-run` 查看将要执行的命令。
-
-## 说明
-
-- 当前仓库里只有生成器主线是正式维护的 source of truth。
-- 历史内容通过 Git 历史保留，而不是继续保留仓库内 legacy 目录。
 
 ## License
 

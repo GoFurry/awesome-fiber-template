@@ -44,7 +44,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"validate"})
 	})
 	if !strings.Contains(output, "fiberx validate: ok") ||
-		!strings.Contains(output, "release: v0.1.0") ||
+		!strings.Contains(output, "release: v0.1.2") ||
 		!strings.Contains(output, "generator:") ||
 		!strings.Contains(output, "presets: heavy,medium,light,extra-light") ||
 		!strings.Contains(output, "capabilities: redis,swagger,embedded-ui") ||
@@ -65,7 +65,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		!strings.Contains(output, "capability-policy-swagger: default=heavy,medium optional=light unsupported=extra-light") ||
 		!strings.Contains(output, "supported data access: stdlib,sqlx,sqlc") ||
 		!strings.Contains(output, "supported json libs: stdlib,sonic,go-json") ||
-		!strings.Contains(output, "current milestone: v0.1.1") {
+		!strings.Contains(output, "current milestone: v0.1.3") {
 		t.Fatalf("expected verbose validate output, got:\n%s", output)
 	}
 
@@ -74,7 +74,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	})
 	if !strings.Contains(output, "fiberx doctor") ||
 		!strings.Contains(output, "generator:") ||
-		!strings.Contains(output, "release: v0.1.0") ||
+		!strings.Contains(output, "release: v0.1.2") ||
 		!strings.Contains(output, "go: "+runtime.Version()) ||
 		!strings.Contains(output, "workspace:") ||
 		!strings.Contains(output, "manifest root:") ||
@@ -89,8 +89,8 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"doctor", "--verbose"})
 	})
-	if !strings.Contains(output, "release: v0.1.0") ||
-		!strings.Contains(output, "current milestone: v0.1.1") ||
+	if !strings.Contains(output, "release: v0.1.2") ||
+		!strings.Contains(output, "current milestone: v0.1.3") ||
 		!strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") ||
 		!strings.Contains(output, "capability-policy-redis: default=(none) optional=heavy,medium unsupported=light,extra-light") ||
 		!strings.Contains(output, "supported-json-libs: stdlib,sonic,go-json") ||
@@ -101,8 +101,8 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 	output = captureStdout(t, func() error {
 		return run([]string{"--help"})
 	})
-	if !strings.Contains(output, "Release: v0.1.0 completed.") ||
-		!strings.Contains(output, "Current milestone: v0.1.1 in progress for Fiber v3 app hooks") ||
+	if !strings.Contains(output, "Release: v0.1.2 completed.") ||
+		!strings.Contains(output, "Next milestone: v0.1.3 planned for CLI preview") ||
 		!strings.Contains(output, "--json-lib stdlib|sonic|go-json") ||
 		!strings.Contains(output, "fiberx validate [--verbose]") ||
 		!strings.Contains(output, "fiberx doctor [--verbose]") {

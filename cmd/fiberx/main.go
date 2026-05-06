@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	currentRelease = "v0.1.0"
-	nextRelease    = "v0.1.1"
+	currentRelease = "v0.1.2"
+	nextRelease    = "v0.1.3"
 )
 
 func main() {
@@ -617,8 +617,8 @@ func printUsage(w io.Writer) {
 	fmt.Fprintf(w, "Default logger/database/data access: %s / %s / %s\n", stack.DefaultLogger(), stack.DefaultDB(), stack.DefaultDataAccess())
 	fmt.Fprintf(w, "Default JSON backend: %s\n", stack.DefaultJSONLib())
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
-	fmt.Fprintln(w, "Release: v0.1.0 completed.")
-	fmt.Fprintln(w, "Current milestone: v0.1.1 in progress for Fiber v3 app hooks, graceful shutdown, middleware uplift, and optional JSON backend selection.")
+	fmt.Fprintln(w, "Release: v0.1.2 completed.")
+	fmt.Fprintln(w, "Next milestone: v0.1.3 planned for CLI preview, build safety switches, doctor layering, and explain matrix.")
 	fmt.Fprintln(w, "Use `fiberx doctor --verbose` or `fiberx validate --verbose` for full diagnostics.")
 }
 
@@ -629,8 +629,8 @@ func printValidateVerbose(w io.Writer, catalog manifest.Catalog) {
 	fmt.Fprintf(w, "deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
 	fmt.Fprintln(w, "stable production baseline: medium")
 	fmt.Fprintln(w, "completed production track: heavy")
-	fmt.Fprintln(w, "release: v0.1.0")
-	fmt.Fprintln(w, "current milestone: v0.1.1")
+	fmt.Fprintln(w, "release: v0.1.2")
+	fmt.Fprintln(w, "current milestone: v0.1.3")
 	fmt.Fprintln(w, "generator mainline: pure generator repository")
 	fmt.Fprintln(w, "default medium experience: swagger,embedded-ui")
 	fmt.Fprintln(w, "default heavy experience: swagger,embedded-ui")

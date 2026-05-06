@@ -2,16 +2,17 @@
 
 This directory contains the maintained design notes, guides, and release roadmap for the `fiberx` generator mainline.
 
-## Current Release
+## Release Status
 
 - `v0.1.0`: completed
-- `v0.1.1`: in progress
-- `v0.1.2`: planned
+- `v0.1.1`: completed
+- `v0.1.2`: completed
+- `v0.1.3`: planned
 
-## Planned Focus
+## Current Scope
 
-- `v0.1.1`: Fiber v3 lifecycle hooks, `app.Hooks()` integration, graceful shutdown, default middleware uplift, optional `--json-lib`, and build hook safety guidance
-- `v0.1.2`: sample-derived scaffold ergonomics and shared utility uplift
+- `v0.1.2`: shared scaffold uplift, timeout routing, response compatibility, and release-facing documentation
+- `v0.1.3`: CLI preview UX, build safety switches, layered doctor output, and explain matrix
 
 ## Core Documents
 
@@ -19,6 +20,8 @@ This directory contains the maintained design notes, guides, and release roadmap
 - [`architecture/template-boundaries.md`](./architecture/template-boundaries.md)
 - [`architecture/repository-rules.md`](./architecture/repository-rules.md)
 - [`guides/usage.md`](./guides/usage.md)
+- [`guides/release-process.md`](./guides/release-process.md)
+- [`guides/build-hook-safety.md`](./guides/build-hook-safety.md)
 - [`guides/template-selection.md`](./guides/template-selection.md)
 - [`guides/capability-policy.md`](./guides/capability-policy.md)
 - [`guides/config-profiles.md`](./guides/config-profiles.md)
@@ -27,5 +30,10 @@ This directory contains the maintained design notes, guides, and release roadmap
 - [`guides/verification-matrix.md`](./guides/verification-matrix.md)
 - [`guides/deployment-runbook.md`](./guides/deployment-runbook.md)
 - [`roadmap/roadmap.md`](./roadmap/roadmap.md)
+
+## Repository Notes
+
+- `sample/` is kept as reference snapshots and test-facing examples.
+- `output/` is local scratch space and stays out of version control except for `.gitkeep`.
 
 Start from the root README for repository positioning, then use the generator architecture document when making structural decisions.
