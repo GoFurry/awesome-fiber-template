@@ -115,6 +115,8 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, `JSONDecoder:`)
 			assertGeneratedFileContains(t, targetDir, tc.routerPath, `json.Unmarshal`)
 			assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `HealthzPath`)
+			assertGeneratedFileContains(t, targetDir, tc.routerPath, `message := "internal server error"`)
+			assertGeneratedFileNotContains(t, targetDir, tc.routerPath, `message := err.Error()`)
 			assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `signal.NotifyContext`)
 			assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `app.Shutdown()`)
 			assertGeneratedFileContains(t, targetDir, "go.mod", expectedFiberDependency(tc.fiberVersion))
@@ -155,6 +157,9 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `type timeoutRouter struct`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `func wrapTimeoutRouter(`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `"request timeout"`)
+				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {
+					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `wrapped := make([]any, 0, len(handlers))`)
+				}
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func api(root fiber.Router)`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func v1(root fiber.Router)`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func userRoutes(root fiber.Router)`)
@@ -171,6 +176,7 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `func Error(`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `func NewResponse(`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `normalizeError(`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `NewServiceError(value.Error())`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `type TimeoutConfig struct`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `middleware.timeout.duration_seconds must be greater than 0 when timeout is enabled`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `timeout:`)
@@ -183,6 +189,7 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userService :=`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userController :=`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `var UserAPI = &userAPI{}`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `err.Error()`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func GetUserService() *Service`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func Init(`)
 				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {

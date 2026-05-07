@@ -104,7 +104,11 @@ func (router *timeoutRouter) wrapHandlers(handler any, handlers ...any) (any, []
 		return router.wrapHandler(handler), nil
 	}
 
-	return router.wrapHandler(handler), append([]any(nil), handlers...)
+	wrapped := make([]any, 0, len(handlers))
+	for _, item := range handlers {
+		wrapped = append(wrapped, router.wrapHandler(item))
+	}
+	return router.wrapHandler(handler), wrapped
 }
 
 func (router *timeoutRouter) wrapHandler(handler any) any {

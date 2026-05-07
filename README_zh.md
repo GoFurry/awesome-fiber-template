@@ -5,9 +5,6 @@
 ![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat&logo=go&logoColor=white)
 [![Go Report Card](https://goreportcard.com/badge/github.com/GoFurry/fiberx)](https://goreportcard.com/report/github.com/GoFurry/fiberx)
 
-![Weekend Project](https://img.shields.io/badge/weekend-project-8B5CF6?style=flat)
-![Made with Love](https://img.shields.io/badge/made%20with-%E2%9D%A4-E11D48?style=flat&color=orange)
-
 [English](./README.md)
 
 `fiberx` 是一个以 CLI 为入口的 Fiber 项目生成器仓库。
@@ -19,7 +16,7 @@
 - `v0.1.0`：已完成
 - `v0.1.1`：已完成
 - `v0.1.2`：已完成
-- `v0.1.3`：已规划
+- `v0.1.3`：进行中
 
 ## 文档入口
 
@@ -42,8 +39,8 @@
 - `extra-light`：最小可启动骨架，保留 SQLite 启动、健康检查和 recover-only 中间件
 - 默认栈：`Fiber v3 + Cobra + Viper`
 - 兼容栈：`Fiber v2 + native-cli`
-- `medium / heavy / light` 当前支持运行时参数：`--logger`、`--db`、`--data-access`
-- 生成项目当前支持配置 profiles、运行时元信息、升级评估和项目级构建自动化
+- `medium / heavy / light` 支持运行时参数：`--logger`、`--db`、`--data-access`
+- 生成项目支持配置 profiles、运行时元信息、升级评估和项目级构建自动化
 
 ## 快速开始
 
@@ -78,29 +75,23 @@ go run ./cmd/fiberx build --profile prod
 - `sample/`：参考快照和测试对照，不是当前正式维护的 generator 主线
 - `output/`：本地生成产物与临时二进制目录，除 `.gitkeep` 外默认不纳入 Git
 
-## v0.1.2 发布范围
+## v0.1.3 当前范围
 
-`v0.1.2` 主要完成默认骨架的一致性与易用性收口：
+`v0.1.3` 聚焦 CLI 体验、构建安全边界和骨架修补：
 
-- 为 `light`、`medium`、`heavy` 补齐共享常量
-- 补齐基础错误模型与响应兼容层
-- 为业务路由接入可配置的 timeout 包装
-- 补齐发布、贡献和 build hook 安全文档
-
-## v0.1.3 预告
-
-下一阶段聚焦 CLI 体验和构建安全边界：
-
-- 生成前预览与 dry-run 风格反馈
-- `build` 的安全开关与显式确认流程
-- 区分生成器与生成项目的分层 `doctor`
-- 面向用户的 `explain matrix`
+- 生成前预览：`new/init --print-plan [--json]`
+- 构建安全开关：`build --no-hooks`、`build --yes`
+- `doctor` 自动区分 generator / project / standalone
+- `explain matrix` 输出 preset 与 capability 支持矩阵
+- 生成骨架默认错误响应脱敏
+- `timeout` 对多 handler 链完整覆盖
 
 ## Build Hook 安全提示
 
-- `fiberx build` 可能执行项目自定义的 hooks。
-- 只应在你信任的仓库中运行这些 hooks。
-- 可以先使用 `fiberx build --dry-run` 查看将要执行的命令。
+- `fiberx build` 可能执行项目自定义 hooks
+- 只应在你信任的仓库中执行这些 hooks
+- 可以先用 `fiberx build --dry-run` 查看计划
+- 有 hooks 的构建默认会要求确认，非交互环境下请显式使用 `--yes` 或 `--no-hooks`
 
 ## License
 

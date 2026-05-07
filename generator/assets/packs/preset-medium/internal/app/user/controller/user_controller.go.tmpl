@@ -115,6 +115,6 @@ func writeServiceError(c *fiber.Ctx, err error) error {
 	case errors.Is(err, dao.ErrNotFound):
 		return common.Error(c, fiber.StatusNotFound, "user not found")
 	default:
-		return common.Error(c, fiber.StatusInternalServerError, err.Error())
+		return common.Error(c, fiber.StatusInternalServerError, "request failed")
 	}
 }

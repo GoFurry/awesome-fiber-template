@@ -73,6 +73,7 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"doctor"})
 	})
 	if !strings.Contains(output, "fiberx doctor") ||
+		!strings.Contains(output, "mode: generator") ||
 		!strings.Contains(output, "generator:") ||
 		!strings.Contains(output, "release: v0.1.2") ||
 		!strings.Contains(output, "go: "+runtime.Version()) ||
@@ -102,12 +103,113 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"--help"})
 	})
 	if !strings.Contains(output, "Release: v0.1.2 completed.") ||
-		!strings.Contains(output, "Next milestone: v0.1.3 planned for CLI preview") ||
+		!strings.Contains(output, "Current milestone: v0.1.3 in progress") ||
 		!strings.Contains(output, "--json-lib stdlib|sonic|go-json") ||
+		!strings.Contains(output, "--print-plan") ||
+		!strings.Contains(output, "fiberx explain matrix [--json]") ||
 		!strings.Contains(output, "fiberx validate [--verbose]") ||
 		!strings.Contains(output, "fiberx doctor [--verbose]") {
 		t.Fatalf("expected release-oriented help output, got:\n%s", output)
 	}
+}
+
+func TestCLIPlanPreviewAndMatrix(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "medium", "--print-plan"})
+		})
+		if !strings.Contains(output, "generation plan preset=medium") ||
+			!strings.Contains(output, "project: demo") ||
+			!strings.Contains(output, "estimated files:") ||
+			!strings.Contains(output, ".fiberx/manifest.json") {
+			t.Fatalf("expected print-plan preview output, got:\n%s", output)
+		}
+	})
+	if _, err := os.Stat(filepath.Join(workdir, "demo")); !os.IsNotExist(err) {
+		t.Fatalf("expected print-plan not to create target dir, got %v", err)
+	}
+
+	var previewPayload map[string]any
+	withWorkingDir(t, workdir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light", "--print-plan", "--json"})
+		})
+		if err := json.Unmarshal([]byte(output), &previewPayload); err != nil {
+			t.Fatalf("unmarshal preview json: %v\n%s", err, output)
+		}
+	})
+	if previewPayload["preset"] != "light" || previewPayload["project_name"] != "demo" {
+		t.Fatalf("unexpected preview payload: %#v", previewPayload)
+	}
+
+	err := run([]string{"new", "demo", "--json"})
+	if err == nil || !strings.Contains(err.Error(), "--json requires --print-plan") {
+		t.Fatalf("expected --json validation error, got %v", err)
+	}
+
+	output := captureStdout(t, func() error {
+		return run([]string{"explain", "matrix"})
+	})
+	if !strings.Contains(output, "preset") ||
+		!strings.Contains(output, "heavy") ||
+		!strings.Contains(output, "embedded-ui") ||
+		!strings.Contains(output, "default") ||
+		!strings.Contains(output, "unsupported") {
+		t.Fatalf("expected explain matrix text output, got:\n%s", output)
+	}
+
+	output = captureStdout(t, func() error {
+		return run([]string{"explain", "matrix", "--json"})
+	})
+	var matrixPayload struct {
+		Matrix map[string]map[string]string `json:"matrix"`
+	}
+	if err := json.Unmarshal([]byte(output), &matrixPayload); err != nil {
+		t.Fatalf("unmarshal explain matrix json: %v\n%s", err, output)
+	}
+	if matrixPayload.Matrix["heavy"]["swagger"] != "default" || matrixPayload.Matrix["extra-light"]["redis"] != "unsupported" {
+		t.Fatalf("unexpected explain matrix payload: %#v", matrixPayload)
+	}
+}
+
+func TestCLIDoctorProjectMode(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+
+	projectDir := filepath.Join(workdir, "demo")
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"doctor"})
+		})
+		if !strings.Contains(output, "mode: project") ||
+			!strings.Contains(output, "generated-by:") ||
+			!strings.Contains(output, "current-generator:") ||
+			!strings.Contains(output, "diff status:") ||
+			!strings.Contains(output, "compatibility level:") {
+			t.Fatalf("expected project doctor output, got:\n%s", output)
+		}
+	})
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"doctor", "--verbose"})
+		})
+		if !strings.Contains(output, "mode: project") ||
+			!strings.Contains(output, "managed files:") ||
+			!strings.Contains(output, "build config: present") ||
+			!strings.Contains(output, "build profiles:") {
+			t.Fatalf("expected verbose project doctor output, got:\n%s", output)
+		}
+	})
 }
 
 func TestCLIExplainAndGenerate(t *testing.T) {
@@ -746,8 +848,93 @@ build:
 		output := captureStdout(t, func() error {
 			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH, "--dry-run"})
 		})
-		if !strings.Contains(output, "pre_hooks=inspect") || !strings.Contains(output, "post_hooks=inspect-post") || !strings.Contains(output, "upx=enabled(level=7)") {
+		if !strings.Contains(output, "pre_hooks=inspect") || !strings.Contains(output, "post_hooks=inspect-post") || !strings.Contains(output, "upx=enabled(level=7)") || !strings.Contains(output, "hooks: planned;") {
 			t.Fatalf("expected dry-run to show hooks and upx plan, got:\n%s", output)
+		}
+	})
+}
+
+func TestCLIBuildHookSafetyFlags(t *testing.T) {
+	t.Setenv("FIBERX_MANIFEST_ROOT", manifestRootForCLI(t))
+
+	workdir := t.TempDir()
+	withWorkingDir(t, workdir, func() {
+		_ = captureStdout(t, func() error {
+			return run([]string{"new", "demo", "--preset", "light"})
+		})
+	})
+
+	projectDir := filepath.Join(workdir, "demo")
+	initGitRepoForCLI(t, projectDir)
+	configPath := filepath.Join(projectDir, "fiberx.yaml")
+	configBody := `project:
+  name: demo
+  module: github.com/example/demo
+build:
+  out_dir: dist
+  clean: true
+  parallel: false
+  version:
+    source: git
+    package: github.com/example/demo/internal/version
+  defaults:
+    cgo: false
+    trimpath: true
+    ldflags:
+      - "-s -w"
+      - "-X github.com/example/demo/internal/version.Version={{.Version}}"
+      - "-X github.com/example/demo/internal/version.Commit={{.Commit}}"
+      - "-X github.com/example/demo/internal/version.BuildTime={{.BuildTime}}"
+  checksum:
+    enabled: false
+    algorithm: sha256
+  compress:
+    upx:
+      enabled: false
+      level: 5
+  targets:
+    - name: server
+      package: .
+      output: demo
+      platforms:
+        - ` + runtime.GOOS + `/` + runtime.GOARCH + `
+      archive:
+        enabled: false
+        format: auto
+        files: []
+      pre_hooks:
+        - name: inspect
+          command: ["go", "version"]
+      post_hooks:
+        - name: inspect-post
+          command: ["go", "version"]
+`
+	if err := os.WriteFile(configPath, []byte(configBody), 0o644); err != nil {
+		t.Fatalf("write generated build config: %v", err)
+	}
+
+	withWorkingDir(t, projectDir, func() {
+		err := run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH})
+		if err == nil || !strings.Contains(err.Error(), "rerun with --yes to approve them or --no-hooks to skip them") {
+			t.Fatalf("expected non-interactive hook confirmation error, got %v", err)
+		}
+	})
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH, "--no-hooks"})
+		})
+		if !strings.Contains(output, "hooks: skipped by --no-hooks") {
+			t.Fatalf("expected --no-hooks output, got:\n%s", output)
+		}
+	})
+
+	withWorkingDir(t, projectDir, func() {
+		output := captureStdout(t, func() error {
+			return run([]string{"build", "server", "--target", runtime.GOOS + "/" + runtime.GOARCH, "--yes"})
+		})
+		if !strings.Contains(output, "hooks: approved by --yes") {
+			t.Fatalf("expected --yes output, got:\n%s", output)
 		}
 	})
 }

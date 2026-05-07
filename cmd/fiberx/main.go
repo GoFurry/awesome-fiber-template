@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -82,6 +83,8 @@ func runNew(args []string) error {
 	dbKind := fs.String("db", stack.DefaultDB(), "database kind: sqlite, pgsql, or mysql")
 	dataAccess := fs.String("data-access", stack.DefaultDataAccess(), "data access stack: stdlib, sqlx, or sqlc")
 	jsonLib := fs.String("json-lib", stack.DefaultJSONLib(), "json backend: stdlib, sonic, or go-json")
+	printPlan := fs.Bool("print-plan", false, "print the generation plan without writing files")
+	asJSON := fs.Bool("json", false, "render generation plan output as JSON (requires --print-plan)")
 
 	if err := fs.Parse(reorderArgs(args, map[string]bool{
 		"--module":        true,
@@ -93,8 +96,13 @@ func runNew(args []string) error {
 		"--db":            true,
 		"--data-access":   true,
 		"--json-lib":      true,
+		"--print-plan":    false,
+		"--json":          false,
 	})); err != nil {
 		return err
+	}
+	if *asJSON && !*printPlan {
+		return errors.New("--json requires --print-plan")
 	}
 
 	positionals := fs.Args()
@@ -124,6 +132,18 @@ func runNew(args []string) error {
 		Options:      options,
 	}
 
+	if *printPlan {
+		preview, err := core.Preview(req)
+		if err != nil {
+			return err
+		}
+		if *asJSON {
+			return writeJSON(os.Stdout, preview)
+		}
+		printPreview(os.Stdout, preview)
+		return nil
+	}
+
 	summary, err := core.Run(req)
 	if err != nil {
 		return err
@@ -145,6 +165,8 @@ func runInit(args []string) error {
 	dbKind := fs.String("db", stack.DefaultDB(), "database kind: sqlite, pgsql, or mysql")
 	dataAccess := fs.String("data-access", stack.DefaultDataAccess(), "data access stack: stdlib, sqlx, or sqlc")
 	jsonLib := fs.String("json-lib", stack.DefaultJSONLib(), "json backend: stdlib, sonic, or go-json")
+	printPlan := fs.Bool("print-plan", false, "print the generation plan without writing files")
+	asJSON := fs.Bool("json", false, "render generation plan output as JSON (requires --print-plan)")
 
 	if err := fs.Parse(reorderArgs(args, map[string]bool{
 		"--name":          true,
@@ -157,8 +179,13 @@ func runInit(args []string) error {
 		"--db":            true,
 		"--data-access":   true,
 		"--json-lib":      true,
+		"--print-plan":    false,
+		"--json":          false,
 	})); err != nil {
 		return err
+	}
+	if *asJSON && !*printPlan {
+		return errors.New("--json requires --print-plan")
 	}
 
 	if len(fs.Args()) != 0 {
@@ -193,6 +220,18 @@ func runInit(args []string) error {
 		Preset:       *preset,
 		Capabilities: parseCapabilities(*with),
 		Options:      options,
+	}
+
+	if *printPlan {
+		preview, err := core.Preview(req)
+		if err != nil {
+			return err
+		}
+		if *asJSON {
+			return writeJSON(os.Stdout, preview)
+		}
+		printPreview(os.Stdout, preview)
+		return nil
 	}
 
 	summary, err := core.Run(req)
@@ -231,6 +270,27 @@ func runList(args []string) error {
 }
 
 func runExplain(args []string) error {
+	fs := newFlagSet("explain")
+	asJSON := fs.Bool("json", false, "render explain matrix output as JSON")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--json": false})); err != nil {
+		return err
+	}
+	args = fs.Args()
+	if len(args) == 1 && args[0] == "matrix" {
+		catalog, err := loadCatalog()
+		if err != nil {
+			return err
+		}
+		matrix := buildCapabilityMatrix(catalog)
+		if *asJSON {
+			return writeJSON(os.Stdout, matrix)
+		}
+		printCapabilityMatrix(os.Stdout, matrix)
+		return nil
+	}
+	if *asJSON {
+		return errors.New("--json is only supported with explain matrix")
+	}
 	if len(args) != 2 {
 		return errors.New("explain requires a kind and a name")
 	}
@@ -318,17 +378,40 @@ func runDoctor(args []string) error {
 	}
 
 	root := manifest.ResolveRoot("")
-	catalog, err := manifest.LoadCatalog(root)
+	rootAbs, err := filepath.Abs(root)
 	if err != nil {
 		return err
 	}
-	rootAbs, err := filepath.Abs(root)
+
+	projectRoot := detectProjectRoot(cwd)
+	doctorMode := detectDoctorMode(cwd, rootAbs)
+	if doctorMode == "project" {
+		return runProjectDoctor(projectRoot, rootAbs, *verbose)
+	}
+	if doctorMode == "standalone" {
+		if !*verbose {
+			fmt.Println("fiberx doctor")
+			fmt.Println("mode: standalone")
+			fmt.Printf("generator: %s (%s)\n", version.Version, version.Commit)
+			fmt.Printf("release: %s\n", currentRelease)
+			fmt.Printf("go: %s\n", runtime.Version())
+			fmt.Printf("workspace: %s\n", cwd)
+			fmt.Println("status: no generator repository or generated project detected")
+			fmt.Println("note: use --verbose for full diagnostics")
+			return nil
+		}
+		fmt.Fprintf(os.Stdout, "mode: standalone\ncwd: %s\ngo: %s\nrelease: %s\ngenerator-version: %s\ngenerator-commit: %s\nstatus: no generator repository or generated project detected\n", cwd, runtime.Version(), currentRelease, version.Version, version.Commit)
+		return nil
+	}
+
+	catalog, err := manifest.LoadCatalog(root)
 	if err != nil {
 		return err
 	}
 
 	if !*verbose {
 		fmt.Println("fiberx doctor")
+		fmt.Printf("mode: %s\n", doctorMode)
 		fmt.Printf("generator: %s (%s)\n", version.Version, version.Commit)
 		fmt.Printf("release: %s\n", currentRelease)
 		fmt.Printf("go: %s\n", runtime.Version())
@@ -527,7 +610,9 @@ func runBuild(args []string) error {
 	platform := fs.String("target", "", "filter builds to a single goos/goarch platform")
 	dryRun := fs.Bool("dry-run", false, "print the build plan without writing outputs")
 	profile := fs.String("profile", "", "apply a named build profile overlay")
-	if err := fs.Parse(reorderArgs(args, map[string]bool{"--target": true, "--profile": true})); err != nil {
+	noHooks := fs.Bool("no-hooks", false, "skip target hooks during the build")
+	autoApprove := fs.Bool("yes", false, "approve execution of planned hooks without prompting")
+	if err := fs.Parse(reorderArgs(args, map[string]bool{"--target": true, "--profile": true, "--no-hooks": false, "--yes": false})); err != nil {
 		return err
 	}
 
@@ -541,12 +626,36 @@ func runBuild(args []string) error {
 		return err
 	}
 
+	previewResult, err := build.Execute(projectDir, cfg, build.Options{
+		TargetNames:    fs.Args(),
+		PlatformFilter: *platform,
+		Clean:          *clean,
+		DryRun:         true,
+		Profile:        *profile,
+	})
+	if err != nil {
+		return err
+	}
+
+	hooksPresent := resultHasHooks(previewResult)
+	confirmationRequired := hooksPresent && !*dryRun && !*noHooks && !*autoApprove
+	if confirmationRequired {
+		if !isInteractiveTerminal() {
+			return errors.New("build hooks are present; rerun with --yes to approve them or --no-hooks to skip them")
+		}
+		if !promptForHookApproval(previewResult) {
+			return errors.New("build aborted by user")
+		}
+	}
+
 	result, err := build.Execute(projectDir, cfg, build.Options{
 		TargetNames:    fs.Args(),
 		PlatformFilter: *platform,
 		Clean:          *clean,
 		DryRun:         *dryRun,
 		Profile:        *profile,
+		NoHooks:        *noHooks,
+		AutoApprove:    *autoApprove,
 	})
 	if err != nil {
 		return err
@@ -582,6 +691,18 @@ func runBuild(args []string) error {
 		}
 		fmt.Println()
 	}
+	if hooksPresent {
+		switch {
+		case *noHooks:
+			fmt.Println("hooks: skipped by --no-hooks")
+		case *dryRun:
+			fmt.Printf("hooks: planned; %s\n", hookActionSummary(previewResult, confirmationRequired))
+		case *autoApprove:
+			fmt.Println("hooks: approved by --yes")
+		default:
+			fmt.Println("hooks: executed")
+		}
+	}
 	if result.ChecksumPath != "" {
 		fmt.Printf("checksum: %s\n", filepath.ToSlash(result.ChecksumPath))
 	}
@@ -600,17 +721,18 @@ func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "fiberx is a CLI-first Fiber project generator.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc] [--json-lib stdlib|sonic|go-json]")
-	fmt.Fprintln(w, "  fiberx init [--name name] [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc] [--json-lib stdlib|sonic|go-json]")
+	fmt.Fprintln(w, "  fiberx new <name> [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc] [--json-lib stdlib|sonic|go-json] [--print-plan] [--json]")
+	fmt.Fprintln(w, "  fiberx init [--name name] [--module path] [--preset name] [--with cap1,cap2] [--fiber-version v3|v2] [--cli-style cobra|native] [--logger zap|slog] [--db sqlite|pgsql|mysql] [--data-access stdlib|sqlx|sqlc] [--json-lib stdlib|sonic|go-json] [--print-plan] [--json]")
 	fmt.Fprintln(w, "  fiberx list presets")
 	fmt.Fprintln(w, "  fiberx list capabilities")
 	fmt.Fprintln(w, "  fiberx explain preset <name>")
 	fmt.Fprintln(w, "  fiberx explain capability <name>")
+	fmt.Fprintln(w, "  fiberx explain matrix [--json]")
 	fmt.Fprintln(w, "  fiberx inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx diff [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade inspect [path] [--json]")
 	fmt.Fprintln(w, "  fiberx upgrade plan [path] [--json]")
-	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch] [--profile name] [--dry-run]")
+	fmt.Fprintln(w, "  fiberx build [target...] [--clean] [--target goos/goarch] [--profile name] [--dry-run] [--no-hooks] [--yes]")
 	fmt.Fprintln(w, "  fiberx validate [--verbose]")
 	fmt.Fprintln(w, "  fiberx doctor [--verbose]")
 	fmt.Fprintf(w, "\nDefault stack: %s\n", stack.DefaultStackLabel())
@@ -618,7 +740,7 @@ func printUsage(w io.Writer) {
 	fmt.Fprintf(w, "Default JSON backend: %s\n", stack.DefaultJSONLib())
 	fmt.Fprintln(w, "Capability policy: swagger and embedded-ui default on medium/heavy, optional on light; redis optional on medium/heavy only.")
 	fmt.Fprintln(w, "Release: v0.1.2 completed.")
-	fmt.Fprintln(w, "Next milestone: v0.1.3 planned for CLI preview, build safety switches, doctor layering, and explain matrix.")
+	fmt.Fprintln(w, "Current milestone: v0.1.3 in progress for CLI preview, build safety switches, doctor layering, explain matrix, and scaffold hardening.")
 	fmt.Fprintln(w, "Use `fiberx doctor --verbose` or `fiberx validate --verbose` for full diagnostics.")
 }
 
@@ -832,6 +954,246 @@ func printSummary(w io.Writer, summary report.Summary) {
 	if len(summary.Warnings) > 0 {
 		fmt.Fprintf(w, "warnings: %s\n", joinOrNone(summary.Warnings))
 	}
+}
+
+type capabilityMatrix struct {
+	Presets      []string                     `json:"presets"`
+	Capabilities []string                     `json:"capabilities"`
+	Matrix       map[string]map[string]string `json:"matrix"`
+}
+
+func printPreview(w io.Writer, preview report.Preview) {
+	fmt.Fprintf(w, "generation plan preset=%s target=%s\n", preview.Preset, preview.TargetDir)
+	fmt.Fprintf(w, "project: %s\n", preview.ProjectName)
+	fmt.Fprintf(w, "module: %s\n", preview.ModulePath)
+	fmt.Fprintf(w, "stack: fiber-%s + %s", preview.FiberVersion, preview.CLIStyle)
+	if preview.CLIStyle == stack.CLICobra {
+		fmt.Fprintf(w, " + viper")
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "runtime: logger=%s db=%s data-access=%s json-lib=%s\n", preview.Logger, preview.Database, preview.DataAccess, preview.JSONLib)
+	fmt.Fprintf(w, "base: %s\n", preview.Base)
+	fmt.Fprintf(w, "preset packs: %s\n", joinOrNone(preview.PresetPacks))
+	fmt.Fprintf(w, "capabilities: %s\n", joinOrNone(preview.Capabilities))
+	fmt.Fprintf(w, "capability packs: %s\n", joinOrNone(preview.CapabilityPacks))
+	fmt.Fprintf(w, "runtime overlays: %s\n", joinOrNone(preview.RuntimeOverlays))
+	fmt.Fprintf(w, "replace rules: %s\n", joinOrNone(preview.ReplaceRules))
+	fmt.Fprintf(w, "injection rules: %s\n", joinOrNone(preview.InjectionRules))
+	fmt.Fprintf(w, "generator: %s (%s)\n", preview.GeneratorVersion, preview.GeneratorCommit)
+	fmt.Fprintf(w, "metadata: %s\n", preview.MetadataPath)
+	fmt.Fprintf(w, "estimated files: %d\n", preview.EstimatedFiles)
+	for _, path := range preview.EstimatedPaths {
+		fmt.Fprintf(w, "  - %s\n", path)
+	}
+	if len(preview.Warnings) > 0 {
+		fmt.Fprintf(w, "warnings: %s\n", joinOrNone(preview.Warnings))
+	}
+}
+
+func buildCapabilityMatrix(catalog manifest.Catalog) capabilityMatrix {
+	presets := []string{"heavy", "medium", "light", "extra-light"}
+	capabilities := []string{"redis", "swagger", "embedded-ui"}
+	matrix := capabilityMatrix{
+		Presets:      presets,
+		Capabilities: capabilities,
+		Matrix:       map[string]map[string]string{},
+	}
+	for _, presetName := range presets {
+		row := map[string]string{}
+		for _, capabilityName := range capabilities {
+			capability, ok := catalog.FindCapability(capabilityName)
+			if !ok {
+				row[capabilityName] = "unsupported"
+				continue
+			}
+			defaultOn, optionalOn, _ := capabilityPresetBoundary(catalog, capability)
+			switch {
+			case contains(defaultOn, presetName):
+				row[capabilityName] = "default"
+			case contains(optionalOn, presetName):
+				row[capabilityName] = "optional"
+			default:
+				row[capabilityName] = "unsupported"
+			}
+		}
+		matrix.Matrix[presetName] = row
+	}
+	return matrix
+}
+
+func printCapabilityMatrix(w io.Writer, matrix capabilityMatrix) {
+	fmt.Fprintln(w, "preset        redis        swagger      embedded-ui")
+	for _, preset := range matrix.Presets {
+		row := matrix.Matrix[preset]
+		fmt.Fprintf(w, "%-13s %-12s %-12s %s\n", preset, row["redis"], row["swagger"], row["embedded-ui"])
+	}
+}
+
+func detectDoctorMode(cwd, rootAbs string) string {
+	if detectProjectRoot(cwd) != "" {
+		return "project"
+	}
+	if detectGeneratorRepoRoot(cwd, rootAbs) != "" {
+		return "generator"
+	}
+	return "standalone"
+}
+
+func detectProjectRoot(start string) string {
+	for _, candidate := range ascendPaths(start) {
+		if _, err := metadata.LoadManifest(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func detectGeneratorRepoRoot(start, rootAbs string) string {
+	for _, candidate := range ascendPaths(start) {
+		if pathExists(filepath.Join(candidate, "cmd", "fiberx", "main.go")) && filepath.Clean(filepath.Join(candidate, manifest.DefaultRoot())) == filepath.Clean(rootAbs) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func ascendPaths(start string) []string {
+	paths := []string{}
+	current := filepath.Clean(start)
+	for {
+		paths = append(paths, current)
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	return paths
+}
+
+func runProjectDoctor(projectDir, rootAbs string, verbose bool) error {
+	projectManifest, err := metadata.LoadManifest(projectDir)
+	if err != nil {
+		return err
+	}
+	assessment, err := upgrade.Inspect(projectDir, rootAbs)
+	if err != nil {
+		return err
+	}
+	if !verbose {
+		fmt.Println("fiberx doctor")
+		fmt.Println("mode: project")
+		fmt.Printf("project: %s\n", projectDir)
+		fmt.Printf("generated-by: %s (%s)\n", assessment.GeneratedGenerator.Version, assessment.GeneratedGenerator.Commit)
+		fmt.Printf("current-generator: %s (%s)\n", assessment.CurrentGenerator.Version, assessment.CurrentGenerator.Commit)
+		fmt.Printf("preset: %s\n", assessment.Recipe.Preset)
+		fmt.Printf("capabilities: %s\n", joinOrNone(assessment.Recipe.Capabilities))
+		if assessment.Recipe.Logger != "" || assessment.Recipe.DB != "" || assessment.Recipe.DataAccess != "" || assessment.Recipe.JSONLib != "" {
+			fmt.Printf("runtime: logger=%s db=%s data-access=%s json-lib=%s\n", valueOrNone(assessment.Recipe.Logger), valueOrNone(assessment.Recipe.DB), valueOrNone(assessment.Recipe.DataAccess), valueOrNone(assessment.Recipe.JSONLib))
+		}
+		fmt.Printf("diff status: %s\n", assessment.DiffStatus)
+		fmt.Printf("compatibility level: %s\n", assessment.CompatibilityLevel)
+		fmt.Printf("status: %s\n", joinOrNone(assessment.Reasons))
+		fmt.Println("note: use --verbose for full diagnostics")
+		return nil
+	}
+
+	fmt.Fprintf(os.Stdout, "fiberx doctor\nmode: project\nproject: %s\n", projectDir)
+	fmt.Printf("manifest: %s\n", filepath.ToSlash(filepath.Join(projectDir, metadata.ManifestDir, metadata.ManifestFilename)))
+	fmt.Printf("generated-at: %s\n", projectManifest.GeneratedAt)
+	fmt.Printf("generated-by: %s (%s)\n", assessment.GeneratedGenerator.Version, assessment.GeneratedGenerator.Commit)
+	fmt.Printf("current-generator: %s (%s)\n", assessment.CurrentGenerator.Version, assessment.CurrentGenerator.Commit)
+	fmt.Printf("preset: %s\n", assessment.Recipe.Preset)
+	fmt.Printf("capabilities: %s\n", joinOrNone(assessment.Recipe.Capabilities))
+	if assessment.Recipe.Logger != "" || assessment.Recipe.DB != "" || assessment.Recipe.DataAccess != "" || assessment.Recipe.JSONLib != "" {
+		fmt.Printf("runtime: logger=%s db=%s data-access=%s json-lib=%s\n", valueOrNone(assessment.Recipe.Logger), valueOrNone(assessment.Recipe.DB), valueOrNone(assessment.Recipe.DataAccess), valueOrNone(assessment.Recipe.JSONLib))
+	}
+	fmt.Printf("diff status: %s\n", assessment.DiffStatus)
+	fmt.Printf("compatibility level: %s\n", assessment.CompatibilityLevel)
+	fmt.Printf("managed files: %d\n", len(projectManifest.ManagedFiles))
+	fmt.Printf("missing files: %s\n", joinOrNone(assessment.MissingFiles))
+	fmt.Printf("local modified files: %s\n", joinOrNone(assessment.LocalModifiedFiles))
+	fmt.Printf("generator drift files: %s\n", joinOrNone(assessment.GeneratorDriftFiles))
+	fmt.Printf("new managed files: %s\n", joinOrNone(assessment.NewManagedFiles))
+	fmt.Printf("reasons: %s\n", joinOrNone(assessment.Reasons))
+	fmt.Printf("blocking issues: %s\n", joinOrNone(assessment.BlockingIssues))
+	if cfg, cfgErr := buildconfig.Load(projectDir); cfgErr == nil {
+		fmt.Printf("build config: present (%s)\n", buildconfig.Filename)
+		profileNames := make([]string, 0, len(cfg.Build.Profiles))
+		hookSummary := []string{}
+		for name := range cfg.Build.Profiles {
+			profileNames = append(profileNames, name)
+		}
+		sort.Strings(profileNames)
+		for _, target := range cfg.Build.Targets {
+			if len(target.PreHooks) > 0 || len(target.PostHooks) > 0 {
+				hookSummary = append(hookSummary, fmt.Sprintf("%s(pre=%d,post=%d)", target.Name, len(target.PreHooks), len(target.PostHooks)))
+			}
+		}
+		fmt.Printf("build profiles: %s\n", joinOrNone(profileNames))
+		fmt.Printf("hooks: %s\n", joinOrNone(hookSummary))
+	} else {
+		fmt.Printf("build config: absent (%v)\n", cfgErr)
+	}
+	return nil
+}
+
+func resultHasHooks(result build.Result) bool {
+	for _, artifact := range result.Artifacts {
+		if len(artifact.PreHooks) > 0 || len(artifact.PostHooks) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func isInteractiveTerminal() bool {
+	if info, err := os.Stdin.Stat(); err != nil || (info.Mode()&os.ModeCharDevice) == 0 {
+		return false
+	}
+	if info, err := os.Stdout.Stat(); err != nil || (info.Mode()&os.ModeCharDevice) == 0 {
+		return false
+	}
+	return true
+}
+
+func promptForHookApproval(result build.Result) bool {
+	fmt.Println("build hooks are present for this build:")
+	for _, artifact := range result.Artifacts {
+		if len(artifact.PreHooks) == 0 && len(artifact.PostHooks) == 0 {
+			continue
+		}
+		fmt.Printf("  - target=%s platform=%s pre_hooks=%s post_hooks=%s\n", artifact.TargetName, artifact.Platform, joinOrNone(artifact.PreHooks), joinOrNone(artifact.PostHooks))
+	}
+	fmt.Print("continue and execute hooks? [y/N]: ")
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil && !errors.Is(err, io.EOF) {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "y", "yes":
+		return true
+	default:
+		return false
+	}
+}
+
+func hookActionSummary(result build.Result, confirmationRequired bool) string {
+	taskCount := 0
+	for _, artifact := range result.Artifacts {
+		if len(artifact.PreHooks) > 0 || len(artifact.PostHooks) > 0 {
+			taskCount++
+		}
+	}
+	if confirmationRequired {
+		return fmt.Sprintf("%d task(s) include hooks; interactive confirmation would be required unless --yes or --no-hooks is used", taskCount)
+	}
+	return fmt.Sprintf("%d task(s) include hooks", taskCount)
+}
+
+func pathExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func defaultLoggerForPreset(presetName string) string {

@@ -65,9 +65,9 @@ func normalizeError(data any) AppErrorContract {
 	case AppErrorContract:
 		return value
 	case error:
-		return NewServiceError(value.Error())
+		return NewServiceError("request failed")
 	case string:
-		return NewServiceError(value)
+		return NewServiceError("request failed")
 	default:
 		return NewServiceError("request failed")
 	}

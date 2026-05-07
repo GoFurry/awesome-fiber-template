@@ -19,7 +19,7 @@ The repository is intentionally focused on the generator mainline itself: assets
 - `v0.1.0`: completed
 - `v0.1.1`: completed
 - `v0.1.2`: completed
-- `v0.1.3`: planned
+- `v0.1.3`: in progress
 
 ## Docs
 
@@ -89,12 +89,14 @@ go run ./cmd/fiberx build --profile prod
 
 ## v0.1.3 Preview
 
-The next milestone focuses on CLI UX and safer build workflows:
+The current milestone focuses on CLI UX, safer build workflows, and scaffold hardening:
 
-- generation plan preview and dry-run-style creation feedback
-- build safety switches such as `--no-hooks` and explicit confirmation flow
-- layered `doctor` output for generator vs generated projects
+- generation plan preview with `new/init --print-plan [--json]`
+- build safety switches such as `--no-hooks` and `--yes`
+- layered `doctor` output for generator, project, and standalone modes
 - `explain matrix` for preset and capability visibility
+- safer default error responses in generated projects
+- full timeout coverage for multi-handler business routes
 
 ## Build Hook Safety
 

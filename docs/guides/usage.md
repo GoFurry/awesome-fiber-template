@@ -5,7 +5,7 @@ This guide explains how to use the current `fiberx` generator from the repositor
 ## Release Snapshot
 
 - current release: `v0.1.2`
-- next milestone: `v0.1.3`
+- current milestone: `v0.1.3`
 - generatable presets: `heavy`, `medium`, `light`, `extra-light`
 - implemented capabilities: `redis`, `swagger`, `embedded-ui`
 - default stack: `fiber-v3 + cobra + viper`
@@ -27,6 +27,7 @@ Available commands:
 - `fiberx list capabilities`
 - `fiberx explain preset <name>`
 - `fiberx explain capability <name>`
+- `fiberx explain matrix [--json]`
 - `fiberx inspect [path]`
 - `fiberx diff [path]`
 - `fiberx upgrade inspect [path]`
@@ -47,6 +48,13 @@ Generate a new project into `<cwd>/<projectName>`:
 
 ```bash
 go run ./cmd/fiberx new demo --preset medium
+```
+
+Preview before writing files:
+
+```bash
+go run ./cmd/fiberx new demo --preset medium --print-plan
+go run ./cmd/fiberx new demo --preset medium --print-plan --json
 ```
 
 Examples:
@@ -80,6 +88,7 @@ With an explicit project name:
 ```bash
 go run ./cmd/fiberx init --name demo --preset medium
 go run ./cmd/fiberx init --name demo --preset light --json-lib go-json
+go run ./cmd/fiberx init --preset medium --print-plan
 ```
 
 ## Inspect Presets And Capabilities
@@ -89,6 +98,8 @@ go run ./cmd/fiberx list presets
 go run ./cmd/fiberx list capabilities
 go run ./cmd/fiberx explain preset medium
 go run ./cmd/fiberx explain capability redis
+go run ./cmd/fiberx explain matrix
+go run ./cmd/fiberx explain matrix --json
 ```
 
 ## Metadata, Diff, And Upgrade
@@ -110,6 +121,8 @@ fiberx build server
 fiberx build --target linux/amd64
 fiberx build --profile prod
 fiberx build --dry-run
+fiberx build --no-hooks
+fiberx build --yes
 ```
 
 Generated projects can use:
@@ -120,7 +133,7 @@ Generated projects can use:
 - build metadata and release manifest
 - target hooks and optional UPX compression
 
-`fiberx build` may execute project-defined hooks. Only run hooks in trusted repositories. Use `fiberx build --dry-run` to inspect planned commands before execution.
+`fiberx build` may execute project-defined hooks. Only run hooks in trusted repositories. Use `fiberx build --dry-run` to inspect planned commands before execution. If hooks are present, interactive runs ask for confirmation by default. In non-interactive environments, use `--yes` to approve hooks or `--no-hooks` to skip them.
 
 ## Validate And Diagnose The Generator
 
@@ -154,6 +167,7 @@ Typical default `doctor` output:
 
 ```text
 fiberx doctor
+mode: generator
 generator: <version> (<commit>)
 release: v0.1.2
 go: <runtime>
@@ -162,6 +176,8 @@ manifest root: <root>
 status: ok
 note: use --verbose for full diagnostics
 ```
+
+When run inside a generated project, `doctor` automatically switches to project mode and summarizes metadata, diff status, and compatibility.
 
 ## Related Docs
 

@@ -32,7 +32,7 @@ func NewApp(deps Dependencies) *fiber.App {
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			logger.Error("request failed", slog.String("path", c.Path()), slog.String("error", err.Error()))
 			status := fiber.StatusInternalServerError
-			message := err.Error()
+			message := "internal server error"
 			var fiberErr *fiber.Error
 			if errors.As(err, &fiberErr) {
 				status = fiberErr.Code

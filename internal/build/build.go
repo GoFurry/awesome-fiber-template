@@ -31,6 +31,8 @@ type Options struct {
 	Clean          bool
 	DryRun         bool
 	Profile        string
+	NoHooks        bool
+	AutoApprove    bool
 }
 
 type Result struct {
@@ -43,6 +45,7 @@ type Result struct {
 	BuildMetadataPath   string
 	ReleaseManifestPath string
 	DryRun              bool
+	HooksSkipped        bool
 }
 
 type VersionInfo struct {
@@ -62,6 +65,7 @@ type Artifact struct {
 	SizeBytes         int64
 	PreHooks          []string
 	PostHooks         []string
+	HooksSkipped      bool
 	UPXEnabled        bool
 	UPXLevel          int
 }
@@ -163,6 +167,7 @@ func Execute(projectDir string, cfg buildconfig.File, opts Options) (Result, err
 		BuildMetadataPath:   buildMetadataPath,
 		ReleaseManifestPath: releaseManifestPath,
 		DryRun:              opts.DryRun,
+		HooksSkipped:        opts.NoHooks && artifactsHaveHooks(artifacts),
 	}, nil
 }
 
@@ -263,6 +268,7 @@ func executeTask(projectDir string, cfg buildconfig.File, versionInfo VersionInf
 		DistributablePath: task.DistributablePath,
 		PreHooks:          hookNames(task.Target.PreHooks),
 		PostHooks:         hookNames(task.Target.PostHooks),
+		HooksSkipped:      opts.NoHooks && (len(task.Target.PreHooks) > 0 || len(task.Target.PostHooks) > 0),
 		UPXEnabled:        cfg.Build.Compress.UPX.Enabled,
 		UPXLevel:          cfg.Build.Compress.UPX.Level,
 	}
@@ -270,8 +276,10 @@ func executeTask(projectDir string, cfg buildconfig.File, versionInfo VersionInf
 		if err := os.MkdirAll(filepath.Dir(task.OutputPath), 0o755); err != nil {
 			return Artifact{}, fmt.Errorf("create artifact directory for %q: %w", task.OutputPath, err)
 		}
-		if err := runHooks(projectDir, cfg.Build.OutDir, task, opts.Profile, "pre", task.Target.PreHooks); err != nil {
-			return Artifact{}, err
+		if !opts.NoHooks {
+			if err := runHooks(projectDir, cfg.Build.OutDir, task, opts.Profile, "pre", task.Target.PreHooks); err != nil {
+				return Artifact{}, err
+			}
 		}
 		if err := runGoBuild(projectDir, cfg, task.Target, task.Platform, task.OutputPath, versionInfo); err != nil {
 			return Artifact{}, err
@@ -281,8 +289,10 @@ func executeTask(projectDir string, cfg buildconfig.File, versionInfo VersionInf
 				return Artifact{}, fmt.Errorf("compress target %q for %s with upx: %w", task.Target.Name, platformLabel(task.Platform), err)
 			}
 		}
-		if err := runHooks(projectDir, cfg.Build.OutDir, task, opts.Profile, "post", task.Target.PostHooks); err != nil {
-			return Artifact{}, err
+		if !opts.NoHooks {
+			if err := runHooks(projectDir, cfg.Build.OutDir, task, opts.Profile, "post", task.Target.PostHooks); err != nil {
+				return Artifact{}, err
+			}
 		}
 		if task.ArchivePath != "" {
 			if err := writeArchive(projectDir, task, task.Target.Archive.Format); err != nil {
@@ -794,6 +804,7 @@ type buildMetadataBuild struct {
 	Clean         bool   `json:"clean"`
 	Parallel      bool   `json:"parallel"`
 	VersionSource string `json:"version_source"`
+	HooksSkipped  bool   `json:"hooks_skipped"`
 	UPXEnabled    bool   `json:"upx_enabled"`
 	UPXLevel      int    `json:"upx_level"`
 }
@@ -808,6 +819,7 @@ type buildMetadataArtifact struct {
 	ChecksumSHA256    string   `json:"checksum_sha256"`
 	PreHooks          []string `json:"pre_hooks,omitempty"`
 	PostHooks         []string `json:"post_hooks,omitempty"`
+	HooksSkipped      bool     `json:"hooks_skipped"`
 	UPXEnabled        bool     `json:"upx_enabled"`
 	UPXLevel          int      `json:"upx_level,omitempty"`
 }
@@ -829,6 +841,7 @@ type releaseManifestArtifact struct {
 	ArchiveEnabled    bool     `json:"archive_enabled"`
 	ChecksumSHA256    string   `json:"checksum_sha256"`
 	SizeBytes         int64    `json:"size_bytes"`
+	HooksSkipped      bool     `json:"hooks_skipped"`
 	UPXEnabled        bool     `json:"upx_enabled"`
 	HooksApplied      []string `json:"hooks_applied,omitempty"`
 }
@@ -855,6 +868,7 @@ func writeBuildMetadata(outDir, metadataPath, releaseManifestPath string, cfg bu
 			Clean:         opts.Clean || cfg.Build.Clean,
 			Parallel:      cfg.Build.Parallel,
 			VersionSource: cfg.Build.Version.Source,
+			HooksSkipped:  opts.NoHooks && artifactsHaveHooks(artifacts),
 			UPXEnabled:    cfg.Build.Compress.UPX.Enabled,
 			UPXLevel:      cfg.Build.Compress.UPX.Level,
 		},
@@ -874,6 +888,7 @@ func writeBuildMetadata(outDir, metadataPath, releaseManifestPath string, cfg bu
 			ChecksumSHA256:    artifact.ChecksumSHA256,
 			PreHooks:          append([]string(nil), artifact.PreHooks...),
 			PostHooks:         append([]string(nil), artifact.PostHooks...),
+			HooksSkipped:      artifact.HooksSkipped,
 			UPXEnabled:        artifact.UPXEnabled,
 			UPXLevel:          artifact.UPXLevel,
 		})
@@ -905,11 +920,28 @@ func writeReleaseManifest(outDir, manifestPath string, cfg buildconfig.File, opt
 			ArchiveEnabled:    artifact.ArchivePath != "",
 			ChecksumSHA256:    artifact.ChecksumSHA256,
 			SizeBytes:         artifact.SizeBytes,
+			HooksSkipped:      artifact.HooksSkipped,
 			UPXEnabled:        artifact.UPXEnabled,
-			HooksApplied:      append(append([]string{}, artifact.PreHooks...), artifact.PostHooks...),
+			HooksApplied:      appliedHookNames(artifact),
 		})
 	}
 	return writeJSONFile(manifestPath, payload)
+}
+
+func artifactsHaveHooks(artifacts []Artifact) bool {
+	for _, artifact := range artifacts {
+		if len(artifact.PreHooks) > 0 || len(artifact.PostHooks) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func appliedHookNames(artifact Artifact) []string {
+	if artifact.HooksSkipped {
+		return nil
+	}
+	return append(append([]string{}, artifact.PreHooks...), artifact.PostHooks...)
 }
 
 func writeJSONFile(path string, payload any) error {

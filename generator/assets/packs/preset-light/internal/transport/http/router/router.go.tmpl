@@ -39,11 +39,17 @@ func NewApp(deps Dependencies) *fiber.App {
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			logger.Error("request failed", applogging.String("path", c.Path()), applogging.String("error", err.Error()))
 			status := fiber.StatusInternalServerError
-			message := err.Error()
+			message := "internal server error"
 			var fiberErr *fiber.Error
 			if errors.As(err, &fiberErr) {
 				status = fiberErr.Code
 				message = fiberErr.Message
+			} else {
+				var appErr common.AppErrorContract
+				if errors.As(err, &appErr) {
+					status = appErr.GetHTTPStatus()
+					message = appErr.GetMsg()
+				}
 			}
 			return common.Error(c, status, message)
 		},

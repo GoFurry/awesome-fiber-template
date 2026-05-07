@@ -369,6 +369,79 @@ func TestExecuteFailsWhenHookFails(t *testing.T) {
 	}
 }
 
+func TestExecuteSkipsHooksWhenNoHooksIsEnabled(t *testing.T) {
+	projectDir := buildProjectFixture(t)
+	cfg, err := buildconfig.Load(projectDir)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	logPath := filepath.Join(projectDir, "hook.log")
+	cfg.Build.Targets[0].PreHooks = []buildconfig.Hook{{
+		Name:    "pre-log",
+		Command: []string{"go", "run", "./cmd/hookprobe", "pre"},
+		Env: map[string]string{
+			"HOOK_LOG": logPath,
+		},
+	}}
+	cfg.Build.Targets[0].PostHooks = []buildconfig.Hook{{
+		Name:    "post-log",
+		Command: []string{"go", "run", "./cmd/hookprobe", "post"},
+		Env: map[string]string{
+			"HOOK_LOG": logPath,
+		},
+	}}
+
+	result, err := Execute(projectDir, cfg, Options{
+		TargetNames: []string{"server"},
+		NoHooks:     true,
+	})
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+	if !result.HooksSkipped {
+		t.Fatalf("expected hooks skipped result, got %#v", result)
+	}
+	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+		t.Fatalf("expected hook log to stay absent, got %v", err)
+	}
+
+	metadataData, err := os.ReadFile(result.BuildMetadataPath)
+	if err != nil {
+		t.Fatalf("read build metadata: %v", err)
+	}
+	var metadataPayload struct {
+		Build struct {
+			HooksSkipped bool `json:"hooks_skipped"`
+		} `json:"build"`
+		Artifacts []struct {
+			HooksSkipped bool `json:"hooks_skipped"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(metadataData, &metadataPayload); err != nil {
+		t.Fatalf("unmarshal build metadata: %v", err)
+	}
+	if !metadataPayload.Build.HooksSkipped || len(metadataPayload.Artifacts) != 1 || !metadataPayload.Artifacts[0].HooksSkipped {
+		t.Fatalf("expected hooks_skipped metadata, got %#v", metadataPayload)
+	}
+
+	releaseData, err := os.ReadFile(result.ReleaseManifestPath)
+	if err != nil {
+		t.Fatalf("read release manifest: %v", err)
+	}
+	var releasePayload struct {
+		Artifacts []struct {
+			HooksSkipped bool     `json:"hooks_skipped"`
+			HooksApplied []string `json:"hooks_applied"`
+		} `json:"artifacts"`
+	}
+	if err := json.Unmarshal(releaseData, &releasePayload); err != nil {
+		t.Fatalf("unmarshal release manifest: %v", err)
+	}
+	if len(releasePayload.Artifacts) != 1 || !releasePayload.Artifacts[0].HooksSkipped || len(releasePayload.Artifacts[0].HooksApplied) != 0 {
+		t.Fatalf("expected hooks skipped in release manifest, got %#v", releasePayload)
+	}
+}
+
 func TestRunUPXMissing(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
