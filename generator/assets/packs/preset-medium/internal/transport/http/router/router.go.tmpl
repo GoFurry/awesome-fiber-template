@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 
 	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
 	applogging "{{module_path}}/internal/infra/logging"
 	httpmiddleware "{{module_path}}/internal/transport/http/middleware"
 	"{{module_path}}/internal/transport/http/webui"
@@ -27,7 +28,11 @@ type Dependencies struct {
 	Services []string
 }
 
-func NewApp(deps Dependencies) *fiber.App {
+type AppModules struct {
+	UserAPI *usercontroller.API
+}
+
+func NewApp(deps Dependencies, modules AppModules) *fiber.App {
 	logger := deps.Logger
 	if logger == nil {
 		logger = applogging.Default()
@@ -69,7 +74,7 @@ func NewApp(deps Dependencies) *fiber.App {
 	}))
 
 	registerHealthRoutes(app, deps)
-	api(wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout))
+	api(wrapTimeoutRouter(app.Group("/api"), deps.Config.Middleware.Timeout), modules.UserAPI)
 	registerSwaggerRoutes(app, deps.Config)
 	registerEmbeddedUIRoutes(app, deps.Config)
 

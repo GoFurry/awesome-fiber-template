@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"{{module_path}}/config"
@@ -26,6 +28,11 @@ func Open(cfg config.DatabaseConfig) (*Handle, error) {
 	driver, dialect, dsn, err := resolve(cfg)
 	if err != nil {
 		return nil, err
+	}
+	if dialect == "sqlite" {
+		if err := ensureSQLiteParentDir(dsn); err != nil {
+			return nil, err
+		}
 	}
 
 	database, err := sqlx.Open(driver, dsn)
@@ -92,6 +99,17 @@ func resolve(cfg config.DatabaseConfig) (string, string, string, error) {
 	default:
 		return "", "", "", fmt.Errorf("unsupported db_type %q", cfg.DBType)
 	}
+}
+
+func ensureSQLiteParentDir(dsn string) error {
+	if dsn == "" || dsn == ":memory:" || strings.HasPrefix(dsn, "file:") {
+		return nil
+	}
+	dir := filepath.Dir(dsn)
+	if dir == "." || dir == "" {
+		return nil
+	}
+	return os.MkdirAll(dir, 0o755)
 }
 
 func ensureSchema(ctx context.Context, database *sqlx.DB, dialect string) error {

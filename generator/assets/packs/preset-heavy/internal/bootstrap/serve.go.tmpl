@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
 	userservice "{{module_path}}/internal/app/user/service"
 	"{{module_path}}/internal/infra/cache"
 	"{{module_path}}/internal/infra/db"
@@ -50,7 +51,10 @@ func serve(configPath string) error {
 	defer stopScheduler()
 
 	cacheStore := cache.New(cfg.Redis)
-	userservice.Init(database, cacheStore)
+	userSvc := userservice.New(database, cacheStore)
+	modules := httprouter.AppModules{
+		UserAPI: usercontroller.New(userSvc),
+	}
 
 	services := append([]string{}, Services()...)
 	if cfg.Metrics.Enabled {
@@ -67,7 +71,7 @@ func serve(configPath string) error {
 		Logger:   logger,
 		Metrics:  metricsCollector,
 		Services: services,
-	})
+	}, modules)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

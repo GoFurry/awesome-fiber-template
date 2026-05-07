@@ -160,10 +160,12 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {
 					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "timeout_router.go"), `wrapped := make([]any, 0, len(handlers))`)
 				}
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func api(root fiber.Router)`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func v1(root fiber.Router)`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func userRoutes(root fiber.Router)`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `user.UserAPI.Create`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "router.go"), `type AppModules struct`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "router.go"), `func NewApp(deps Dependencies, modules AppModules)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func api(root fiber.Router, userAPI *usercontroller.API)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func v1(root fiber.Router, userAPI *usercontroller.API)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `func userRoutes(root fiber.Router, userAPI *usercontroller.API)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `root.Post("/", userAPI.Create)`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "transport", "http", "router", "url.go"), `UserBasePath = "/api/v1/user"`)
 				assertGeneratedFileMissing(t, targetDir, filepath.Join("internal", "bootstrap", "route_registrars.go"))
 				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "constant.go"), `TimeFormatDigitDay`)
@@ -178,20 +180,32 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				assertGeneratedFileContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `normalizeError(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("pkg", "common", "response.go"), `NewServiceError(value.Error())`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `type TimeoutConfig struct`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `cfg := defaultConfig()`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `func defaultConfig() Config`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("config", "config.go"), `if !c.Log.LogCompress`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("config", "config.go"), `if !c.Log.LogShowLine`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "config.go"), `middleware.timeout.duration_seconds must be greater than 0 when timeout is enabled`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `timeout:`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `duration_seconds: 15`)
 				assertGeneratedFileContains(t, targetDir, filepath.Join("config", "server.yaml"), `exclude_paths:`)
 				assertGeneratedFileContains(t, targetDir, tc.routerPath, `app.Use(httpmiddleware.AccessLog(logger))`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userservice.Init(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "infra", "db", "sqlite.go"), `ensureSQLiteParentDir(dsn)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "infra", "db", "sqlite.go"), `return os.MkdirAll(dir, 0o755)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `modules := httprouter.AppModules{`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `usercontroller.New(userSvc)`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `httprouter.NewApp(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registrars := buildRouteRegistrars(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userStore :=`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userservice.Init(`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userService :=`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `userController :=`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `var UserAPI = &userAPI{}`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `type API struct`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `func New(svc *service.Service) *API`)
 				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "app", "user", "controller", "user_controller.go"), `err.Error()`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func GetUserService() *Service`)
-				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func Init(`)
+				assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func New(`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func GetUserService() *Service`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `func Init(`)
+				assertGeneratedFileNotContains(t, targetDir, filepath.Join("internal", "app", "user", "service", "user_service.go"), `cacheKey := fmt.Sprintf("users:`)
 				if expectedFiberVersion(tc.fiberVersion) == stack.FiberV3 {
 					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "serve.go"), `registerAppHooks(app, cfg, logger)`)
 					assertGeneratedFileContains(t, targetDir, filepath.Join("internal", "bootstrap", "app_hooks.go"), `OnPreStartupMessage`)
@@ -289,6 +303,69 @@ func TestRunSupportsV1PresetMatrix(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGeneratedConfigPreservesExplicitFalse(t *testing.T) {
+	targetDir := t.TempDir()
+	req := Request{
+		ProjectName: "demo",
+		ModulePath:  "github.com/example/demo",
+		Preset:      "medium",
+		Options:     requestOptionsForTest(targetDir, stack.FiberV3, stack.CLICobra),
+	}
+
+	if _, err := Run(req); err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+
+	testFile := `package config
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestExplicitFalsePreserved(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "server.yaml")
+	body := []byte("server:\n  app_name: \"demo\"\nlog:\n  log_compress: false\n  log_show_line: false\nmiddleware:\n  timeout:\n    enabled: false\nswagger:\n  enabled: false\nembedded_ui:\n  enabled: false\n")
+	if err := os.WriteFile(configPath, body, 0o644); err != nil {
+		t.Fatalf("write config failed: %v", err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.Log.LogCompress {
+		t.Fatalf("expected log_compress to remain false")
+	}
+	if cfg.Log.LogShowLine {
+		t.Fatalf("expected log_show_line to remain false")
+	}
+	if cfg.Middleware.Timeout.Enabled {
+		t.Fatalf("expected timeout.enabled to remain false")
+	}
+	if cfg.Swagger.Enabled {
+		t.Fatalf("expected swagger.enabled to remain false")
+	}
+	if cfg.EmbeddedUI.Enabled {
+		t.Fatalf("expected embedded_ui.enabled to remain false")
+	}
+}
+`
+	testPath := filepath.Join(targetDir, "config", "config_explicit_false_test.go")
+	if err := os.WriteFile(testPath, []byte(testFile), 0o644); err != nil {
+		t.Fatalf("write generated config test failed: %v", err)
+	}
+
+	cmd := exec.Command("go", "test", "./config", "-run", "TestExplicitFalsePreserved")
+	cmd.Dir = targetDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generated config test failed: %v\n%s", err, string(output))
 	}
 }
 

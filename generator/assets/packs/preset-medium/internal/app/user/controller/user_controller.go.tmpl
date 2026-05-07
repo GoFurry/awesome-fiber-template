@@ -12,13 +12,16 @@ import (
 	"{{module_path}}/pkg/common"
 )
 
-type userAPI struct{}
+type API struct {
+	service *service.Service
+}
 
-var UserAPI = &userAPI{}
+func New(svc *service.Service) *API {
+	return &API{service: svc}
+}
 
-func (api *userAPI) Create(c *fiber.Ctx) error {
-	svc := service.GetUserService()
-	if svc == nil {
+func (api *API) Create(c *fiber.Ctx) error {
+	if api == nil || api.service == nil {
 		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
 	}
 
@@ -27,32 +30,30 @@ func (api *userAPI) Create(c *fiber.Ctx) error {
 		return common.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	user, err := svc.Create(c.UserContext(), input)
+	user, err := api.service.Create(c.UserContext(), input)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, user)
 }
 
-func (api *userAPI) List(c *fiber.Ctx) error {
-	svc := service.GetUserService()
-	if svc == nil {
+func (api *API) List(c *fiber.Ctx) error {
+	if api == nil || api.service == nil {
 		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
 	}
 
 	pageNum, _ := strconv.Atoi(c.Query("page_num", "1"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size", "10"))
 
-	result, err := svc.List(c.UserContext(), pageNum, pageSize)
+	result, err := api.service.List(c.UserContext(), pageNum, pageSize)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, result)
 }
 
-func (api *userAPI) Get(c *fiber.Ctx) error {
-	svc := service.GetUserService()
-	if svc == nil {
+func (api *API) Get(c *fiber.Ctx) error {
+	if api == nil || api.service == nil {
 		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
 	}
 
@@ -61,16 +62,15 @@ func (api *userAPI) Get(c *fiber.Ctx) error {
 		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
 	}
 
-	user, err := svc.Get(c.UserContext(), id)
+	user, err := api.service.Get(c.UserContext(), id)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, user)
 }
 
-func (api *userAPI) Update(c *fiber.Ctx) error {
-	svc := service.GetUserService()
-	if svc == nil {
+func (api *API) Update(c *fiber.Ctx) error {
+	if api == nil || api.service == nil {
 		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
 	}
 
@@ -84,16 +84,15 @@ func (api *userAPI) Update(c *fiber.Ctx) error {
 		return common.Error(c, fiber.StatusBadRequest, "invalid request body")
 	}
 
-	user, err := svc.Update(c.UserContext(), id, input)
+	user, err := api.service.Update(c.UserContext(), id, input)
 	if err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, user)
 }
 
-func (api *userAPI) Delete(c *fiber.Ctx) error {
-	svc := service.GetUserService()
-	if svc == nil {
+func (api *API) Delete(c *fiber.Ctx) error {
+	if api == nil || api.service == nil {
 		return common.Error(c, fiber.StatusInternalServerError, "user service not initialized")
 	}
 
@@ -102,7 +101,7 @@ func (api *userAPI) Delete(c *fiber.Ctx) error {
 		return common.Error(c, fiber.StatusBadRequest, "invalid user id")
 	}
 
-	if err := svc.Delete(c.UserContext(), id); err != nil {
+	if err := api.service.Delete(c.UserContext(), id); err != nil {
 		return writeServiceError(c, err)
 	}
 	return common.Success(c, fiber.Map{"id": id})

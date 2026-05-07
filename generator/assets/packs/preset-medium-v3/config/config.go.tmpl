@@ -118,7 +118,7 @@ func Load(path string) (Config, error) {
 		return Config{}, err
 	}
 
-	var cfg Config
+	cfg := defaultConfig()
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
@@ -132,6 +132,83 @@ func Load(path string) (Config, error) {
 
 func (c Config) Address() string {
 	return net.JoinHostPort(c.Server.IPAddress, c.Server.Port)
+}
+
+func defaultConfig() Config {
+	return Config{
+		Server: ServerConfig{
+			AppID:         "fiberx",
+			AppName:       "{{project_name}}",
+			AppVersion:    "v1.0.0",
+			Mode:          "debug",
+			IPAddress:     "127.0.0.1",
+			Port:          "3000",
+			Network:       "tcp",
+			EnablePrefork: false,
+			IsFullStack:   false,
+		},
+		Database: DatabaseConfig{
+			Enabled:     true,
+			AutoMigrate: true,
+			DBType:      "{{db_type_default}}",
+			SQLite: SQLiteConfig{
+				Path: "./data/app.db",
+			},
+			Postgres: PostgresConfig{
+				DBHost:     "127.0.0.1",
+				DBPort:     "5432",
+				DBName:     "app",
+				DBUsername: "postgres",
+				SSLMode:    "disable",
+			},
+			MySQL: MySQLConfig{
+				DBHost:     "127.0.0.1",
+				DBPort:     "3306",
+				DBName:     "app",
+				DBUsername: "root",
+			},
+		},
+		Log: LogConfig{
+			LogLevel:      "info",
+			LogMode:       "dev",
+			LogPath:       "./logs/app.log",
+			LogMaxSize:    100,
+			LogMaxBackups: 7,
+			LogMaxAge:     30,
+			LogCompress:   true,
+			LogShowLine:   true,
+		},
+		Middleware: MiddlewareConfig{
+			CORS: CORSConfig{
+				AllowOrigins: []string{"*"},
+			},
+			Gzip: GzipConfig{
+				Enabled: true,
+			},
+			Timeout: TimeoutConfig{
+				Enabled:         true,
+				DurationSeconds: 15,
+				ExcludePaths: []string{
+					"/livez",
+					"/readyz",
+					"/startupz",
+					"/healthz",
+				},
+			},
+		},
+		Swagger: SwaggerConfig{
+			Enabled:     true,
+			RoutePrefix: "/docs",
+		},
+		EmbeddedUI: EmbeddedUIConfig{
+			Enabled:     true,
+			RoutePrefix: "/ui",
+		},
+		Redis: RedisConfig{
+			Enabled: {{redis_enabled}},
+			Addr:    "127.0.0.1:6379",
+		},
+	}
 }
 
 func (c *Config) applyDefaults() {
@@ -207,12 +284,6 @@ func (c *Config) applyDefaults() {
 	if c.Log.LogMaxAge == 0 {
 		c.Log.LogMaxAge = 30
 	}
-	if !c.Log.LogCompress {
-		c.Log.LogCompress = true
-	}
-	if !c.Log.LogShowLine {
-		c.Log.LogShowLine = true
-	}
 	if len(c.Middleware.CORS.AllowOrigins) == 0 {
 		c.Middleware.CORS.AllowOrigins = []string{"*"}
 	}
@@ -232,9 +303,6 @@ func (c *Config) applyDefaults() {
 	}
 	if c.EmbeddedUI.RoutePrefix == "" {
 		c.EmbeddedUI.RoutePrefix = "/ui"
-	}
-	if c.Redis.Addr == "" {
-		c.Redis.Addr = "127.0.0.1:6379"
 	}
 }
 

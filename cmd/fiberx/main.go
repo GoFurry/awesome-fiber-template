@@ -400,7 +400,14 @@ func runDoctor(args []string) error {
 			fmt.Println("note: use --verbose for full diagnostics")
 			return nil
 		}
-		fmt.Fprintf(os.Stdout, "mode: standalone\ncwd: %s\ngo: %s\nrelease: %s\ngenerator-version: %s\ngenerator-commit: %s\nstatus: no generator repository or generated project detected\n", cwd, runtime.Version(), currentRelease, version.Version, version.Commit)
+		printSection(os.Stdout, "environment")
+		fmt.Fprintf(os.Stdout, "mode: standalone\ncwd: %s\ngo: %s\nrelease: %s\n", cwd, runtime.Version(), currentRelease)
+		fmt.Fprintln(os.Stdout)
+		printSection(os.Stdout, "generator")
+		fmt.Fprintf(os.Stdout, "generator-version: %s\ngenerator-commit: %s\n", version.Version, version.Commit)
+		fmt.Fprintln(os.Stdout)
+		printSection(os.Stdout, "status")
+		fmt.Fprintln(os.Stdout, "status: no generator repository or generated project detected")
 		return nil
 	}
 
@@ -745,20 +752,27 @@ func printUsage(w io.Writer) {
 }
 
 func printValidateVerbose(w io.Writer, catalog manifest.Catalog) {
+	printSection(w, "summary")
 	fmt.Fprintf(w, "state 4 generator validated successfully: presets=%d capabilities=%d replace_rules=%d injection_rules=%d\n", len(catalog.Presets), len(catalog.Capabilities), len(catalog.ReplaceRules), len(catalog.InjectionRules))
 	fmt.Fprintf(w, "implemented presets: %s\n", joinOrNone(implementedPresets(catalog)))
 	fmt.Fprintf(w, "implemented capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
 	fmt.Fprintf(w, "deferred capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
 	fmt.Fprintln(w, "stable production baseline: medium")
 	fmt.Fprintln(w, "completed production track: heavy")
+	fmt.Fprintln(w)
+	printSection(w, "release")
 	fmt.Fprintln(w, "release: v0.1.2")
 	fmt.Fprintln(w, "current milestone: v0.1.3")
 	fmt.Fprintln(w, "generator mainline: pure generator repository")
+	fmt.Fprintln(w)
+	printSection(w, "capabilities")
 	fmt.Fprintln(w, "default medium experience: swagger,embedded-ui")
 	fmt.Fprintln(w, "default heavy experience: swagger,embedded-ui")
 	fmt.Fprintln(w, "light optional experience: swagger,embedded-ui")
 	fmt.Fprintln(w, "extra-light optional experience: none")
 	printCapabilityPolicy(w, catalog)
+	fmt.Fprintln(w)
+	printSection(w, "runtime")
 	fmt.Fprintf(w, "default stack: %s\n", stack.DefaultStackLabel())
 	fmt.Fprintf(w, "supported fiber versions: %s\n", stack.SupportedFiberVersions())
 	fmt.Fprintf(w, "supported cli styles: %s\n", stack.SupportedCLIStyles())
@@ -775,11 +789,14 @@ func printValidateVerbose(w io.Writer, catalog manifest.Catalog) {
 }
 
 func printDoctorVerbose(w io.Writer, cwd string, rootAbs string, catalog manifest.Catalog) {
+	printSection(w, "environment")
 	fmt.Fprintf(w, "cwd: %s\n", cwd)
 	fmt.Fprintf(w, "go: %s\n", runtime.Version())
 	fmt.Fprintf(w, "release: %s\n", currentRelease)
 	fmt.Fprintf(w, "current milestone: %s\n", nextRelease)
 	fmt.Fprintf(w, "manifest-root: %s\n", rootAbs)
+	fmt.Fprintln(w)
+	printSection(w, "catalog")
 	fmt.Fprintf(w, "presets: %d\n", len(catalog.Presets))
 	fmt.Fprintf(w, "capabilities: %d\n", len(catalog.Capabilities))
 	fmt.Fprintf(w, "replace-rules: %d\n", len(catalog.ReplaceRules))
@@ -787,11 +804,15 @@ func printDoctorVerbose(w io.Writer, cwd string, rootAbs string, catalog manifes
 	fmt.Fprintf(w, "implemented-presets: %s\n", joinOrNone(implementedPresets(catalog)))
 	fmt.Fprintf(w, "implemented-capabilities: %s\n", joinOrNone(implementedCapabilities(catalog)))
 	fmt.Fprintf(w, "deferred-capabilities: %s\n", joinOrNone(deferredCapabilities(catalog)))
+	fmt.Fprintln(w)
+	printSection(w, "capability policy")
 	fmt.Fprintf(w, "default-medium-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Fprintf(w, "default-heavy-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Fprintf(w, "light-optional-capabilities: %s\n", "swagger,embedded-ui")
 	fmt.Fprintf(w, "extra-light-optional-capabilities: %s\n", "none")
 	printCapabilityPolicy(w, catalog)
+	fmt.Fprintln(w)
+	printSection(w, "runtime")
 	fmt.Fprintf(w, "default-stack: %s\n", stack.DefaultStackLabel())
 	fmt.Fprintf(w, "supported-fiber-versions: %s\n", stack.SupportedFiberVersions())
 	fmt.Fprintf(w, "supported-cli-styles: %s\n", stack.SupportedCLIStyles())
@@ -803,6 +824,8 @@ func printDoctorVerbose(w io.Writer, cwd string, rootAbs string, catalog manifes
 	fmt.Fprintf(w, "supported-databases: %s\n", stack.SupportedDatabases())
 	fmt.Fprintf(w, "supported-data-access: %s\n", stack.SupportedDataAccess())
 	fmt.Fprintf(w, "supported-json-libs: %s\n", stack.SupportedJSONLibs())
+	fmt.Fprintln(w)
+	printSection(w, "generator")
 	fmt.Fprintf(w, "generator-version: %s\n", version.Version)
 	fmt.Fprintf(w, "generator-commit: %s\n", version.Commit)
 	fmt.Fprintln(w, "writer-mode: real-write")
@@ -919,6 +942,10 @@ func printCapabilityPolicy(w io.Writer, catalog manifest.Catalog) {
 	}
 }
 
+func printSection(w io.Writer, title string) {
+	fmt.Fprintf(w, "==== %s ====\n", title)
+}
+
 func contains(items []string, target string) bool {
 	for _, item := range items {
 		if item == target {
@@ -1022,6 +1049,7 @@ func buildCapabilityMatrix(catalog manifest.Catalog) capabilityMatrix {
 }
 
 func printCapabilityMatrix(w io.Writer, matrix capabilityMatrix) {
+	printSection(w, "capability matrix")
 	fmt.Fprintln(w, "preset        redis        swagger      embedded-ui")
 	for _, preset := range matrix.Presets {
 		row := matrix.Matrix[preset]
@@ -1098,16 +1126,22 @@ func runProjectDoctor(projectDir, rootAbs string, verbose bool) error {
 		return nil
 	}
 
-	fmt.Fprintf(os.Stdout, "fiberx doctor\nmode: project\nproject: %s\n", projectDir)
+	fmt.Fprintln(os.Stdout, "fiberx doctor")
+	printSection(os.Stdout, "project")
+	fmt.Fprintf(os.Stdout, "mode: project\nproject: %s\n", projectDir)
 	fmt.Printf("manifest: %s\n", filepath.ToSlash(filepath.Join(projectDir, metadata.ManifestDir, metadata.ManifestFilename)))
 	fmt.Printf("generated-at: %s\n", projectManifest.GeneratedAt)
 	fmt.Printf("generated-by: %s (%s)\n", assessment.GeneratedGenerator.Version, assessment.GeneratedGenerator.Commit)
 	fmt.Printf("current-generator: %s (%s)\n", assessment.CurrentGenerator.Version, assessment.CurrentGenerator.Commit)
+	fmt.Fprintln(os.Stdout)
+	printSection(os.Stdout, "recipe")
 	fmt.Printf("preset: %s\n", assessment.Recipe.Preset)
 	fmt.Printf("capabilities: %s\n", joinOrNone(assessment.Recipe.Capabilities))
 	if assessment.Recipe.Logger != "" || assessment.Recipe.DB != "" || assessment.Recipe.DataAccess != "" || assessment.Recipe.JSONLib != "" {
 		fmt.Printf("runtime: logger=%s db=%s data-access=%s json-lib=%s\n", valueOrNone(assessment.Recipe.Logger), valueOrNone(assessment.Recipe.DB), valueOrNone(assessment.Recipe.DataAccess), valueOrNone(assessment.Recipe.JSONLib))
 	}
+	fmt.Fprintln(os.Stdout)
+	printSection(os.Stdout, "drift")
 	fmt.Printf("diff status: %s\n", assessment.DiffStatus)
 	fmt.Printf("compatibility level: %s\n", assessment.CompatibilityLevel)
 	fmt.Printf("managed files: %d\n", len(projectManifest.ManagedFiles))
@@ -1118,6 +1152,8 @@ func runProjectDoctor(projectDir, rootAbs string, verbose bool) error {
 	fmt.Printf("reasons: %s\n", joinOrNone(assessment.Reasons))
 	fmt.Printf("blocking issues: %s\n", joinOrNone(assessment.BlockingIssues))
 	if cfg, cfgErr := buildconfig.Load(projectDir); cfgErr == nil {
+		fmt.Fprintln(os.Stdout)
+		printSection(os.Stdout, "build")
 		fmt.Printf("build config: present (%s)\n", buildconfig.Filename)
 		profileNames := make([]string, 0, len(cfg.Build.Profiles))
 		hookSummary := []string{}
@@ -1133,6 +1169,8 @@ func runProjectDoctor(projectDir, rootAbs string, verbose bool) error {
 		fmt.Printf("build profiles: %s\n", joinOrNone(profileNames))
 		fmt.Printf("hooks: %s\n", joinOrNone(hookSummary))
 	} else {
+		fmt.Fprintln(os.Stdout)
+		printSection(os.Stdout, "build")
 		fmt.Printf("build config: absent (%v)\n", cfgErr)
 	}
 	return nil

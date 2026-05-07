@@ -60,6 +60,10 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"validate", "--verbose"})
 	})
 	if !strings.Contains(output, "state 4 generator validated successfully") ||
+		!strings.Contains(output, "==== summary ====") ||
+		!strings.Contains(output, "==== release ====") ||
+		!strings.Contains(output, "==== capabilities ====") ||
+		!strings.Contains(output, "==== runtime ====") ||
 		!strings.Contains(output, "stable production baseline: medium") ||
 		!strings.Contains(output, "default medium experience: swagger,embedded-ui") ||
 		!strings.Contains(output, "capability-policy-swagger: default=heavy,medium optional=light unsupported=extra-light") ||
@@ -91,6 +95,11 @@ func TestCLIOutputsV1SupportMatrix(t *testing.T) {
 		return run([]string{"doctor", "--verbose"})
 	})
 	if !strings.Contains(output, "release: v0.1.2") ||
+		!strings.Contains(output, "==== environment ====") ||
+		!strings.Contains(output, "==== catalog ====") ||
+		!strings.Contains(output, "==== capability policy ====") ||
+		!strings.Contains(output, "==== runtime ====") ||
+		!strings.Contains(output, "==== generator ====") ||
 		!strings.Contains(output, "current milestone: v0.1.3") ||
 		!strings.Contains(output, "default-heavy-capabilities: swagger,embedded-ui") ||
 		!strings.Contains(output, "capability-policy-redis: default=(none) optional=heavy,medium unsupported=light,extra-light") ||
@@ -154,6 +163,7 @@ func TestCLIPlanPreviewAndMatrix(t *testing.T) {
 		return run([]string{"explain", "matrix"})
 	})
 	if !strings.Contains(output, "preset") ||
+		!strings.Contains(output, "==== capability matrix ====") ||
 		!strings.Contains(output, "heavy") ||
 		!strings.Contains(output, "embedded-ui") ||
 		!strings.Contains(output, "default") ||
@@ -204,6 +214,10 @@ func TestCLIDoctorProjectMode(t *testing.T) {
 			return run([]string{"doctor", "--verbose"})
 		})
 		if !strings.Contains(output, "mode: project") ||
+			!strings.Contains(output, "==== project ====") ||
+			!strings.Contains(output, "==== recipe ====") ||
+			!strings.Contains(output, "==== drift ====") ||
+			!strings.Contains(output, "==== build ====") ||
 			!strings.Contains(output, "managed files:") ||
 			!strings.Contains(output, "build config: present") ||
 			!strings.Contains(output, "build profiles:") {
@@ -309,8 +323,11 @@ func TestCLIExplainAndGenerate(t *testing.T) {
 		t.Fatalf("read generated fiberx build config: %v", err)
 	}
 	fiberxConfig := string(fiberxConfigData)
-	if !strings.Contains(fiberxConfig, "parallel: false") || !strings.Contains(fiberxConfig, "checksum:") || !strings.Contains(fiberxConfig, "archive:") || !strings.Contains(fiberxConfig, "profiles:") || !strings.Contains(fiberxConfig, "prod:") || !strings.Contains(fiberxConfig, "compress:") || !strings.Contains(fiberxConfig, "pre_hooks: []") || !strings.Contains(fiberxConfig, "post_hooks: []") {
+	if !strings.Contains(fiberxConfig, "parallel: false") || !strings.Contains(fiberxConfig, "checksum:") || !strings.Contains(fiberxConfig, "archive:") || !strings.Contains(fiberxConfig, "profiles:") || !strings.Contains(fiberxConfig, "prod:") || !strings.Contains(fiberxConfig, "compress:") {
 		t.Fatalf("expected generated fiberx build config to include phase 15 p2 fields, got:\n%s", fiberxConfig)
+	}
+	if strings.Contains(fiberxConfig, "pre_hooks: []") || strings.Contains(fiberxConfig, "post_hooks: []") {
+		t.Fatalf("expected generated fiberx build config not to include empty default hooks, got:\n%s", fiberxConfig)
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "demo", "internal", "version", "version.go")); err != nil {
 		t.Fatalf("expected generated version package: %v", err)

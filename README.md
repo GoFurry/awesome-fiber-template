@@ -19,7 +19,8 @@ The repository is intentionally focused on the generator mainline itself: assets
 - `v0.1.0`: completed
 - `v0.1.1`: completed
 - `v0.1.2`: completed
-- `v0.1.3`: in progress
+- `v0.1.3`: completed
+- `v0.1.4`: next
 
 ## Docs
 
@@ -78,25 +79,28 @@ go run ./cmd/fiberx build --profile prod
 - `sample/`: reference snapshots and test-facing examples, not the maintained generator mainline
 - `output/`: local scratch space for generated artifacts and local binaries; ignored by Git except for `.gitkeep`
 
-## v0.1.2 Release Scope
+## v0.1.3 Release Scope
 
-`v0.1.2` closes the current scaffold-hardening pass:
-
-- shared scaffold uplift for `light`, `medium`, and `heavy`
-- common constants, base error model, and response compatibility helpers
-- configurable timeout routing for business APIs
-- release, contribution, and build-hook safety documentation
-
-## v0.1.3 Preview
-
-The current milestone focuses on CLI UX, safer build workflows, and scaffold hardening:
+`v0.1.3` closes the current CLI and scaffold-hardening pass:
 
 - generation plan preview with `new/init --print-plan [--json]`
 - build safety switches such as `--no-hooks` and `--yes`
 - layered `doctor` output for generator, project, and standalone modes
 - `explain matrix` for preset and capability visibility
+- improved verbose output separators for `validate`, `doctor`, and `explain matrix`
 - safer default error responses in generated projects
 - full timeout coverage for multi-handler business routes
+- explicit-false config loading fixes
+- lightweight explicit service initialization in generated business modules
+- SQLite parent directory creation for default database paths
+
+## v0.1.4 Preview
+
+The next milestone focuses on long-term scaffold maintainability and low-coupling optional capabilities:
+
+- continue refining the shared error and response layer
+- evaluate low-coupling additions such as `pprof`, `rate-limit`, and `cors-profile`
+- further reduce brittle template replacement points
 
 ## Build Hook Safety
 

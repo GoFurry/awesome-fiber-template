@@ -1,22 +1,25 @@
 package router
 
 import (
-	user "{{module_path}}/internal/app/user/controller"
+	usercontroller "{{module_path}}/internal/app/user/controller"
 	"github.com/gofiber/fiber/v2"
 )
 
-func api(root fiber.Router) {
-	v1(root.Group("/v1"))
+func api(root fiber.Router, userAPI *usercontroller.API) {
+	if userAPI == nil {
+		return
+	}
+	v1(root.Group("/v1"), userAPI)
 }
 
-func v1(root fiber.Router) {
-	userRoutes(root.Group("/user"))
+func v1(root fiber.Router, userAPI *usercontroller.API) {
+	userRoutes(root.Group("/user"), userAPI)
 }
 
-func userRoutes(root fiber.Router) {
-	root.Post("/", user.UserAPI.Create)
-	root.Get("/", user.UserAPI.List)
-	root.Get("/:id", user.UserAPI.Get)
-	root.Put("/:id", user.UserAPI.Update)
-	root.Delete("/:id", user.UserAPI.Delete)
+func userRoutes(root fiber.Router, userAPI *usercontroller.API) {
+	root.Post("/", userAPI.Create)
+	root.Get("/", userAPI.List)
+	root.Get("/:id", userAPI.Get)
+	root.Put("/:id", userAPI.Update)
+	root.Delete("/:id", userAPI.Delete)
 }

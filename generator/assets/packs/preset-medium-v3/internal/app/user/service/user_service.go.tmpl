@@ -2,9 +2,7 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	"{{module_path}}/internal/app/user/dao"
@@ -15,22 +13,16 @@ import (
 
 var ErrInvalidUserInput = errors.New("invalid user input")
 
-var userService *Service
-
 type Service struct {
 	store *dao.Store
 	cache cache.Store
 }
 
-func Init(database *appdb.Handle, cacheStore cache.Store) {
-	userService = &Service{
+func New(database *appdb.Handle, cacheStore cache.Store) *Service {
+	return &Service{
 		store: dao.NewStore(database),
 		cache: cacheStore,
 	}
-}
-
-func GetUserService() *Service {
-	return userService
 }
 
 func (s *Service) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {
@@ -50,25 +42,7 @@ func (s *Service) List(ctx context.Context, pageNum, pageSize int) (models.UserL
 	if pageSize > 100 {
 		pageSize = 100
 	}
-
-	cacheKey := fmt.Sprintf("users:%d:%d", pageNum, pageSize)
-	if raw, ok := s.cache.Get(cacheKey); ok {
-		var cached models.UserList
-		if err := json.Unmarshal(raw, &cached); err == nil {
-			return cached, nil
-		}
-	}
-
-	result, err := s.store.List(ctx, (pageNum-1)*pageSize, pageSize)
-	if err != nil {
-		return models.UserList{}, err
-	}
-
-	if raw, err := json.Marshal(result); err == nil {
-		s.cache.Set(cacheKey, raw)
-	}
-
-	return result, nil
+	return s.store.List(ctx, (pageNum-1)*pageSize, pageSize)
 }
 
 func (s *Service) Get(ctx context.Context, id int64) (models.User, error) {

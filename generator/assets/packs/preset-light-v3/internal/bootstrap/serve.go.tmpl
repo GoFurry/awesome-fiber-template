@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"{{module_path}}/config"
+	usercontroller "{{module_path}}/internal/app/user/controller"
 	userservice "{{module_path}}/internal/app/user/service"
 	"{{module_path}}/internal/infra/db"
 	"{{module_path}}/internal/infra/logging"
@@ -39,7 +40,10 @@ func serve(configPath string) error {
 	}
 	defer database.Close()
 
-	userservice.Init(database)
+	userSvc := userservice.New(database)
+	modules := httprouter.AppModules{
+		UserAPI: usercontroller.New(userSvc),
+	}
 
 	logger.Info("fiberx light service starting", logging.String("addr", cfg.Address()))
 
@@ -47,7 +51,7 @@ func serve(configPath string) error {
 		Config:   cfg,
 		Logger:   logger,
 		Services: Services(),
-	})
+	}, modules)
 	registerAppHooks(app, cfg, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

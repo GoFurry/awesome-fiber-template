@@ -12,18 +12,12 @@ import (
 
 var ErrInvalidUserInput = errors.New("invalid user input")
 
-var userService *Service
-
 type Service struct {
 	store *dao.Store
 }
 
-func Init(database *appdb.Handle) {
-	userService = &Service{store: dao.NewStore(database)}
-}
-
-func GetUserService() *Service {
-	return userService
+func New(database *appdb.Handle) *Service {
+	return &Service{store: dao.NewStore(database)}
 }
 
 func (s *Service) Create(ctx context.Context, input models.CreateUserInput) (models.User, error) {
