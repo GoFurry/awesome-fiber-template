@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/GoFurry/fiberx/internal/buildconfig"
+	"github.com/gofurry/fiberx/internal/buildconfig"
 )
 
 func TestExecuteBuildsSelectedTargetsAndPlatforms(t *testing.T) {

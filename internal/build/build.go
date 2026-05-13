@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GoFurry/fiberx/internal/buildconfig"
-	generatorversion "github.com/GoFurry/fiberx/internal/version"
+	"github.com/gofurry/fiberx/internal/buildconfig"
+	generatorversion "github.com/gofurry/fiberx/internal/version"
 )
 
 type Options struct {
